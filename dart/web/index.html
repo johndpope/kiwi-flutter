@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Kiwi File Format Demo (Dart)</title>
+  <style>
+    body {
+      font: 14px/150% sans-serif;
+      margin: 50px 0 50px 50px;
+    }
+
+    h1, p {
+      padding-right: 50px;
+      clear: both;
+    }
+
+    h1 {
+      margin-bottom: 50px;
+    }
+
+    p {
+      max-width: 800px;
+      margin: 0 0 30px 0;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    textarea {
+      width: 100%;
+      height: 300px;
+      min-height: 300px;
+      resize: vertical;
+      margin: 0;
+      border: 1px solid #CCC;
+      border-radius: 5px;
+      padding: 5px;
+      font: 12px/130% Consolas, monospace;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #777;
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+    }
+
+    section {
+      position: relative;
+      width: 50%;
+      float: left;
+      padding: 0 50px 50px 0;
+      box-sizing: border-box;
+    }
+
+    .spacer {
+      height: 50px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Kiwi File Format Demo (Dart)</h1>
+
+  <p>
+    This is a Dart/Flutter port of the Kiwi file format.
+    See <a href="https://github.com/evanw/kiwi">https://github.com/evanw/kiwi</a> for more information.
+  </p>
+
+  <section>
+    <h2>JSON</h2>
+    <textarea id="json" autofocus autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">{
+  "clientID": 100,
+  "type": "POINTED",
+  "colors": [
+    {
+      "red": 255,
+      "green": 127,
+      "blue": 0,
+      "alpha": 255
+    }
+  ]
+}
+</textarea>
+  </section>
+
+  <section>
+    <h2>Binary</h2>
+    <textarea id="binary" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+  </section>
+
+  <div class="spacer"></div>
+
+  <section>
+    <h2>Schema</h2>
+    <textarea id="schema" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">enum Type {
+  FLAT = 0;
+  ROUND = 1;
+  POINTED = 2;
+}
+
+struct Color {
+  byte red;
+  byte green;
+  byte blue;
+  byte alpha;
+}
+
+message Example {
+  uint clientID = 1;
+  Type type = 2;
+  Color[] colors = 3;
+}
+</textarea>
+  </section>
+
+  <section>
+    <h2>Log</h2>
+    <textarea id="log" readonly autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">Loading Dart...</textarea>
+  </section>
+</body>
+<script defer src="main.dart.js"></script>
+</html>

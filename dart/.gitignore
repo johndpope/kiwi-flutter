@@ -1,0 +1,13 @@
+# Dart/Flutter build artifacts
+.dart_tool/
+.packages
+build/
+*.iml
+
+# IDE
+.idea/
+*.swp
+.vscode/
+
+# macOS
+.DS_Store
