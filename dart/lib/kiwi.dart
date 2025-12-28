@@ -14,3 +14,4 @@ export 'src/binary.dart';
 export 'src/compiler.dart';
 export 'src/printer.dart';
 export 'src/figma.dart';
+export 'src/fig_file.dart';

@@ -101,6 +101,27 @@ class ByteBuffer {
     return (value & 1) != 0 ? ~(value >> 1) : (value >> 1);
   }
 
+  /// Reads a variable-length unsigned 64-bit integer.
+  /// Uses 7 bits per byte with a continuation bit.
+  int readVarUint64() {
+    int value = 0;
+    int shift = 0;
+    int byte;
+    do {
+      byte = readByte();
+      value |= (byte & 127) << shift;
+      shift += 7;
+    } while ((byte & 128) != 0 && shift < 70);
+    return value;
+  }
+
+  /// Reads a variable-length signed 64-bit integer using zigzag encoding.
+  int readVarInt64() {
+    int value = readVarUint64();
+    // Convert from unsigned to signed using zigzag decoding
+    return (value & 1) != 0 ? ~(value >> 1) : (value >> 1);
+  }
+
   /// Reads a null-terminated UTF-8 string.
   String readString() {
     List<int> bytes = [];
@@ -181,6 +202,20 @@ class ByteBuffer {
   /// Writes a variable-length signed integer using zigzag encoding.
   void writeVarInt(int value) {
     writeVarUint((value << 1) ^ (value >> 31));
+  }
+
+  /// Writes a variable-length unsigned 64-bit integer.
+  void writeVarUint64(int value) {
+    do {
+      int byte = value & 127;
+      value = value >> 7;
+      writeByte(value != 0 ? byte | 128 : byte);
+    } while (value != 0);
+  }
+
+  /// Writes a variable-length signed 64-bit integer using zigzag encoding.
+  void writeVarInt64(int value) {
+    writeVarUint64((value << 1) ^ (value >> 63));
   }
 
   /// Writes a null-terminated UTF-8 string.

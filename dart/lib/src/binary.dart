@@ -2,7 +2,17 @@ import 'dart:typed_data';
 import 'byte_buffer.dart';
 import 'schema.dart';
 
-const List<String?> _types = ['bool', 'byte', 'int', 'uint', 'float', 'string'];
+// Standard kiwi types plus extended types used by Figma
+const List<String?> _types = [
+  'bool',    // 0
+  'byte',    // 1
+  'int',     // 2
+  'uint',    // 3
+  'float',   // 4
+  'string',  // 5
+  'int64',   // 6 - Figma extension
+  'uint64',  // 7 - Figma extension
+];
 const List<DefinitionKind> _kinds = [
   DefinitionKind.ENUM,
   DefinitionKind.STRUCT,

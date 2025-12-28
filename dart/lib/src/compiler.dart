@@ -122,6 +122,10 @@ class CompiledSchema {
         return bb.readVarInt();
       case 'uint':
         return bb.readVarUint();
+      case 'int64':
+        return bb.readVarInt64();
+      case 'uint64':
+        return bb.readVarUint64();
       case 'float':
         return bb.readVarFloat();
       case 'string':
@@ -196,6 +200,12 @@ class CompiledSchema {
         break;
       case 'uint':
         bb.writeVarUint(value as int);
+        break;
+      case 'int64':
+        bb.writeVarInt64(value as int);
+        break;
+      case 'uint64':
+        bb.writeVarUint64(value as int);
         break;
       case 'float':
         bb.writeVarFloat(value as double);
