@@ -45,6 +45,7 @@ class ExtendedVariableCollection extends VariableCollection {
   const ExtendedVariableCollection({
     required super.id,
     required super.name,
+    super.order = 0,
     required super.modes,
     required super.defaultModeId,
     super.remote = false,
@@ -77,6 +78,7 @@ class ExtendedVariableCollection extends VariableCollection {
     return ExtendedVariableCollection(
       id: base.id,
       name: base.name,
+      order: base.order,
       modes: base.modes,
       defaultModeId: base.defaultModeId,
       remote: base.remote,
@@ -118,9 +120,11 @@ class ExtendedVariableCollection extends VariableCollection {
   bool isOverridden(String variableId) => overriddenVariableIds.contains(variableId);
 
   /// Copy with modifications
+  @override
   ExtendedVariableCollection copyWith({
     String? id,
     String? name,
+    int? order,
     List<VariableMode>? modes,
     String? defaultModeId,
     bool? remote,
@@ -139,6 +143,7 @@ class ExtendedVariableCollection extends VariableCollection {
     return ExtendedVariableCollection(
       id: id ?? this.id,
       name: name ?? this.name,
+      order: order ?? this.order,
       modes: modes ?? this.modes,
       defaultModeId: defaultModeId ?? this.defaultModeId,
       remote: remote ?? this.remote,

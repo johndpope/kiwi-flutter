@@ -25,8 +25,8 @@ export 'check_designs.dart';
 // Code export to various formats
 export 'code_export.dart';
 
-// Variables panel UI
-export 'variables_panel.dart';
+// Variables panel UI (temporarily disabled - needs fixes)
+// export 'variables_panel.dart';
 
 // Library publishing
 export 'library_publishing.dart';

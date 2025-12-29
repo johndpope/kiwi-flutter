@@ -3,7 +3,11 @@
     "allow": [
       "Bash(mkdir:*)",
       "Bash(flutter analyze:*)",
-      "Bash(flutter test:*)"
+      "Bash(flutter test:*)",
+      "mcp__XcodeBuildMCP__discover_projs",
+      "mcp__XcodeBuildMCP__session-set-defaults",
+      "mcp__XcodeBuildMCP__build_run_macos",
+      "mcp__XcodeBuildMCP__screenshot"
     ]
   }
 }

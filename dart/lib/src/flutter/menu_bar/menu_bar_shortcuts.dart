@@ -219,6 +219,70 @@ class SendToBackIntent extends Intent {
   const SendToBackIntent();
 }
 
+// Essential intents
+class ShowActionsIntent extends Intent {
+  const ShowActionsIntent();
+}
+
+class ShowKeyboardShortcutsIntent extends Intent {
+  const ShowKeyboardShortcutsIntent();
+}
+
+class ToggleUIIntent extends Intent {
+  const ToggleUIIntent();
+}
+
+// Nudge intents
+class NudgeUpIntent extends Intent {
+  const NudgeUpIntent();
+}
+
+class NudgeDownIntent extends Intent {
+  const NudgeDownIntent();
+}
+
+class NudgeLeftIntent extends Intent {
+  const NudgeLeftIntent();
+}
+
+class NudgeRightIntent extends Intent {
+  const NudgeRightIntent();
+}
+
+class NudgeLargeUpIntent extends Intent {
+  const NudgeLargeUpIntent();
+}
+
+class NudgeLargeDownIntent extends Intent {
+  const NudgeLargeDownIntent();
+}
+
+class NudgeLargeLeftIntent extends Intent {
+  const NudgeLargeLeftIntent();
+}
+
+class NudgeLargeRightIntent extends Intent {
+  const NudgeLargeRightIntent();
+}
+
+// Component intents
+class GoToMainComponentIntent extends Intent {
+  const GoToMainComponentIntent();
+}
+
+class RunLastPluginIntent extends Intent {
+  const RunLastPluginIntent();
+}
+
+// Zoom intents
+class ZoomToPreviousIntent extends Intent {
+  const ZoomToPreviousIntent();
+}
+
+class ZoomToNextFrameIntent extends Intent {
+  const ZoomToNextFrameIntent();
+}
+
 /// Widget that wraps children with menu bar keyboard shortcuts
 class MenuBarShortcuts extends StatelessWidget {
   final Widget child;
@@ -359,6 +423,46 @@ class MenuBarShortcuts extends StatelessWidget {
         const SendBackwardIntent(),
     const SingleActivator(LogicalKeyboardKey.bracketLeft):
         const SendToBackIntent(),
+
+    // Essential shortcuts
+    const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+        const ShowActionsIntent(),
+    const SingleActivator(LogicalKeyboardKey.slash, meta: true):
+        const ShowKeyboardShortcutsIntent(),
+    const SingleActivator(LogicalKeyboardKey.backslash, meta: true, shift: true):
+        const ToggleUIIntent(),
+
+    // Nudge shortcuts (1px)
+    const SingleActivator(LogicalKeyboardKey.arrowUp):
+        const NudgeUpIntent(),
+    const SingleActivator(LogicalKeyboardKey.arrowDown):
+        const NudgeDownIntent(),
+    const SingleActivator(LogicalKeyboardKey.arrowLeft):
+        const NudgeLeftIntent(),
+    const SingleActivator(LogicalKeyboardKey.arrowRight):
+        const NudgeRightIntent(),
+
+    // Nudge shortcuts (10px)
+    const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true):
+        const NudgeLargeUpIntent(),
+    const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true):
+        const NudgeLargeDownIntent(),
+    const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true):
+        const NudgeLargeLeftIntent(),
+    const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true):
+        const NudgeLargeRightIntent(),
+
+    // Component shortcuts
+    const SingleActivator(LogicalKeyboardKey.keyO, meta: true, alt: true):
+        const GoToMainComponentIntent(),
+    const SingleActivator(LogicalKeyboardKey.keyP, meta: true, alt: true):
+        const RunLastPluginIntent(),
+
+    // Zoom shortcuts
+    const SingleActivator(LogicalKeyboardKey.digit3, meta: true):
+        const ZoomToPreviousIntent(),
+    const SingleActivator(LogicalKeyboardKey.period, meta: true):
+        const ZoomToNextFrameIntent(),
   };
 
   Map<Type, Action<Intent>> _buildActions() {
@@ -679,6 +783,106 @@ class MenuBarShortcuts extends StatelessWidget {
       SendToBackIntent: CallbackAction<SendToBackIntent>(
         onInvoke: (_) {
           actions.onSendToBack?.call();
+          return null;
+        },
+      ),
+
+      // Essential
+      ShowActionsIntent: CallbackAction<ShowActionsIntent>(
+        onInvoke: (_) {
+          actions.onShowActions?.call();
+          return null;
+        },
+      ),
+      ShowKeyboardShortcutsIntent: CallbackAction<ShowKeyboardShortcutsIntent>(
+        onInvoke: (_) {
+          actions.onShowKeyboardShortcuts?.call();
+          return null;
+        },
+      ),
+      ToggleUIIntent: CallbackAction<ToggleUIIntent>(
+        onInvoke: (_) {
+          actions.onToggleUI?.call();
+          return null;
+        },
+      ),
+
+      // Nudge (1px)
+      NudgeUpIntent: CallbackAction<NudgeUpIntent>(
+        onInvoke: (_) {
+          actions.onNudgeUp?.call();
+          return null;
+        },
+      ),
+      NudgeDownIntent: CallbackAction<NudgeDownIntent>(
+        onInvoke: (_) {
+          actions.onNudgeDown?.call();
+          return null;
+        },
+      ),
+      NudgeLeftIntent: CallbackAction<NudgeLeftIntent>(
+        onInvoke: (_) {
+          actions.onNudgeLeft?.call();
+          return null;
+        },
+      ),
+      NudgeRightIntent: CallbackAction<NudgeRightIntent>(
+        onInvoke: (_) {
+          actions.onNudgeRight?.call();
+          return null;
+        },
+      ),
+
+      // Nudge (10px)
+      NudgeLargeUpIntent: CallbackAction<NudgeLargeUpIntent>(
+        onInvoke: (_) {
+          actions.onNudgeLargeUp?.call();
+          return null;
+        },
+      ),
+      NudgeLargeDownIntent: CallbackAction<NudgeLargeDownIntent>(
+        onInvoke: (_) {
+          actions.onNudgeLargeDown?.call();
+          return null;
+        },
+      ),
+      NudgeLargeLeftIntent: CallbackAction<NudgeLargeLeftIntent>(
+        onInvoke: (_) {
+          actions.onNudgeLargeLeft?.call();
+          return null;
+        },
+      ),
+      NudgeLargeRightIntent: CallbackAction<NudgeLargeRightIntent>(
+        onInvoke: (_) {
+          actions.onNudgeLargeRight?.call();
+          return null;
+        },
+      ),
+
+      // Components
+      GoToMainComponentIntent: CallbackAction<GoToMainComponentIntent>(
+        onInvoke: (_) {
+          actions.onGoToMainComponent?.call();
+          return null;
+        },
+      ),
+      RunLastPluginIntent: CallbackAction<RunLastPluginIntent>(
+        onInvoke: (_) {
+          actions.onRunLastPlugin?.call();
+          return null;
+        },
+      ),
+
+      // Zoom
+      ZoomToPreviousIntent: CallbackAction<ZoomToPreviousIntent>(
+        onInvoke: (_) {
+          actions.onZoomToPrevious?.call();
+          return null;
+        },
+      ),
+      ZoomToNextFrameIntent: CallbackAction<ZoomToNextFrameIntent>(
+        onInvoke: (_) {
+          actions.onZoomToNextFrame?.call();
           return null;
         },
       ),

@@ -98,6 +98,29 @@ class MenuBarActions {
   final VoidCallback? onDistributeHorizontal;
   final VoidCallback? onDistributeVertical;
 
+  // Essential actions
+  final VoidCallback? onShowActions;
+  final VoidCallback? onShowKeyboardShortcuts;
+  final VoidCallback? onToggleUI;
+
+  // Nudge actions
+  final VoidCallback? onNudgeUp;
+  final VoidCallback? onNudgeDown;
+  final VoidCallback? onNudgeLeft;
+  final VoidCallback? onNudgeRight;
+  final VoidCallback? onNudgeLargeUp;
+  final VoidCallback? onNudgeLargeDown;
+  final VoidCallback? onNudgeLargeLeft;
+  final VoidCallback? onNudgeLargeRight;
+
+  // Component actions
+  final VoidCallback? onGoToMainComponent;
+  final VoidCallback? onRunLastPlugin;
+
+  // Zoom actions
+  final VoidCallback? onZoomToPrevious;
+  final VoidCallback? onZoomToNextFrame;
+
   const MenuBarActions({
     // File
     this.onBackToFiles,
@@ -184,6 +207,25 @@ class MenuBarActions {
     this.onAlignVerticalCenter,
     this.onDistributeHorizontal,
     this.onDistributeVertical,
+    // Essential
+    this.onShowActions,
+    this.onShowKeyboardShortcuts,
+    this.onToggleUI,
+    // Nudge
+    this.onNudgeUp,
+    this.onNudgeDown,
+    this.onNudgeLeft,
+    this.onNudgeRight,
+    this.onNudgeLargeUp,
+    this.onNudgeLargeDown,
+    this.onNudgeLargeLeft,
+    this.onNudgeLargeRight,
+    // Components
+    this.onGoToMainComponent,
+    this.onRunLastPlugin,
+    // Zoom
+    this.onZoomToPrevious,
+    this.onZoomToNextFrame,
   });
 }
 

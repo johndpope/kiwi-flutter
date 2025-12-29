@@ -2,8 +2,8 @@
 ///
 /// Provides:
 /// - Variables browser with search and filters
-/// - Collection management
-/// - Mode switching
+/// - Collection management with sidebar
+/// - Mode switching with table columns
 /// - Variable creation and editing
 /// - Property binding UI
 /// - Canvas feedback indicators
@@ -12,8 +12,294 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../assets/variables.dart';
 import 'extended_collections.dart';
+import 'collections_sidebar.dart';
+import 'variables_table.dart';
+import 'variable_icons.dart';
 
-/// Variables panel widget
+/// Full-featured variables panel matching Figma's design
+class VariablesPanelFull extends StatefulWidget {
+  final VariableManager manager;
+  final void Function(DesignVariable)? onVariableSelected;
+  final void Function(String collectionId, String modeId)? onModeChanged;
+  final VoidCallback? onClose;
+
+  const VariablesPanelFull({
+    super.key,
+    required this.manager,
+    this.onVariableSelected,
+    this.onModeChanged,
+    this.onClose,
+  });
+
+  @override
+  State<VariablesPanelFull> createState() => _VariablesPanelFullState();
+}
+
+class _VariablesPanelFullState extends State<VariablesPanelFull> {
+  String? _selectedCollectionId;
+  String? _selectedGroupId;
+  String? _selectedVariableId;
+  String _searchQuery = '';
+  final GlobalKey<_VariablesTableHeaderState> _tableHeaderKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // Select first collection by default
+    final collections = widget.manager.resolver.collections.values.toList();
+    if (collections.isNotEmpty) {
+      _selectedCollectionId = collections.first.id;
+    }
+  }
+
+  void _focusSearch() {
+    _tableHeaderKey.currentState?.focusSearch();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _focusSearch,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Container(
+          color: const Color(0xFF1E1E1E),
+          child: Column(
+            children: [
+              _buildTopHeader(),
+              Expanded(
+                child: Row(
+                  children: [
+                    // Left sidebar with collections and groups
+                    CollectionsSidebar(
+                      collections: _getOrderedCollections(),
+                      collectionVariableCounts: _getCollectionCounts(),
+                      selectedCollectionId: _selectedCollectionId,
+                      onCollectionSelected: (id) {
+                        setState(() {
+                          _selectedCollectionId = id;
+                          _selectedGroupId = null;
+                        });
+                      },
+                      onAddCollection: _showCreateCollectionDialog,
+                      groups: _getGroups(),
+                      selectedGroupId: _selectedGroupId,
+                      onGroupSelected: (id) {
+                        setState(() => _selectedGroupId = id);
+                      },
+                    ),
+                    const VerticalDivider(
+                      color: Color(0xFF3C3C3C),
+                      width: 1,
+                      thickness: 1,
+                    ),
+                    // Main table area
+                    Expanded(
+                      child: Column(
+                        children: [
+                          // Table header with collection name and search
+                          VariablesTableHeader(
+                            key: _tableHeaderKey,
+                            collection: _selectedCollection,
+                            searchQuery: _searchQuery,
+                            onSearchChanged: (q) => setState(() => _searchQuery = q),
+                            onClosePressed: widget.onClose,
+                          ),
+                          // Variables table
+                          Expanded(
+                            child: VariablesTable(
+                              variables: _getFilteredVariables(),
+                              collection: _selectedCollection,
+                              resolver: widget.manager.resolver,
+                              selectedVariableId: _selectedVariableId,
+                              onVariableSelected: (v) {
+                                setState(() => _selectedVariableId = v.id);
+                                widget.onVariableSelected?.call(v);
+                              },
+                              onValueChanged: _onValueChanged,
+                              onAddMode: _showAddModeDialog,
+                              onCreateVariable: _showCreateVariableDialog,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopHeader() {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFF252525),
+        border: Border(bottom: BorderSide(color: Color(0xFF3C3C3C))),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.data_object, size: 16, color: Colors.white70),
+          const SizedBox(width: 8),
+          const Text(
+            'Variables',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.grid_view, size: 16),
+            color: Colors.white54,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            onPressed: () {},
+            tooltip: 'Table view',
+          ),
+        ],
+      ),
+    );
+  }
+
+  VariableCollection? get _selectedCollection {
+    if (_selectedCollectionId == null) return null;
+    return widget.manager.resolver.collections[_selectedCollectionId];
+  }
+
+  List<VariableCollection> _getOrderedCollections() {
+    final collections = widget.manager.resolver.collections.values.toList();
+    // Sort by order, then by name
+    collections.sort((a, b) {
+      if (a.order != b.order) return a.order.compareTo(b.order);
+      return a.name.compareTo(b.name);
+    });
+    // Assign order numbers if not set
+    for (var i = 0; i < collections.length; i++) {
+      if (collections[i].order == 0) {
+        collections[i] = collections[i].copyWith(order: i + 1);
+      }
+    }
+    return collections;
+  }
+
+  Map<String, int> _getCollectionCounts() {
+    final counts = <String, int>{};
+    for (final v in widget.manager.resolver.variables.values) {
+      counts[v.collectionId] = (counts[v.collectionId] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  List<VariableGroup> _getGroups() {
+    if (_selectedCollectionId == null) return [];
+
+    final variables = widget.manager.resolver.variables.values
+        .where((v) => v.collectionId == _selectedCollectionId)
+        .toList();
+
+    final groupCounts = <String, int>{};
+    for (final v in variables) {
+      final groupName = VariableGroup.extractGroupFromPath(v.name);
+      if (groupName != null) {
+        groupCounts[groupName] = (groupCounts[groupName] ?? 0) + 1;
+      }
+    }
+
+    return groupCounts.entries
+        .map((e) => VariableGroup(
+              id: e.key,
+              name: e.key,
+              variableCount: e.value,
+            ))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  List<DesignVariable> _getFilteredVariables() {
+    var variables = widget.manager.resolver.variables.values.toList();
+
+    // Filter by collection
+    if (_selectedCollectionId != null) {
+      variables = variables
+          .where((v) => v.collectionId == _selectedCollectionId)
+          .toList();
+    }
+
+    // Filter by group
+    if (_selectedGroupId != null) {
+      variables = variables.where((v) {
+        final groupName = VariableGroup.extractGroupFromPath(v.name);
+        return groupName == _selectedGroupId;
+      }).toList();
+    }
+
+    // Filter by search (name, description, and resolved values)
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      variables = variables.where((v) {
+        // Search by name
+        if (v.name.toLowerCase().contains(query)) return true;
+
+        // Search by description
+        if (v.description?.toLowerCase().contains(query) ?? false) return true;
+
+        // Search by resolved value
+        final resolvedValue = widget.manager.resolver.resolve(v.id);
+        if (resolvedValue != null) {
+          if (resolvedValue is Color) {
+            // Search by hex color code (with or without #)
+            final hex = resolvedValue.value.toRadixString(16).substring(2).toLowerCase();
+            if (hex.contains(query.replaceAll('#', ''))) return true;
+          } else {
+            if (resolvedValue.toString().toLowerCase().contains(query)) return true;
+          }
+        }
+
+        return false;
+      }).toList();
+    }
+
+    return variables;
+  }
+
+  void _onValueChanged(DesignVariable variable, String modeId, dynamic value) {
+    widget.manager.updateVariable(variable.id, modeId: modeId, value: value);
+    setState(() {});
+  }
+
+  void _showCreateCollectionDialog() {
+    // TODO: Implement create collection dialog
+  }
+
+  void _showAddModeDialog() {
+    // TODO: Implement add mode dialog
+  }
+
+  void _showCreateVariableDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => CreateVariableDialog(
+        manager: widget.manager,
+        defaultCollectionId: _selectedCollectionId,
+        onCreated: (v) {
+          setState(() {});
+          widget.onVariableSelected?.call(v);
+        },
+      ),
+    );
+  }
+}
+
+/// Compact variables panel (original design, for smaller spaces)
 class VariablesPanel extends StatefulWidget {
   final VariableManager manager;
   final void Function(DesignVariable)? onVariableSelected;
@@ -34,7 +320,6 @@ class _VariablesPanelState extends State<VariablesPanel> {
   String _searchQuery = '';
   VariableType? _typeFilter;
   String? _selectedCollectionId;
-  bool _showCreateDialog = false;
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +364,7 @@ class _VariablesPanelState extends State<VariablesPanel> {
             color: Colors.white70,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            onPressed: () => setState(() => _showCreateDialog = true),
+            onPressed: () => _showCreateDialog(),
             tooltip: 'Create Variable',
           ),
         ],
@@ -114,6 +399,10 @@ class _VariablesPanelState extends State<VariablesPanel> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (currentMode?.emoji != null) ...[
+              Text(currentMode!.emoji!, style: const TextStyle(fontSize: 11)),
+              const SizedBox(width: 4),
+            ],
             Text(
               currentMode?.name ?? 'Default',
               style: const TextStyle(color: Colors.white70, fontSize: 11),
@@ -130,7 +419,7 @@ class _VariablesPanelState extends State<VariablesPanel> {
       itemBuilder: (context) => collection.modes.map((mode) {
         return PopupMenuItem(
           value: mode.id,
-          child: Text(mode.name),
+          child: Text(mode.displayName),
         );
       }).toList(),
     );
@@ -256,7 +545,7 @@ class _VariablesPanelState extends State<VariablesPanel> {
         final collection = widget.manager.resolver.collections[collectionId];
 
         return _buildCollectionSection(
-          collection?.name ?? 'Unknown',
+          collection?.displayName ?? 'Unknown',
           collectionId,
           collectionVars,
         );
@@ -315,6 +604,9 @@ class _VariablesPanelState extends State<VariablesPanel> {
   }
 
   Widget _buildVariableItem(DesignVariable variable) {
+    final varValue = variable.valuesByMode.values.firstOrNull;
+    final isAlias = varValue?.isAlias ?? false;
+
     return GestureDetector(
       onTap: () => widget.onVariableSelected?.call(variable),
       child: Container(
@@ -326,7 +618,11 @@ class _VariablesPanelState extends State<VariablesPanel> {
         ),
         child: Row(
           children: [
-            _buildVariableIcon(variable),
+            VariableTypeIcon(
+              type: variable.type,
+              size: 20,
+              isAlias: isAlias,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -359,53 +655,15 @@ class _VariablesPanelState extends State<VariablesPanel> {
     );
   }
 
-  Widget _buildVariableIcon(DesignVariable variable) {
-    IconData icon;
-    Color color;
-
-    switch (variable.type) {
-      case VariableType.color:
-        icon = Icons.palette;
-        color = Colors.pink;
-        break;
-      case VariableType.number:
-        icon = Icons.numbers;
-        color = Colors.blue;
-        break;
-      case VariableType.string:
-        icon = Icons.text_fields;
-        color = Colors.green;
-        break;
-      case VariableType.boolean:
-        icon = Icons.toggle_on;
-        color = Colors.orange;
-        break;
-    }
-
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Icon(icon, size: 14, color: color),
-    );
-  }
-
   Widget _buildVariableValue(DesignVariable variable) {
     final value = widget.manager.resolver.resolve(variable.id);
 
     if (variable.type == VariableType.color && value is Color) {
-      return Container(
-        width: 20,
-        height: 20,
-        decoration: BoxDecoration(
-          color: value,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.white24),
-        ),
-      );
+      return ColorSwatchWithHex(color: value, swatchSize: 18, showHex: false);
+    }
+
+    if (variable.type == VariableType.boolean && value is bool) {
+      return BooleanValueDisplay(value: value, enabled: false);
     }
 
     return Text(
@@ -424,54 +682,58 @@ class _VariablesPanelState extends State<VariablesPanel> {
         }
         return value.toString();
       case VariableType.number:
+        if (value is double && value == value.truncateToDouble()) {
+          return value.toInt().toString();
+        }
         return value.toString();
       case VariableType.string:
         return '"$value"';
       case VariableType.boolean:
-        return value ? 'true' : 'false';
+        return value ? 'True' : 'False';
     }
   }
 
   Widget _buildFooter() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFF3C3C3C))),
-      ),
-      child: Row(
-        children: [
-          Text(
-            '${widget.manager.resolver.variables.length} variables',
-            style: TextStyle(color: Colors.grey[600], fontSize: 10),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.file_download, size: 16),
-            color: Colors.white54,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            onPressed: _showImportDialog,
-            tooltip: 'Import',
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_upload, size: 16),
-            color: Colors.white54,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            onPressed: _showExportDialog,
-            tooltip: 'Export',
-          ),
-        ],
+    return GestureDetector(
+      onTap: _showCreateDialog,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFF3C3C3C))),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.add,
+              size: 14,
+              color: Colors.white.withValues(alpha: 0.6),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Create variable',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _showImportDialog() {
-    // TODO: Implement import dialog
-  }
-
-  void _showExportDialog() {
-    // TODO: Implement export dialog
+  void _showCreateDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => CreateVariableDialog(
+        manager: widget.manager,
+        defaultCollectionId: _selectedCollectionId,
+        onCreated: (v) {
+          setState(() {});
+          widget.onVariableSelected?.call(v);
+        },
+      ),
+    );
   }
 }
 

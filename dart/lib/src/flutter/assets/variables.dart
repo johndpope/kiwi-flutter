@@ -39,25 +39,91 @@ class VariableMode {
   /// Mode index for ordering
   final int index;
 
+  /// Emoji for visual indicator (e.g., "☀️" for Light, "🌙" for Dark)
+  final String? emoji;
+
   const VariableMode({
     required this.id,
     required this.name,
     this.index = 0,
+    this.emoji,
   });
 
   /// Default light mode
-  static const light = VariableMode(id: 'light', name: 'Light', index: 0);
+  static const light = VariableMode(id: 'light', name: 'Light', index: 0, emoji: '☀️');
 
   /// Default dark mode
-  static const dark = VariableMode(id: 'dark', name: 'Dark', index: 1);
+  static const dark = VariableMode(id: 'dark', name: 'Dark', index: 1, emoji: '🌙');
+
+  /// Display name with emoji
+  String get displayName => emoji != null ? '$emoji $name' : name;
 
   /// Create from Figma mode data
   factory VariableMode.fromMap(Map<String, dynamic> map, int index) {
+    final name = map['name'] as String? ?? 'Mode $index';
     return VariableMode(
       id: map['modeId']?.toString() ?? '',
-      name: map['name'] as String? ?? 'Mode $index',
+      name: name,
       index: index,
+      emoji: _inferEmoji(name),
     );
+  }
+
+  /// Infer emoji from mode name
+  static String? _inferEmoji(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('light')) return '☀️';
+    if (lower.contains('dark')) return '🌙';
+    if (lower.contains('mobile')) return '📱';
+    if (lower.contains('desktop')) return '🖥️';
+    if (lower.contains('tablet')) return '📱';
+    if (lower.contains('default')) return '⭐';
+    return null;
+  }
+
+  VariableMode copyWith({
+    String? id,
+    String? name,
+    int? index,
+    String? emoji,
+  }) {
+    return VariableMode(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      index: index ?? this.index,
+      emoji: emoji ?? this.emoji,
+    );
+  }
+}
+
+/// Variable group within a collection
+class VariableGroup {
+  /// Group ID
+  final String id;
+
+  /// Group name (e.g., "system", "bg", "grouped-bg")
+  final String name;
+
+  /// Number of variables in this group
+  final int variableCount;
+
+  /// Parent group ID (for nested groups)
+  final String? parentGroupId;
+
+  const VariableGroup({
+    required this.id,
+    required this.name,
+    this.variableCount = 0,
+    this.parentGroupId,
+  });
+
+  /// Extract group name from variable path (e.g., "system/red" -> "system")
+  static String? extractGroupFromPath(String variableName) {
+    final parts = variableName.split('/');
+    if (parts.length > 1) {
+      return parts.first;
+    }
+    return null;
   }
 }
 
@@ -68,6 +134,9 @@ class VariableCollection {
 
   /// Collection name
   final String name;
+
+  /// Display order (1-based for display: "1. Themes")
+  final int order;
 
   /// Available modes in this collection
   final List<VariableMode> modes;
@@ -84,14 +153,18 @@ class VariableCollection {
   const VariableCollection({
     required this.id,
     required this.name,
+    this.order = 0,
     required this.modes,
     required this.defaultModeId,
     this.remote = false,
     this.hiddenFromPublishing = false,
   });
 
+  /// Display name with order (e.g., "1. Themes")
+  String get displayName => order > 0 ? '$order. $name' : name;
+
   /// Create from Figma collection data
-  factory VariableCollection.fromMap(Map<String, dynamic> map) {
+  factory VariableCollection.fromMap(Map<String, dynamic> map, {int order = 0}) {
     final modesData = map['modes'] as List<dynamic>? ?? [];
     final modes = <VariableMode>[];
     for (var i = 0; i < modesData.length; i++) {
@@ -101,6 +174,7 @@ class VariableCollection {
     return VariableCollection(
       id: map['id']?.toString() ?? '',
       name: map['name'] as String? ?? 'Collection',
+      order: order,
       modes: modes,
       defaultModeId: map['defaultModeId']?.toString() ?? modes.firstOrNull?.id ?? '',
       remote: map['remote'] as bool? ?? false,
@@ -115,6 +189,26 @@ class VariableCollection {
 
   /// Get default mode
   VariableMode? get defaultMode => getModeById(defaultModeId);
+
+  VariableCollection copyWith({
+    String? id,
+    String? name,
+    int? order,
+    List<VariableMode>? modes,
+    String? defaultModeId,
+    bool? remote,
+    bool? hiddenFromPublishing,
+  }) {
+    return VariableCollection(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      order: order ?? this.order,
+      modes: modes ?? this.modes,
+      defaultModeId: defaultModeId ?? this.defaultModeId,
+      remote: remote ?? this.remote,
+      hiddenFromPublishing: hiddenFromPublishing ?? this.hiddenFromPublishing,
+    );
+  }
 }
 
 /// Variable value for a specific mode
