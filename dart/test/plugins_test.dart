@@ -452,6 +452,218 @@ void main() {
       const access = NetworkAccess(allowedDomains: ['*']);
       expect(access.isUrlAllowed('not a url'), false);
     });
+
+    group('checkUrl detailed validation', () {
+      test('rejects invalid URL format', () {
+        const access = NetworkAccess(allowedDomains: ['*']);
+        final result = access.checkUrl('not a url');
+        expect(result.allowed, false);
+        expect(result.reason, NetworkDenyReason.invalidUrl);
+      });
+
+      test('rejects URL without host', () {
+        const access = NetworkAccess(allowedDomains: ['*']);
+        final result = access.checkUrl('file:///local/path');
+        expect(result.allowed, false);
+        expect(result.reason, NetworkDenyReason.invalidUrl);
+      });
+
+      test('rejects non-http protocols', () {
+        const access = NetworkAccess(allowedDomains: ['*']);
+
+        final ftpResult = access.checkUrl('ftp://files.example.com/file');
+        expect(ftpResult.allowed, false);
+        expect(ftpResult.reason, NetworkDenyReason.invalidProtocol);
+
+        final wsResult = access.checkUrl('ws://socket.example.com');
+        expect(wsResult.allowed, false);
+        expect(wsResult.reason, NetworkDenyReason.invalidProtocol);
+      });
+
+      test('blocks localhost by default', () {
+        const access = NetworkAccess(allowedDomains: ['api.example.com']);
+
+        expect(access.checkUrl('http://localhost:3000').allowed, false);
+        expect(access.checkUrl('http://localhost:3000').reason, NetworkDenyReason.privateNetwork);
+
+        expect(access.checkUrl('http://127.0.0.1:8080').allowed, false);
+        expect(access.checkUrl('http://127.0.0.1:8080').reason, NetworkDenyReason.privateNetwork);
+      });
+
+      test('blocks private IPv4 ranges', () {
+        const access = NetworkAccess(allowedDomains: ['api.example.com']);
+
+        // 10.x.x.x
+        expect(access.checkUrl('http://10.0.0.1').reason, NetworkDenyReason.privateNetwork);
+
+        // 172.16-31.x.x
+        expect(access.checkUrl('http://172.16.0.1').reason, NetworkDenyReason.privateNetwork);
+        expect(access.checkUrl('http://172.31.255.255').reason, NetworkDenyReason.privateNetwork);
+
+        // 192.168.x.x
+        expect(access.checkUrl('http://192.168.1.1').reason, NetworkDenyReason.privateNetwork);
+      });
+
+      test('allows localhost when explicitly configured', () {
+        const access = NetworkAccess(allowedDomains: ['localhost']);
+        expect(access.checkUrl('http://localhost:3000').allowed, true);
+      });
+
+      test('allows private network with wildcard', () {
+        const access = NetworkAccess(allowedDomains: ['*']);
+        expect(access.checkUrl('http://localhost:3000').allowed, true);
+        expect(access.checkUrl('http://192.168.1.1').allowed, true);
+      });
+
+      test('returns matched pattern on success', () {
+        const access = NetworkAccess(allowedDomains: ['*.example.com']);
+        final result = access.checkUrl('https://api.example.com/v1');
+        expect(result.allowed, true);
+        expect(result.matchedPattern, '*.example.com');
+      });
+
+      test('domain matching is case-insensitive', () {
+        const access = NetworkAccess(allowedDomains: ['API.Example.COM']);
+        expect(access.checkUrl('https://api.example.com/v1').allowed, true);
+        expect(access.checkUrl('https://API.EXAMPLE.COM/v1').allowed, true);
+      });
+
+      test('wildcard matches exact domain and subdomains', () {
+        const access = NetworkAccess(allowedDomains: ['*.example.com']);
+
+        // Matches subdomains
+        expect(access.checkUrl('https://api.example.com').allowed, true);
+        expect(access.checkUrl('https://cdn.example.com').allowed, true);
+        expect(access.checkUrl('https://deep.sub.example.com').allowed, true);
+
+        // Matches the base domain itself
+        expect(access.checkUrl('https://example.com').allowed, true);
+      });
+
+      test('rejects domain not in allowed list', () {
+        const access = NetworkAccess(allowedDomains: ['api.example.com']);
+        final result = access.checkUrl('https://malicious.com/data');
+        expect(result.allowed, false);
+        expect(result.reason, NetworkDenyReason.domainNotAllowed);
+        expect(result.message, contains('malicious.com'));
+      });
+    });
+  });
+
+  group('Plugin API Fetch', () {
+    test('fetch throws PluginNetworkError for blocked domain', () async {
+      final manifest = PluginManifest(
+        name: 'Test',
+        id: 'test',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+        networkAccess: const NetworkAccess(allowedDomains: ['api.example.com']),
+      );
+
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      expect(
+        () => api.fetch('https://blocked.com/data'),
+        throwsA(isA<PluginNetworkError>().having(
+          (e) => e.url,
+          'url',
+          'https://blocked.com/data',
+        ).having(
+          (e) => e.reason,
+          'reason',
+          NetworkDenyReason.domainNotAllowed,
+        )),
+      );
+    });
+
+    test('fetch throws PluginNetworkError for private network', () async {
+      final manifest = PluginManifest(
+        name: 'Test',
+        id: 'test',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+        networkAccess: const NetworkAccess(allowedDomains: ['api.example.com']),
+      );
+
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      expect(
+        () => api.fetch('http://192.168.1.1/admin'),
+        throwsA(isA<PluginNetworkError>().having(
+          (e) => e.reason,
+          'reason',
+          NetworkDenyReason.privateNetwork,
+        )),
+      );
+    });
+
+    test('fetch succeeds for allowed domain', () async {
+      final manifest = PluginManifest(
+        name: 'Test',
+        id: 'test',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+        networkAccess: const NetworkAccess(allowedDomains: ['api.example.com']),
+      );
+
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+      final response = await api.fetch('https://api.example.com/data');
+
+      expect(response.ok, true);
+      expect(response.status, 200);
+    });
+
+    test('fetch throws when no network access configured', () async {
+      final manifest = PluginManifest(
+        name: 'Test',
+        id: 'test',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+        // No networkAccess
+      );
+
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      expect(
+        () => api.fetch('https://api.example.com/data'),
+        throwsA(isA<PluginNetworkError>()),
+      );
+    });
+
+    test('PluginFetchResponse provides header access', () {
+      const response = PluginFetchResponse(
+        status: 200,
+        ok: true,
+        headers: {'Content-Type': 'application/json', 'X-Custom': 'value'},
+        body: '{"data": true}',
+      );
+
+      expect(response.header('content-type'), 'application/json');
+      expect(response.header('CONTENT-TYPE'), 'application/json');
+      expect(response.header('x-custom'), 'value');
+      expect(response.header('missing'), null);
+      expect(response.text(), '{"data": true}');
+    });
   });
 
   group('PluginParameter', () {
@@ -1580,6 +1792,323 @@ void main() {
     test('get measurements', () {
       final node = api.createRectangle();
       expect(api.getMeasurements(node), isEmpty);
+    });
+  });
+
+  // ============================================================
+  // Sample Plugin End-to-End Test
+  // ============================================================
+  // This demonstrates a complete plugin workflow as specified in PRD 4.16
+
+  group('Sample Plugin End-to-End Test', () {
+    test('complete plugin workflow: design grid creator', () async {
+      // 1. Parse manifest (simulating plugin installation)
+      final manifest = PluginManifest.fromJsonString('''
+      {
+        "name": "Grid Creator",
+        "id": "com.example.gridcreator",
+        "api": "1.0.0",
+        "main": "code.js",
+        "ui": "ui.html",
+        "editorType": ["figma"],
+        "version": "1.2.0",
+        "description": "Creates design grids with customizable spacing",
+        "networkAccess": {
+          "allowedDomains": ["api.gridcreator.com"],
+          "reasoning": "For fetching preset configurations"
+        },
+        "permissions": ["currentuser"],
+        "menu": [
+          {"name": "Create 12-Column Grid", "command": "grid-12"},
+          {"name": "Create 8-Column Grid", "command": "grid-8"},
+          {"separator": true},
+          {"name": "Custom Grid...", "command": "custom"}
+        ]
+      }
+      ''');
+
+      // 2. Validate manifest
+      final validation = manifest.validate();
+      expect(validation.isValid, true);
+      expect(validation.errors, isEmpty);
+
+      // 3. Initialize API with manifest
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      // 4. Check API properties (PRD 4.16.1.1)
+      expect(api.apiVersion, isNotEmpty);
+      expect(api.editorType, PluginEditorType.figma);
+
+      // 5. Create nodes (PRD 4.16.2.1) - simulating grid creation
+      final frame = api.createFrame();
+      frame.name = 'Grid Container';
+      frame.width = 1440;
+      frame.height = 900;
+
+      // Create 12 column rectangles
+      final columns = <PluginNodeProxy>[];
+      const columnWidth = 100.0;
+      const gutterWidth = 20.0;
+
+      for (var i = 0; i < 12; i++) {
+        final column = api.createRectangle();
+        column.name = 'Column ${i + 1}';
+        column.width = columnWidth;
+        column.height = 900;
+        column.x = i * (columnWidth + gutterWidth);
+        column.y = 0;
+        column.opacity = 0.1;
+        columns.add(column);
+      }
+
+      expect(columns.length, 12);
+      expect(columns.first.name, 'Column 1');
+      expect(columns.last.name, 'Column 12');
+
+      // 6. Group nodes (PRD 4.16.2.2)
+      final group = api.group(columns, frame);
+      expect(group.type, NodeType.GROUP);
+      expect(group.name, 'Group');
+
+      // 7. Event handling (PRD 4.16.1.8)
+      var selectionChanged = false;
+      api.on('selectionchange', () {
+        selectionChanged = true;
+      });
+
+      // Simulate selection change
+      api.selection = [frame];
+      expect(api.selection.length, 1);
+
+      // 8. Client storage (PRD 4.16.1.6)
+      await api.clientStorage.setAsync('lastGridType', '12-column');
+      final stored = await api.clientStorage.getAsync('lastGridType');
+      expect(stored, '12-column');
+
+      // 9. Viewport operations (PRD 4.16.1.6)
+      api.viewport.scrollAndZoomIntoView([frame]);
+      api.viewport.zoom = 0.5;
+      expect(api.viewport.zoom, 0.5);
+
+      // 10. Network access check (PRD 4.16.8.2)
+      expect(api.isNetworkAccessAllowed('https://api.gridcreator.com/presets'), true);
+      expect(api.isNetworkAccessAllowed('https://evil.com/steal'), false);
+
+      // 11. Fetch with enforcement
+      final response = await api.fetch('https://api.gridcreator.com/presets');
+      expect(response.ok, true);
+
+      // 12. Verify fetch throws for blocked domain
+      expect(
+        () => api.fetch('https://blocked.com/data'),
+        throwsA(isA<PluginNetworkError>()),
+      );
+
+      // 13. UI interaction (PRD 4.16.1.5)
+      api.ui.show(width: 400, height: 300);
+      expect(api.ui.isVisible, true);
+
+      // 14. Close plugin (PRD 4.16.1.7)
+      api.closePlugin('Grid created successfully!');
+    });
+
+    test('plugin with document operations', () async {
+      final manifest = PluginManifest(
+        name: 'Document Inspector',
+        id: 'com.example.inspector',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+      );
+
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      // Create a component hierarchy
+      final page = api.createPage();
+      page.name = 'Design System';
+
+      final component = api.createComponent();
+      component.name = 'Button/Primary';
+      component.width = 120;
+      component.height = 40;
+
+      // Create internal structure
+      final background = api.createRectangle();
+      background.name = 'Background';
+      background.width = 120;
+      background.height = 40;
+      background.cornerRadius = 8;
+
+      final label = api.createText();
+      label.name = 'Label';
+      label.characters = 'Click me';
+
+      // Boolean operations (PRD 4.16.2.2)
+      // Use a frame as parent for boolean operations
+      final container = api.createFrame();
+      container.name = 'Boolean Container';
+
+      final rect1 = api.createRectangle();
+      rect1.width = 100;
+      rect1.height = 100;
+
+      final rect2 = api.createRectangle();
+      rect2.width = 100;
+      rect2.height = 100;
+      rect2.x = 50;
+      rect2.y = 50;
+
+      final unionResult = api.union([rect1, rect2], container);
+      expect(unionResult.type, NodeType.BOOLEAN_OPERATION);
+
+      final subtractResult = api.subtract([rect1, rect2], container);
+      expect(subtractResult.type, NodeType.BOOLEAN_OPERATION);
+
+      final intersectResult = api.intersect([rect1, rect2], container);
+      expect(intersectResult.type, NodeType.BOOLEAN_OPERATION);
+
+      final excludeResult = api.exclude([rect1, rect2], container);
+      expect(excludeResult.type, NodeType.BOOLEAN_OPERATION);
+
+      // Flatten (PRD 4.16.2.2)
+      final vector = api.createVector();
+      final flattened = api.flatten([vector], container);
+      expect(flattened.type, NodeType.VECTOR);
+    });
+
+    test('plugin with styles and variables', () async {
+      final manifest = PluginManifest(
+        name: 'Theme Manager',
+        id: 'com.example.theme',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+      );
+
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      // Create styles (PRD 4.16.5.1)
+      final paintStyle = api.createPaintStyle();
+      paintStyle.name = 'Brand/Primary';
+      expect(paintStyle.name, 'Brand/Primary');
+
+      final textStyle = api.createTextStyle();
+      textStyle.name = 'Heading/H1';
+      expect(textStyle.name, 'Heading/H1');
+
+      final effectStyle = api.createEffectStyle();
+      effectStyle.name = 'Shadow/Medium';
+
+      final gridStyle = api.createGridStyle();
+      gridStyle.name = 'Layout/12-Column';
+
+      // Get local styles (PRD 4.16.5.2)
+      final localPaintStyles = await api.getLocalPaintStylesAsync();
+      expect(localPaintStyles, isA<List>());
+
+      final localTextStyles = await api.getLocalTextStylesAsync();
+      expect(localTextStyles, isA<List>());
+
+      // Variables (PRD 4.16.1.6)
+      final variable = api.variables.createVariable('spacing-small', 'FLOAT');
+      expect(variable.name, 'spacing-small');
+    });
+
+    test('plugin with codegen support', () async {
+      final manifest = PluginManifest(
+        name: 'Flutter Codegen',
+        id: 'com.example.fluttergen',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.dev],
+        capabilities: const PluginCapabilities(codegen: true),
+        codegenLanguages: ['dart', 'flutter'],
+      );
+
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      // Create a node for codegen
+      final button = api.createFrame();
+      button.name = 'PrimaryButton';
+      button.width = 200;
+      button.height = 48;
+
+      // Generate CSS (PRD 4.16.1.2 - skipInvisibleInstanceChildren)
+      api.skipInvisibleInstanceChildren = true;
+      expect(api.skipInvisibleInstanceChildren, true);
+
+      // Get CSS async
+      final css = await api.getCSSAsync(button);
+      expect(css, isA<Map<String, String>>());
+      expect(css['width'], '200.0px');
+      expect(css['height'], '48.0px');
+    });
+
+    test('plugin error handling scenarios', () async {
+      // Test without manifest (no permissions)
+      final apiNoManifest = FigmaPluginAPI(
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      // Network access should fail without manifest
+      expect(apiNoManifest.isNetworkAccessAllowed('https://any.com'), false);
+
+      // Test with restricted permissions
+      final restrictedManifest = PluginManifest(
+        name: 'Restricted Plugin',
+        id: 'com.example.restricted',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+        // No permissions granted
+      );
+
+      final restrictedApi = FigmaPluginAPI(
+        manifest: restrictedManifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      // Should throw for permission-required operations
+      expect(
+        () => restrictedApi.currentUser,
+        throwsA(isA<PluginPermissionError>()),
+      );
+
+      // Test error types
+      final nodeError = PluginNodeError('Node not found', nodeId: 'invalid-id');
+      expect(nodeError.toString(), contains('invalid-id'));
+
+      final typeError = PluginTypeError(
+        'Expected RectangleNode',
+        expectedType: 'RectangleNode',
+        actualType: 'TextNode',
+      );
+      expect(typeError.toString(), contains('RectangleNode'));
+      expect(typeError.toString(), contains('TextNode'));
+
+      final manifestError = PluginManifestError(
+        'Invalid manifest',
+        errors: ['Missing name', 'Invalid API version'],
+      );
+      expect(manifestError.errors.length, 2);
     });
   });
 }

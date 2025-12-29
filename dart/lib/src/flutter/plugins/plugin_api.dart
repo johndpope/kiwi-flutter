@@ -28,10 +28,22 @@ class FigmaPluginAPI {
   /// Plugin manifest for permission checking
   final PluginManifest? manifest;
 
+  /// API version (PRD 4.16.1.1)
+  String get apiVersion => manifest?.api ?? '1.0.0';
+
+  /// Plugin ID
+  String? get pluginId => manifest?.id;
+
   /// Current page/document
   PluginDocumentProxy? _currentPage;
   PluginDocumentProxy? get currentPage => _currentPage;
   set currentPage(PluginDocumentProxy? page) {
+    _currentPage = page;
+    _triggerEvent('currentpagechange');
+  }
+
+  /// Set current page async (PRD 4.16.1.3)
+  Future<void> setCurrentPageAsync(PluginDocumentProxy page) async {
     _currentPage = page;
     _triggerEvent('currentpagechange');
   }
@@ -74,6 +86,15 @@ class FigmaPluginAPI {
 
   /// Viewport control
   final PluginViewportProxy viewport;
+
+  /// Variables API (PRD 4.16.1.6)
+  final PluginVariablesAPI variables = PluginVariablesAPI();
+
+  /// Util API helpers
+  final PluginUtilAPI util = PluginUtilAPI();
+
+  /// Constants API
+  final PluginConstantsAPI constants = PluginConstantsAPI();
 
   /// Payments API (requires 'payments' permission)
   PluginPaymentsProxy? _payments;
@@ -447,7 +468,7 @@ class FigmaPluginAPI {
     bool themeColors = false,
     PluginPosition? position,
   }) {
-    ui.show(
+    ui.showUI(
       html,
       width: width,
       height: height,
@@ -689,6 +710,22 @@ class FigmaPluginAPI {
   List<PluginStyleProxy> getLocalTextStyles() => List.unmodifiable(_localTextStyles);
   List<PluginStyleProxy> getLocalEffectStyles() => List.unmodifiable(_localEffectStyles);
   List<PluginStyleProxy> getLocalGridStyles() => List.unmodifiable(_localGridStyles);
+
+  // Async versions (PRD 4.16.5.2)
+  Future<List<PluginStyleProxy>> getLocalPaintStylesAsync() async => getLocalPaintStyles();
+  Future<List<PluginStyleProxy>> getLocalTextStylesAsync() async => getLocalTextStyles();
+  Future<List<PluginStyleProxy>> getLocalEffectStylesAsync() async => getLocalEffectStyles();
+  Future<List<PluginStyleProxy>> getLocalGridStylesAsync() async => getLocalGridStyles();
+
+  /// Get style by ID async (PRD 4.16.5.2)
+  Future<PluginStyleProxy?> getStyleByIdAsync(String id) async {
+    for (final list in [_localPaintStyles, _localTextStyles, _localEffectStyles, _localGridStyles]) {
+      for (final style in list) {
+        if (style.id == id) return style;
+      }
+    }
+    return null;
+  }
 
   PluginStyleProxy createPaintStyle() {
     final style = PluginStyleProxy(id: _generateId(), name: 'Paint Style');
@@ -1896,66 +1933,224 @@ class PluginVariableCollectionProxy {
   }
 }
 
-/// Plugin UI controller
+/// Plugin UI controller - Figma-compatible UI API
+///
+/// Provides methods for creating, managing, and communicating with plugin UI.
+/// The UI renders in a modal iframe with isolated JavaScript execution.
 class PluginUIController {
   bool _visible = false;
   double _width = 300;
   double _height = 400;
+  double _x = 0;
+  double _y = 0;
   String? _title;
   String? _html;
+  String? _theme;
+
+  /// Message event handlers
+  final List<MessageEventHandler> _messageHandlers = [];
+  final List<MessageEventHandler> _onceHandlers = [];
 
   /// Whether UI is visible
   bool get visible => _visible;
 
-  /// Show plugin UI
-  void show(
+  /// Alias for visible (PRD 4.16.1.6)
+  bool get isVisible => _visible;
+
+  /// Current width
+  double get width => _width;
+
+  /// Current height
+  double get height => _height;
+
+  /// Current HTML content
+  String? get html => _html;
+
+  /// Direct message handler property (Figma API compatibility)
+  MessageEventHandler? onmessage;
+
+  /// Show plugin UI with html content (figma.showUI equivalent)
+  void showUI(
     String htmlContent, {
     double? width,
     double? height,
     String? title,
     bool visible = true,
+    String? theme,
+    PluginPosition? position,
   }) {
     _html = htmlContent;
     _width = width ?? _width;
     _height = height ?? _height;
     _title = title;
     _visible = visible;
+    _theme = theme;
+    if (position != null) {
+      _x = position.x;
+      _y = position.y;
+    }
     debugPrint('Plugin UI: show (${_width}x$_height)');
   }
 
-  /// Hide plugin UI
+  /// Show plugin UI (convenience method without html)
+  /// Makes hidden UI visible or creates new UI
+  void show({
+    double? width,
+    double? height,
+    String? title,
+    String? html,
+  }) {
+    if (html != null) _html = html;
+    _width = width ?? _width;
+    _height = height ?? _height;
+    _title = title;
+    _visible = true;
+    debugPrint('Plugin UI: show (${_width}x$_height)');
+  }
+
+  /// Hide plugin UI (keeps running, can send/receive messages)
   void hide() {
     _visible = false;
     debugPrint('Plugin UI: hide');
   }
 
-  /// Resize plugin UI
+  /// Resize plugin UI dynamically
+  /// Width minimum: 70, Height minimum: 0
   void resize(double width, double height) {
-    _width = width;
-    _height = height;
-    debugPrint('Plugin UI: resize to ${width}x$height');
+    _width = width < 70 ? 70 : width;
+    _height = height < 0 ? 0 : height;
+    debugPrint('Plugin UI: resize to ${_width}x$_height');
   }
 
-  /// Close plugin UI
+  /// Close and destroy plugin UI
+  /// Stops all code execution and message handling
   void close() {
     _visible = false;
     _html = null;
+    _messageHandlers.clear();
+    _onceHandlers.clear();
+    onmessage = null;
     debugPrint('Plugin UI: close');
   }
 
-  /// Reposition UI
+  /// Reposition UI window
   void reposition(double x, double y) {
+    _x = x;
+    _y = y;
     debugPrint('Plugin UI: reposition to ($x, $y)');
   }
 
-  /// Post message to UI
-  void postMessage(dynamic message) {
-    debugPrint('Plugin UI: postMessage');
-    onmessage?.call({'pluginMessage': message});
+  /// Get current UI position
+  /// Returns position in window and canvas coordinates
+  /// Throws if no UI exists
+  UIPosition getPosition() {
+    if (_html == null) {
+      throw PluginUIError('No UI exists. Call showUI first.');
+    }
+    return UIPosition(
+      windowSpace: Vector2(_x, _y),
+      canvasSpace: Vector2(_x, _y), // Would transform to canvas coords
+    );
   }
 
-  /// Message handler from UI
-  void Function(dynamic)? onmessage;
+  /// Post message to UI (plugin -> UI communication)
+  ///
+  /// [pluginMessage] can be any serializable data
+  /// [options] allows setting origin for cross-origin restrictions
+  void postMessage(dynamic pluginMessage, {UIPostMessageOptions? options}) {
+    debugPrint('Plugin UI: postMessage');
+    final event = MessageEvent(
+      pluginMessage: pluginMessage,
+      origin: options?.origin ?? '*',
+    );
+    // In real implementation, this would send to iframe
+    // For testing, we call the reverse handler
+  }
+
+  /// Register message event handler (UI -> plugin)
+  void on(String type, MessageEventHandler callback) {
+    if (type == 'message') {
+      _messageHandlers.add(callback);
+    }
+  }
+
+  /// Register one-time message handler (auto-removes after first call)
+  void once(String type, MessageEventHandler callback) {
+    if (type == 'message') {
+      _onceHandlers.add(callback);
+    }
+  }
+
+  /// Remove message event handler
+  void off(String type, MessageEventHandler callback) {
+    if (type == 'message') {
+      _messageHandlers.remove(callback);
+      _onceHandlers.remove(callback);
+    }
+  }
+
+  /// Simulate receiving a message from UI (for testing)
+  void receiveMessage(dynamic pluginMessage, {String origin = '*'}) {
+    final event = MessageEvent(pluginMessage: pluginMessage, origin: origin);
+
+    // Call direct handler
+    onmessage?.call(pluginMessage, OnMessageProperties(origin: origin));
+
+    // Call registered handlers
+    for (final handler in _messageHandlers) {
+      handler(pluginMessage, OnMessageProperties(origin: origin));
+    }
+
+    // Call and remove once handlers
+    for (final handler in List.from(_onceHandlers)) {
+      handler(pluginMessage, OnMessageProperties(origin: origin));
+      _onceHandlers.remove(handler);
+    }
+  }
+}
+
+/// Message event handler type
+typedef MessageEventHandler = void Function(dynamic pluginMessage, OnMessageProperties props);
+
+/// Properties passed to message handlers
+class OnMessageProperties {
+  final String origin;
+
+  const OnMessageProperties({this.origin = '*'});
+}
+
+/// Message event data
+class MessageEvent {
+  final dynamic pluginMessage;
+  final String origin;
+
+  const MessageEvent({required this.pluginMessage, this.origin = '*'});
+}
+
+/// UI position data
+class UIPosition {
+  final Vector2 windowSpace;
+  final Vector2 canvasSpace;
+
+  const UIPosition({required this.windowSpace, required this.canvasSpace});
+}
+
+/// Options for postMessage
+class UIPostMessageOptions {
+  /// Origin restriction (default '*' allows all)
+  final String origin;
+
+  const UIPostMessageOptions({this.origin = '*'});
+}
+
+/// Plugin UI error
+class PluginUIError implements Exception {
+  final String message;
+
+  PluginUIError(this.message);
+
+  @override
+  String toString() => 'PluginUIError: $message';
 }
 
 /// Viewport control
@@ -2092,6 +2287,140 @@ class PluginClientStorage {
   }
 }
 
+/// Variables API (PRD 4.16.1.6)
+class PluginVariablesAPI {
+  final List<PluginVariableProxy> _variables = [];
+  final List<PluginVariableCollectionProxy> _collections = [];
+
+  /// Create a new variable
+  PluginVariableProxy createVariable(String name, String resolvedType, {String? collectionId}) {
+    final variable = PluginVariableProxy(
+      id: 'var_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      collectionId: collectionId ?? '',
+      resolvedType: resolvedType,
+    );
+    _variables.add(variable);
+    return variable;
+  }
+
+  /// Create a variable collection
+  PluginVariableCollectionProxy createVariableCollection(String name) {
+    final collection = PluginVariableCollectionProxy(
+      id: 'coll_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+    );
+    _collections.add(collection);
+    return collection;
+  }
+
+  /// Get local variables
+  List<PluginVariableProxy> getLocalVariables() => List.unmodifiable(_variables);
+
+  /// Get local variable collections
+  List<PluginVariableCollectionProxy> getLocalVariableCollections() => List.unmodifiable(_collections);
+
+  /// Get variable by ID async
+  Future<PluginVariableProxy?> getVariableByIdAsync(String id) async {
+    for (final v in _variables) {
+      if (v.id == id) return v;
+    }
+    return null;
+  }
+
+  /// Get variable collection by ID async
+  Future<PluginVariableCollectionProxy?> getVariableCollectionByIdAsync(String id) async {
+    for (final c in _collections) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  /// Import variable by key (PRD 4.16.6.1)
+  Future<PluginVariableProxy?> importVariableByKeyAsync(String key) async {
+    // Would import from team library
+    return null;
+  }
+}
+
+/// Util API helpers (PRD 4.16.1.6)
+class PluginUtilAPI {
+  /// Create solid paint
+  Map<String, dynamic> solidPaint(String hex, {double opacity = 1}) {
+    return {
+      'type': 'SOLID',
+      'color': _hexToRgb(hex),
+      'opacity': opacity,
+    };
+  }
+
+  /// Create gradient paint
+  Map<String, dynamic> gradientPaint(
+    String type,
+    List<Map<String, dynamic>> gradientStops, {
+    List<List<num>>? gradientTransform,
+  }) {
+    return {
+      'type': type,
+      'gradientStops': gradientStops,
+      if (gradientTransform != null) 'gradientTransform': gradientTransform,
+    };
+  }
+
+  /// RGB helper
+  Map<String, double> rgb(double r, double g, double b) {
+    return {'r': r, 'g': g, 'b': b};
+  }
+
+  /// RGBA helper
+  Map<String, double> rgba(double r, double g, double b, double a) {
+    return {'r': r, 'g': g, 'b': b, 'a': a};
+  }
+
+  Map<String, double> _hexToRgb(String hex) {
+    hex = hex.replaceFirst('#', '');
+    if (hex.length == 6) {
+      final r = int.parse(hex.substring(0, 2), radix: 16) / 255;
+      final g = int.parse(hex.substring(2, 4), radix: 16) / 255;
+      final b = int.parse(hex.substring(4, 6), radix: 16) / 255;
+      return {'r': r, 'g': g, 'b': b};
+    }
+    return {'r': 0, 'g': 0, 'b': 0};
+  }
+}
+
+/// Constants API (PRD 4.16.1.6)
+class PluginConstantsAPI {
+  /// Mixed symbol for properties with multiple values
+  static const mixed = _MixedSymbol();
+
+  /// Node types
+  static const nodeTypes = <String>[
+    'DOCUMENT', 'CANVAS', 'PAGE', 'SLICE', 'FRAME', 'GROUP', 'COMPONENT',
+    'COMPONENT_SET', 'VECTOR', 'BOOLEAN_OPERATION', 'STAR', 'LINE', 'ELLIPSE',
+    'POLYGON', 'RECTANGLE', 'TEXT', 'STICKY', 'CONNECTOR', 'SHAPE_WITH_TEXT',
+    'CODE_BLOCK', 'SECTION', 'TABLE', 'TABLE_CELL', 'EMBED', 'LINK_UNFURL',
+    'MEDIA', 'INSTANCE', 'WIDGET', 'SLIDE', 'SLIDE_ROW',
+  ];
+
+  /// Blend modes
+  static const blendModes = <String>[
+    'PASS_THROUGH', 'NORMAL', 'DARKEN', 'MULTIPLY', 'LINEAR_BURN', 'COLOR_BURN',
+    'LIGHTEN', 'SCREEN', 'LINEAR_DODGE', 'COLOR_DODGE', 'OVERLAY', 'SOFT_LIGHT',
+    'HARD_LIGHT', 'DIFFERENCE', 'EXCLUSION', 'HUE', 'SATURATION', 'COLOR', 'LUMINOSITY',
+  ];
+
+  /// Effect types
+  static const effectTypes = <String>[
+    'DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR', 'BACKGROUND_BLUR',
+  ];
+
+  /// Constraint types
+  static const constraintTypes = <String>[
+    'MIN', 'CENTER', 'MAX', 'STRETCH', 'SCALE',
+  ];
+}
+
 /// Notification handler
 class NotificationHandler {
   final VoidCallback cancel;
@@ -2195,11 +2524,59 @@ class PluginPermissionError implements Exception {
 class PluginNetworkError implements Exception {
   final String message;
   final String? url;
+  final NetworkDenyReason? reason;
 
-  PluginNetworkError(this.message, {this.url});
+  PluginNetworkError(this.message, {this.url, this.reason});
 
   @override
-  String toString() => 'PluginNetworkError: $message${url != null ? " (url: $url)" : ""}';
+  String toString() {
+    final parts = <String>['PluginNetworkError: $message'];
+    if (url != null) parts.add('url: $url');
+    if (reason != null) parts.add('reason: ${reason!.name}');
+    return parts.join(' | ');
+  }
+}
+
+/// Response from a plugin fetch request
+class PluginFetchResponse {
+  /// HTTP status code
+  final int status;
+
+  /// Whether the request was successful (status 200-299)
+  final bool ok;
+
+  /// Response headers
+  final Map<String, String> headers;
+
+  /// Response body as string
+  final String body;
+
+  const PluginFetchResponse({
+    required this.status,
+    required this.ok,
+    required this.headers,
+    required this.body,
+  });
+
+  /// Get header value (case-insensitive)
+  String? header(String name) {
+    final lowerName = name.toLowerCase();
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == lowerName) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  /// Parse body as JSON
+  dynamic json() {
+    // In real implementation, would use dart:convert
+    return body;
+  }
+
+  /// Get body as text
+  String text() => body;
 }
 
 /// Type error for invalid operations
