@@ -60,3 +60,6 @@ export 'src/flutter/rendering/stroke_options.dart';
 
 // Prototyping (interactions, navigation, player)
 export 'src/flutter/prototyping/prototyping.dart';
+
+// Variables (design tokens, collections, modes, import/export)
+export 'src/flutter/variables/variables.dart';
