@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'node_renderer.dart';
+import 'state/state.dart';
+import 'editing/editing.dart';
 
 // Figma's exact colors
 class FigmaColors {
@@ -247,18 +249,221 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   Widget? _cachedCanvasContent;
   int? _cachedPageIndex;
 
+  // State management
+  late DocumentState _documentState;
+  final FocusNode _canvasFocusNode = FocusNode();
+
+  // Current tool
+  String _currentTool = 'select';
+
+  // Snap engine for alignment
+  late SnapEngine _snapEngine;
+
   @override
   void initState() {
     super.initState();
     _currentPageIndex = widget.initialPageIndex;
     _transformController = TransformationController();
+    _documentState = DocumentState();
+    _initializeDocumentState();
+    _snapEngine = SnapEngine(
+      config: const SnapConfig(
+        gridSize: 8.0,
+        threshold: 8.0,
+        snapToGrid: true,
+        snapToObjects: true,
+      ),
+    );
+  }
+
+  void _initializeDocumentState() {
+    // Load document into state
+    final pages = widget.document.pages;
+    final rootNodeIds = pages.map((p) => p['_guidKey']?.toString() ?? '').toList();
+    _documentState.loadDocument(
+      nodeMap: widget.document.nodeMap,
+      rootNodeIds: rootNodeIds,
+      documentName: widget.document.documentNode?['name'] as String?,
+    );
   }
 
   @override
   void dispose() {
     _transformController.dispose();
     _scaleNotifier.dispose();
+    _canvasFocusNode.dispose();
     super.dispose();
+  }
+
+  /// Handle keyboard shortcut actions
+  void _handleShortcut(ShortcutAction action) {
+    switch (action) {
+      case ShortcutAction.undo:
+        if (_documentState.canUndo) {
+          _documentState.undo();
+          _invalidateCache();
+        }
+        break;
+      case ShortcutAction.redo:
+        if (_documentState.canRedo) {
+          _documentState.redo();
+          _invalidateCache();
+        }
+        break;
+      case ShortcutAction.copy:
+        _documentState.copySelection();
+        break;
+      case ShortcutAction.cut:
+        _documentState.cutSelection();
+        _invalidateCache();
+        break;
+      case ShortcutAction.paste:
+        _documentState.paste();
+        _invalidateCache();
+        break;
+      case ShortcutAction.duplicate:
+        _duplicateSelection();
+        break;
+      case ShortcutAction.delete:
+        _deleteSelection();
+        break;
+      case ShortcutAction.selectAll:
+        _selectAll();
+        break;
+      case ShortcutAction.deselect:
+      case ShortcutAction.cancel:
+        _documentState.selection.deselectAll();
+        DebugOverlayController.instance.clearSelection();
+        setState(() {});
+        break;
+      case ShortcutAction.nudgeUp:
+      case ShortcutAction.nudgeDown:
+      case ShortcutAction.nudgeLeft:
+      case ShortcutAction.nudgeRight:
+      case ShortcutAction.nudgeUpLarge:
+      case ShortcutAction.nudgeDownLarge:
+      case ShortcutAction.nudgeLeftLarge:
+      case ShortcutAction.nudgeRightLarge:
+        _nudgeSelection(action.nudgeOffset!);
+        break;
+      case ShortcutAction.zoomIn:
+        _setScale(_scale * 1.25, Offset(
+          MediaQuery.of(context).size.width / 2,
+          MediaQuery.of(context).size.height / 2,
+        ));
+        break;
+      case ShortcutAction.zoomOut:
+        _setScale(_scale / 1.25, Offset(
+          MediaQuery.of(context).size.width / 2,
+          MediaQuery.of(context).size.height / 2,
+        ));
+        break;
+      case ShortcutAction.zoomToFit:
+        _zoomToFit();
+        break;
+      case ShortcutAction.zoomTo100:
+        _setScale(1.0, Offset(
+          MediaQuery.of(context).size.width / 2,
+          MediaQuery.of(context).size.height / 2,
+        ));
+        break;
+      case ShortcutAction.group:
+        _groupSelection();
+        break;
+      case ShortcutAction.ungroup:
+        _ungroupSelection();
+        break;
+      case ShortcutAction.save:
+        // TODO: Implement save
+        break;
+      default:
+        // Other actions not yet implemented
+        break;
+    }
+  }
+
+  /// Handle tool selection shortcuts
+  void _handleToolSelected(String tool) {
+    setState(() {
+      _currentTool = tool;
+    });
+  }
+
+  void _invalidateCache() {
+    _cachedCanvasContent = null;
+    setState(() {});
+  }
+
+  void _duplicateSelection() {
+    final selectedNode = DebugOverlayController.instance.selectedNode;
+    if (selectedNode == null) return;
+
+    // Copy and paste with offset
+    _documentState.copySelection();
+    _documentState.paste();
+    _invalidateCache();
+  }
+
+  void _deleteSelection() {
+    final selectedNode = DebugOverlayController.instance.selectedNode;
+    if (selectedNode == null) return;
+
+    final nodeId = selectedNode['_guidKey']?.toString();
+    if (nodeId == null) return;
+
+    // Delete using DocumentState
+    _documentState.deleteNodes({nodeId});
+    DebugOverlayController.instance.clearSelection();
+    _invalidateCache();
+  }
+
+  void _selectAll() {
+    final page = _currentPage;
+    if (page == null) return;
+
+    final children = page['children'] as List? ?? [];
+    final childIds = children.map((c) => c.toString()).toList();
+    _documentState.selection.selectMultiple(childIds);
+    setState(() {});
+  }
+
+  void _nudgeSelection(Offset offset) {
+    final selectedNode = DebugOverlayController.instance.selectedNode;
+    if (selectedNode == null) return;
+
+    final nodeId = selectedNode['_guidKey']?.toString();
+    if (nodeId == null) return;
+
+    final props = FigmaNodeProperties.fromMap(selectedNode);
+    final newX = props.x + offset.dx;
+    final newY = props.y + offset.dy;
+
+    // Move using DocumentState
+    _documentState.moveNodes({nodeId}, offset);
+
+    // Update the controller for immediate feedback
+    DebugOverlayController.instance.updateNodePosition(selectedNode, newX, newY);
+    _invalidateCache();
+  }
+
+  void _groupSelection() {
+    if (!_documentState.selection.hasSelection) return;
+    if (_documentState.selection.count < 2) return;
+
+    // TODO: Implement proper grouping with command pattern
+    // For now, just show that the action was triggered
+    _invalidateCache();
+  }
+
+  void _ungroupSelection() {
+    final selectedNode = DebugOverlayController.instance.selectedNode;
+    if (selectedNode == null) return;
+
+    final type = selectedNode['type'] as String?;
+    if (type != 'GROUP' && type != 'FRAME') return;
+
+    // TODO: Implement proper ungrouping with command pattern
+    _invalidateCache();
   }
 
   Map<String, dynamic>? get _currentPage {
@@ -346,21 +551,28 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: FigmaColors.bg1,
-      body: Column(
-        children: [
-          _buildToolbar(),
-          Expanded(
-            child: Row(
-              children: [
-                if (_showLeftPanel) _buildLeftPanel(),
-                Expanded(child: _buildCanvas()),
-                if (_showRightPanel) _buildRightPanel(),
-              ],
-            ),
+    return KeyboardShortcuts(
+      onShortcut: _handleShortcut,
+      focusNode: _canvasFocusNode,
+      child: ToolShortcuts(
+        onToolSelected: _handleToolSelected,
+        child: Scaffold(
+          backgroundColor: FigmaColors.bg1,
+          body: Column(
+            children: [
+              _buildToolbar(),
+              Expanded(
+                child: Row(
+                  children: [
+                    if (_showLeftPanel) _buildLeftPanel(),
+                    Expanded(child: _buildCanvas()),
+                    if (_showRightPanel) _buildRightPanel(),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -379,20 +591,49 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
           _ToolbarButton(icon: Icons.menu, onTap: () {}),
           Container(width: 1, height: 24, color: FigmaColors.border),
 
-          // Move tool
-          _ToolbarButton(icon: Icons.near_me_outlined, onTap: () {}, selected: true),
-          _ToolbarButton(icon: Icons.crop_free, onTap: () {}),
+          // Move tool (V)
+          _ToolbarButton(
+            icon: Icons.near_me_outlined,
+            onTap: () => _handleToolSelected('select'),
+            selected: _currentTool == 'select',
+          ),
+          // Frame tool (F)
+          _ToolbarButton(
+            icon: Icons.crop_free,
+            onTap: () => _handleToolSelected('frame'),
+            selected: _currentTool == 'frame',
+          ),
           Container(width: 1, height: 24, color: FigmaColors.border),
 
           // Shape tools
-          _ToolbarButton(icon: Icons.rectangle_outlined, onTap: () {}),
-          _ToolbarButton(icon: Icons.create_outlined, onTap: () {}),
-          _ToolbarButton(icon: Icons.text_fields, onTap: () {}),
+          _ToolbarButton(
+            icon: Icons.rectangle_outlined,
+            onTap: () => _handleToolSelected('rectangle'),
+            selected: _currentTool == 'rectangle',
+          ),
+          _ToolbarButton(
+            icon: Icons.create_outlined,
+            onTap: () => _handleToolSelected('pen'),
+            selected: _currentTool == 'pen',
+          ),
+          _ToolbarButton(
+            icon: Icons.text_fields,
+            onTap: () => _handleToolSelected('text'),
+            selected: _currentTool == 'text',
+          ),
           Container(width: 1, height: 24, color: FigmaColors.border),
 
-          // Hand tool
-          _ToolbarButton(icon: Icons.pan_tool_outlined, onTap: () {}),
-          _ToolbarButton(icon: Icons.chat_bubble_outline, onTap: () {}),
+          // Hand tool (H)
+          _ToolbarButton(
+            icon: Icons.pan_tool_outlined,
+            onTap: () => _handleToolSelected('hand'),
+            selected: _currentTool == 'hand' || _currentTool == 'hand_temp',
+          ),
+          _ToolbarButton(
+            icon: Icons.chat_bubble_outline,
+            onTap: () => _handleToolSelected('comment'),
+            selected: _currentTool == 'comment',
+          ),
 
           const Spacer(),
 

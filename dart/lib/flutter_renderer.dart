@@ -25,3 +25,14 @@ library flutter_renderer;
 
 export 'src/flutter/node_renderer.dart';
 export 'src/flutter/figma_canvas.dart';
+
+// Rendering utilities
+export 'src/flutter/rendering/paint_renderer.dart';
+export 'src/flutter/rendering/effect_renderer.dart';
+export 'src/flutter/rendering/blend_modes.dart';
+
+// State management
+export 'src/flutter/state/state.dart';
+
+// Editing tools
+export 'src/flutter/editing/editing.dart';

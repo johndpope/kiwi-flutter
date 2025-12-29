@@ -7,6 +7,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 
+import 'rendering/paint_renderer.dart';
+import 'rendering/effect_renderer.dart';
+import 'rendering/blend_modes.dart';
+
 /// Base class for node properties extracted from Figma node data
 class FigmaNodeProperties {
   final String? id;
@@ -329,8 +333,13 @@ class FigmaNodeWidget extends StatelessWidget {
       case 'LINE':
       case 'STAR':
       case 'POLYGON':
+      case 'REGULAR_POLYGON':
       case 'BOOLEAN_OPERATION':
         child = FigmaVectorWidget(props: props);
+        break;
+      case 'SLICE':
+        // SLICE nodes are export areas - render as invisible with debug outline
+        child = FigmaSliceWidget(props: props, scale: scale);
         break;
       case 'CANVAS':
         // Canvas is a page - render its children (no instanceOverrides at page level)
@@ -340,9 +349,70 @@ class FigmaNodeWidget extends StatelessWidget {
         // Document is the root - skip rendering
         child = const SizedBox.shrink();
         break;
+
+      // FigJam node types - render as basic shapes with content
+      case 'STICKY':
+        child = FigmaStickyWidget(props: props, scale: scale);
+        break;
+      case 'SHAPE_WITH_TEXT':
+        child = FigmaShapeWithTextWidget(props: props, nodeMap: nodeMap, scale: scale);
+        break;
+      case 'CONNECTOR':
+        child = FigmaConnectorWidget(props: props, nodeMap: nodeMap, scale: scale);
+        break;
+      case 'STAMP':
+      case 'HIGHLIGHT':
+      case 'WASHI_TAPE':
+        // FigJam decorative elements - render as vectors or placeholders
+        child = FigmaVectorWidget(props: props);
+        break;
+
+      // Advanced node types - render as frames or placeholders
+      case 'TABLE':
+        child = FigmaTableWidget(props: props, nodeMap: nodeMap, scale: scale);
+        break;
+      case 'TABLE_CELL':
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        break;
+      case 'SECTION_OVERLAY':
+      case 'SLIDE':
+      case 'SLIDE_ROW':
+        // Presentation elements - treat as frames
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        break;
+
+      // Media and embedded content
+      case 'MEDIA':
+      case 'LOTTIE':
+      case 'EMBED':
+      case 'LINK_UNFURL':
+        child = FigmaMediaWidget(props: props, scale: scale);
+        break;
+
+      // Special types
+      case 'CODE_BLOCK':
+        child = FigmaCodeBlockWidget(props: props, scale: scale);
+        break;
+      case 'WIDGET':
+        // Interactive widget - render as frame
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        break;
+      case 'VARIABLE':
+        // Variable definition - typically invisible
+        child = const SizedBox.shrink();
+        break;
+      case 'AI_FILE':
+      case 'DIAGRAMMING_ELEMENT':
+      case 'DIAGRAMMING_CONNECTION':
+        // Newer node types - render as frames or vectors
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        break;
+
       default:
         // Fallback for unknown types - log what we're missing
-        print('DEBUG UNKNOWN TYPE: ${props.type} "${props.name}"');
+        if (figmaRendererDebug) {
+          print('DEBUG UNKNOWN TYPE: ${props.type} "${props.name}"');
+        }
         child = FigmaPlaceholderWidget(props: props);
     }
 
@@ -554,6 +624,48 @@ class FigmaFrameWidget extends StatelessWidget {
       );
     }
 
+    // Apply blur effects
+    if (props.effects.isNotEmpty) {
+      // Apply background blur if present
+      final bgBlurRadius = EffectRenderer.getBackgroundBlurRadius(props.effects);
+      if (bgBlurRadius != null && bgBlurRadius > 0) {
+        content = BackgroundBlurWidget(
+          blurRadius: bgBlurRadius * scale,
+          borderRadius: props.borderRadius,
+          child: content,
+        );
+      }
+
+      // Apply layer blur if present
+      final layerBlurRadius = EffectRenderer.getBlurRadius(props.effects);
+      if (layerBlurRadius != null && layerBlurRadius > 0 && bgBlurRadius == null) {
+        content = ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(
+            sigmaX: layerBlurRadius * scale,
+            sigmaY: layerBlurRadius * scale,
+          ),
+          child: content,
+        );
+      }
+
+      // Apply inner shadows if present
+      if (EffectRenderer.hasInnerShadow(props.effects)) {
+        content = EffectRenderer.applyEffects(
+          content,
+          props.effects,
+          size: Size(props.width * scale, props.height * scale),
+          borderRadius: props.borderRadius,
+        );
+      }
+    }
+
+    // Apply blend mode if not normal
+    final blendMode = getBlendModeFromData(props.raw);
+    if (blendMode != BlendMode.srcOver) {
+      // Note: Full blend mode support would require saveLayer
+      // For now, we just track it for future enhancement
+    }
+
     // Wrap large frames in RepaintBoundary for better pan/zoom performance
     if (props.width > 200 && props.height > 200) {
       return RepaintBoundary(child: content);
@@ -565,23 +677,24 @@ class FigmaFrameWidget extends StatelessWidget {
   BoxDecoration _buildDecoration() {
     Color? backgroundColor;
     Gradient? gradient;
+    final size = Size(props.width * scale, props.height * scale);
 
     for (final fill in props.fills) {
       if (fill['visible'] == false) continue;
 
-      final fillType = fill['type'];
+      final fillType = fill['type']?.toString();
       if (fillType == 'SOLID') {
         final color = fill['color'];
+        final opacity = (fill['opacity'] as num?)?.toDouble() ?? 1.0;
         if (color is Map) {
-          backgroundColor = Color.fromRGBO(
-            ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            (color['a'] as num?)?.toDouble() ?? 1.0,
+          backgroundColor = PaintRenderer.buildColor(
+            color.cast<String, dynamic>(),
+            opacity,
           );
         }
-      } else if (fillType == 'GRADIENT_LINEAR' || fillType == 'GRADIENT_RADIAL') {
-        gradient = _buildGradient(fill);
+      } else if (fillType?.startsWith('GRADIENT_') == true) {
+        // Use new PaintRenderer for all gradient types
+        gradient = PaintRenderer.buildGradient(fill, size);
       }
     }
 
@@ -591,84 +704,39 @@ class FigmaFrameWidget extends StatelessWidget {
       final stroke = props.strokes.first;
       if (stroke['visible'] != false) {
         final color = stroke['color'];
+        final opacity = (stroke['opacity'] as num?)?.toDouble() ?? 1.0;
         if (color is Map) {
-          border = Border.all(
-            color: Color.fromRGBO(
-              ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-              ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-              ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-              (color['a'] as num?)?.toDouble() ?? 1.0,
-            ),
-            width: props.strokeWeight * scale,
+          final strokeColor = PaintRenderer.buildColor(
+            color.cast<String, dynamic>(),
+            opacity,
           );
+          if (strokeColor != null) {
+            border = Border.all(
+              color: strokeColor,
+              width: props.strokeWeight * scale,
+            );
+          }
         }
       }
     }
 
-    // Build shadow from effects
-    List<BoxShadow>? shadows;
-    for (final effect in props.effects) {
-      if (effect['visible'] == false) continue;
-      final effectType = effect['type'];
-      if (effectType == 'DROP_SHADOW' || effectType == 'INNER_SHADOW') {
-        final color = effect['color'];
-        if (color is Map) {
-          shadows ??= [];
-          shadows.add(BoxShadow(
-            color: Color.fromRGBO(
-              ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-              ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-              ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-              (color['a'] as num?)?.toDouble() ?? 0.25,
-            ),
-            blurRadius: ((effect['radius'] as num?)?.toDouble() ?? 0) * scale,
-            offset: Offset(
-              ((effect['offset']?['x'] as num?)?.toDouble() ?? 0) * scale,
-              ((effect['offset']?['y'] as num?)?.toDouble() ?? 0) * scale,
-            ),
-          ));
-        }
-      }
-    }
+    // Build shadows from effects using EffectRenderer
+    final shadows = EffectRenderer.buildBoxShadows(props.effects);
+    // Scale shadow values
+    final scaledShadows = shadows.map((shadow) => BoxShadow(
+      color: shadow.color,
+      offset: shadow.offset * scale,
+      blurRadius: shadow.blurRadius * scale,
+      spreadRadius: shadow.spreadRadius * scale,
+    )).toList();
 
     return BoxDecoration(
       color: gradient == null ? backgroundColor : null,
       gradient: gradient,
       border: border,
       borderRadius: props.borderRadius,
-      boxShadow: shadows,
+      boxShadow: scaledShadows.isEmpty ? null : scaledShadows,
     );
-  }
-
-  Gradient? _buildGradient(Map<String, dynamic> fill) {
-    final stops = fill['gradientStops'] as List?;
-    if (stops == null || stops.isEmpty) return null;
-
-    final colors = <Color>[];
-    final stopPositions = <double>[];
-
-    for (final stop in stops) {
-      final color = stop['color'];
-      if (color is Map) {
-        colors.add(Color.fromRGBO(
-          ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-          ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-          ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-          (color['a'] as num?)?.toDouble() ?? 1.0,
-        ));
-        stopPositions.add((stop['position'] as num?)?.toDouble() ?? 0);
-      }
-    }
-
-    if (colors.length < 2) return null;
-
-    final fillType = fill['type'];
-    if (fillType == 'GRADIENT_LINEAR') {
-      return LinearGradient(colors: colors, stops: stopPositions);
-    } else if (fillType == 'GRADIENT_RADIAL') {
-      return RadialGradient(colors: colors, stops: stopPositions);
-    }
-    return null;
   }
 
   List<Widget> _buildChildren() {
@@ -1773,6 +1841,389 @@ class FigmaCanvasWidget extends StatelessWidget {
     }
     return children;
   }
+}
+
+// =============================================================================
+// FigJam and Extended Node Types
+// =============================================================================
+
+/// Sticky note widget (FigJam)
+class FigmaStickyWidget extends StatelessWidget {
+  final FigmaNodeProperties props;
+  final double scale;
+
+  const FigmaStickyWidget({
+    super.key,
+    required this.props,
+    this.scale = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Extract text content
+    final textData = props.raw['textData'] as Map<String, dynamic>?;
+    final characters = textData?['characters'] as String? ?? '';
+
+    // Extract background color
+    Color backgroundColor = const Color(0xFFFFF9C4); // Default yellow
+    if (props.fills.isNotEmpty) {
+      final fill = props.fills.first;
+      if (fill['type'] == 'SOLID') {
+        final color = fill['color'];
+        if (color is Map) {
+          backgroundColor = PaintRenderer.buildColor(color.cast<String, dynamic>()) ?? backgroundColor;
+        }
+      }
+    }
+
+    return Container(
+      width: props.width * scale,
+      height: props.height * scale,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(3 * scale),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 8 * scale,
+            offset: Offset(0, 2 * scale),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(12 * scale),
+      child: Text(
+        characters,
+        style: TextStyle(
+          fontSize: 14 * scale,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+}
+
+/// Shape with text widget (FigJam)
+class FigmaShapeWithTextWidget extends StatelessWidget {
+  final FigmaNodeProperties props;
+  final Map<String, Map<String, dynamic>>? nodeMap;
+  final double scale;
+
+  const FigmaShapeWithTextWidget({
+    super.key,
+    required this.props,
+    this.nodeMap,
+    this.scale = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Extract text content
+    final textData = props.raw['textData'] as Map<String, dynamic>?;
+    final characters = textData?['characters'] as String? ?? '';
+
+    // Get fill color
+    Color fillColor = Colors.white;
+    if (props.fills.isNotEmpty) {
+      final fill = props.fills.first;
+      if (fill['type'] == 'SOLID') {
+        final color = fill['color'];
+        if (color is Map) {
+          fillColor = PaintRenderer.buildColor(color.cast<String, dynamic>()) ?? fillColor;
+        }
+      }
+    }
+
+    // Get stroke
+    Color strokeColor = Colors.black;
+    if (props.strokes.isNotEmpty) {
+      final stroke = props.strokes.first;
+      if (stroke['type'] == 'SOLID') {
+        final color = stroke['color'];
+        if (color is Map) {
+          strokeColor = PaintRenderer.buildColor(color.cast<String, dynamic>()) ?? strokeColor;
+        }
+      }
+    }
+
+    return Container(
+      width: props.width * scale,
+      height: props.height * scale,
+      decoration: BoxDecoration(
+        color: fillColor,
+        border: props.strokeWeight > 0 ? Border.all(
+          color: strokeColor,
+          width: props.strokeWeight * scale,
+        ) : null,
+        borderRadius: props.borderRadius,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        characters,
+        style: TextStyle(
+          fontSize: 14 * scale,
+          color: Colors.black87,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+/// Connector line widget (FigJam)
+class FigmaConnectorWidget extends StatelessWidget {
+  final FigmaNodeProperties props;
+  final Map<String, Map<String, dynamic>>? nodeMap;
+  final double scale;
+
+  const FigmaConnectorWidget({
+    super.key,
+    required this.props,
+    this.nodeMap,
+    this.scale = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Connectors are typically rendered as lines between nodes
+    // For now, render as a simple line
+    Color strokeColor = Colors.black;
+    if (props.strokes.isNotEmpty) {
+      final stroke = props.strokes.first;
+      if (stroke['type'] == 'SOLID') {
+        final color = stroke['color'];
+        if (color is Map) {
+          strokeColor = PaintRenderer.buildColor(color.cast<String, dynamic>()) ?? strokeColor;
+        }
+      }
+    }
+
+    return SizedBox(
+      width: props.width * scale,
+      height: props.height * scale,
+      child: CustomPaint(
+        painter: _ConnectorPainter(
+          strokeColor: strokeColor,
+          strokeWidth: props.strokeWeight * scale,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnectorPainter extends CustomPainter {
+  final Color strokeColor;
+  final double strokeWidth;
+
+  _ConnectorPainter({
+    required this.strokeColor,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = strokeColor
+      ..strokeWidth = strokeWidth > 0 ? strokeWidth : 1.0
+      ..style = PaintingStyle.stroke;
+
+    // Draw a simple line from start to end
+    canvas.drawLine(
+      Offset.zero,
+      Offset(size.width, size.height),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ConnectorPainter oldDelegate) {
+    return strokeColor != oldDelegate.strokeColor ||
+           strokeWidth != oldDelegate.strokeWidth;
+  }
+}
+
+/// Table widget
+class FigmaTableWidget extends StatelessWidget {
+  final FigmaNodeProperties props;
+  final Map<String, Map<String, dynamic>>? nodeMap;
+  final double scale;
+
+  const FigmaTableWidget({
+    super.key,
+    required this.props,
+    this.nodeMap,
+    this.scale = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Tables are containers with TABLE_CELL children
+    // For now, render as a simple container
+    Color fillColor = Colors.white;
+    if (props.fills.isNotEmpty) {
+      final fill = props.fills.first;
+      if (fill['type'] == 'SOLID') {
+        final color = fill['color'];
+        if (color is Map) {
+          fillColor = PaintRenderer.buildColor(color.cast<String, dynamic>()) ?? fillColor;
+        }
+      }
+    }
+
+    return Container(
+      width: props.width * scale,
+      height: props.height * scale,
+      decoration: BoxDecoration(
+        color: fillColor,
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      // Would need to render children as grid
+    );
+  }
+}
+
+/// Media placeholder widget (video, lottie, embed)
+class FigmaMediaWidget extends StatelessWidget {
+  final FigmaNodeProperties props;
+  final double scale;
+
+  const FigmaMediaWidget({
+    super.key,
+    required this.props,
+    this.scale = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: props.width * scale,
+      height: props.height * scale,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(4 * scale),
+        border: Border.all(color: Colors.grey.shade400),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _getMediaIcon(),
+            size: 32 * scale,
+            color: Colors.grey.shade600,
+          ),
+          SizedBox(height: 8 * scale),
+          Text(
+            props.type,
+            style: TextStyle(
+              fontSize: 10 * scale,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getMediaIcon() {
+    switch (props.type) {
+      case 'MEDIA':
+        return Icons.play_circle_outline;
+      case 'LOTTIE':
+        return Icons.animation;
+      case 'EMBED':
+        return Icons.code;
+      case 'LINK_UNFURL':
+        return Icons.link;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+}
+
+/// Code block widget
+class FigmaCodeBlockWidget extends StatelessWidget {
+  final FigmaNodeProperties props;
+  final double scale;
+
+  const FigmaCodeBlockWidget({
+    super.key,
+    required this.props,
+    this.scale = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Extract code content
+    final textData = props.raw['textData'] as Map<String, dynamic>?;
+    final characters = textData?['characters'] as String? ?? '';
+
+    return Container(
+      width: props.width * scale,
+      height: props.height * scale,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(4 * scale),
+      ),
+      padding: EdgeInsets.all(12 * scale),
+      child: SingleChildScrollView(
+        child: Text(
+          characters,
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12 * scale,
+            color: const Color(0xFFD4D4D4),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Slice node renderer - export areas that are usually invisible
+/// SLICE nodes define export regions in Figma
+class FigmaSliceWidget extends StatelessWidget {
+  final FigmaNodeProperties props;
+  final double scale;
+
+  const FigmaSliceWidget({
+    super.key,
+    required this.props,
+    this.scale = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Slices are typically invisible during normal rendering
+    // but we show a subtle dashed border for debugging
+    return SizedBox(
+      width: props.width * scale,
+      height: props.height * scale,
+      child: CustomPaint(
+        painter: _SliceBorderPainter(),
+      ),
+    );
+  }
+}
+
+class _SliceBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0x40FF6B00) // Orange with low opacity
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    // Draw dashed border
+    const dashWidth = 4.0;
+    const dashSpace = 4.0;
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    // Simple solid border for now (dashed requires more complex path iteration)
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// Placeholder for unknown node types
