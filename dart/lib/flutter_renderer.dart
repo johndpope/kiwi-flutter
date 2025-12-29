@@ -63,3 +63,15 @@ export 'src/flutter/prototyping/prototyping.dart';
 
 // Variables (design tokens, collections, modes, import/export)
 export 'src/flutter/variables/variables.dart';
+
+// Toolbar (design tools, modes, shortcuts)
+export 'src/flutter/toolbar/toolbar_exports.dart';
+
+// Context Menu (right-click actions, submenus)
+export 'src/flutter/context_menu/context_menu_exports.dart';
+
+// Assets Panel (components, colors, materials, typography browser)
+export 'src/flutter/assets_panel/assets_panel_exports.dart';
+
+// Menu Bar (File, Edit, View, Object, Vector, Text, Arrange menus)
+export 'src/flutter/menu_bar/menu_bar_exports.dart';

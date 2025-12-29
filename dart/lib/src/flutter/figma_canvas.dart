@@ -292,6 +292,7 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     _transformController.dispose();
     _scaleNotifier.dispose();
     _canvasFocusNode.dispose();
+    _assetSearchController.dispose();
     super.dispose();
   }
 
@@ -558,18 +559,25 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
         onToolSelected: _handleToolSelected,
         child: Scaffold(
           backgroundColor: FigmaColors.bg1,
-          body: Column(
+          body: Stack(
             children: [
-              _buildToolbar(),
-              Expanded(
-                child: Row(
-                  children: [
-                    if (_showLeftPanel) _buildLeftPanel(),
-                    Expanded(child: _buildCanvas()),
-                    if (_showRightPanel) _buildRightPanel(),
-                  ],
-                ),
+              Column(
+                children: [
+                  _buildToolbar(),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (_showLeftPanel) _buildLeftPanel(),
+                        Expanded(child: _buildCanvas()),
+                        if (_showRightPanel) _buildRightPanel(),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+              // Component detail panel overlay
+              if (_selectedComponentForDetail != null)
+                _buildComponentDetailPanel(),
             ],
           ),
         ),
@@ -637,8 +645,11 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
           const Spacer(),
 
-          // File name / page tabs
-          _buildPageDropdown(),
+          // Center - just show document name (not page selector)
+          Text(
+            widget.document.documentNode?['name'] as String? ?? 'Untitled',
+            style: const TextStyle(color: FigmaColors.text1, fontSize: 13),
+          ),
 
           const Spacer(),
 
@@ -665,48 +676,6 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     );
   }
 
-  Widget _buildPageDropdown() {
-    final page = _currentPage;
-    return PopupMenuButton<int>(
-      offset: const Offset(0, 40),
-      color: FigmaColors.bg2,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              page?['name'] as String? ?? 'Untitled',
-              style: const TextStyle(color: FigmaColors.text1, fontSize: 13),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, color: FigmaColors.text2, size: 16),
-          ],
-        ),
-      ),
-      itemBuilder: (context) => widget.document.pages.asMap().entries.map((entry) {
-        return PopupMenuItem<int>(
-          value: entry.key,
-          child: Row(
-            children: [
-              Icon(
-                entry.key == _currentPageIndex ? Icons.check : null,
-                size: 16,
-                color: FigmaColors.text1,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                entry.value['name'] as String? ?? 'Page ${entry.key + 1}',
-                style: const TextStyle(color: FigmaColors.text1, fontSize: 12),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-      onSelected: _onPageChanged,
-    );
-  }
-
   // ============ LEFT PANEL ============
   Widget _buildLeftPanel() {
     return Container(
@@ -717,7 +686,7 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
       ),
       child: Column(
         children: [
-          // Panel header with tabs
+          // Panel header with tabs - Figma style with File/Assets
           Container(
             height: 40,
             decoration: const BoxDecoration(
@@ -725,8 +694,14 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
             ),
             child: Row(
               children: [
-                _PanelTab(label: 'Layers', selected: _leftPanelTab == 0, onTap: () => setState(() => _leftPanelTab = 0)),
+                _PanelTab(label: 'File', selected: _leftPanelTab == 0, onTap: () => setState(() => _leftPanelTab = 0)),
                 _PanelTab(label: 'Assets', selected: _leftPanelTab == 1, onTap: () => setState(() => _leftPanelTab = 1)),
+                const Spacer(),
+                // Library icon
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Icon(Icons.menu_book_outlined, size: 18, color: FigmaColors.text2),
+                ),
               ],
             ),
           ),
@@ -737,25 +712,98 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     );
   }
 
+  // File tab state
+  bool _pagesExpanded = true;
+  bool _componentsExpanded = true;
+
   Widget _buildLayersContent() {
+    final pages = widget.document.pages;
+    final componentsByCategory = _getComponentsByCategory();
+    final sortedCategories = componentsByCategory.keys.toList()
+      ..sort((a, b) {
+        if (a.startsWith('A.') && !b.startsWith('A.')) return -1;
+        if (!a.startsWith('A.') && b.startsWith('A.')) return 1;
+        return a.compareTo(b);
+      });
+
     return Column(
       children: [
-        // Page header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: FigmaColors.border, width: 1)),
+        // ===== PAGES SECTION =====
+        GestureDetector(
+          onTap: () => setState(() => _pagesExpanded = !_pagesExpanded),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  _pagesExpanded ? Icons.keyboard_arrow_down : Icons.chevron_right,
+                  size: 16,
+                  color: FigmaColors.text2,
+                ),
+                const SizedBox(width: 4),
+                const Text(
+                  'Pages',
+                  style: TextStyle(color: FigmaColors.text1, fontSize: 11, fontWeight: FontWeight.w500),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () {
+                    // TODO: Add new page
+                  },
+                  child: const Icon(Icons.add, size: 16, color: FigmaColors.text2),
+                ),
+              ],
+            ),
           ),
+        ),
+        // Pages list (collapsible)
+        if (_pagesExpanded)
+          ...pages.asMap().entries.map((entry) => _buildFilePageItem(entry.key, entry.value)),
+
+        // ===== COMPONENTS DIVIDER =====
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
-              const Icon(Icons.description_outlined, size: 14, color: FigmaColors.text2),
-              const SizedBox(width: 6),
-              Expanded(
+              Expanded(child: Container(height: 1, color: FigmaColors.border)),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
-                  _currentPage?['name'] as String? ?? 'Page',
-                  style: const TextStyle(color: FigmaColors.text1, fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
+                  'Components',
+                  style: TextStyle(color: FigmaColors.text3, fontSize: 10),
                 ),
+              ),
+              Expanded(child: Container(height: 1, color: FigmaColors.border)),
+            ],
+          ),
+        ),
+
+        // Component categories list (scrollable, limited height)
+        if (sortedCategories.isNotEmpty)
+          Container(
+            constraints: const BoxConstraints(maxHeight: 180),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: sortedCategories.length,
+              itemBuilder: (context, index) {
+                final category = sortedCategories[index];
+                return _buildFileComponentItem(category, componentsByCategory[category] ?? []);
+              },
+            ),
+          ),
+
+        // ===== LAYERS SECTION =====
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: FigmaColors.border, width: 1)),
+          ),
+          child: const Row(
+            children: [
+              Text(
+                'Layers',
+                style: TextStyle(color: FigmaColors.text1, fontSize: 11, fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -766,15 +814,419 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     );
   }
 
-  Widget _buildAssetsContent() {
-    // Extract components from the document
-    final components = <Map<String, dynamic>>[];
-    for (final node in widget.document.nodeMap.values) {
-      final type = node['type'];
-      if (type == 'COMPONENT' || type == 'COMPONENT_SET') {
-        components.add(node);
-      }
+  Widget _buildFilePageItem(int index, Map<String, dynamic> page) {
+    final pageName = page['name'] as String? ?? 'Page ${index + 1}';
+    final isSelected = index == _currentPageIndex;
+
+    return GestureDetector(
+      onTap: () => _onPageChanged(index),
+      child: Container(
+        height: 28,
+        padding: const EdgeInsets.only(left: 32, right: 12),
+        color: isSelected ? FigmaColors.accent.withOpacity(0.3) : Colors.transparent,
+        child: Row(
+          children: [
+            Icon(
+              Icons.insert_drive_file_outlined,
+              size: 14,
+              color: isSelected ? FigmaColors.accent : FigmaColors.text3,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                pageName,
+                style: TextStyle(
+                  color: isSelected ? FigmaColors.text1 : FigmaColors.text2,
+                  fontSize: 11,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileComponentItem(String category, List<Map<String, dynamic>> components) {
+    // Extract category code (A.01, A.02, etc) and name
+    String code = '';
+    String name = category;
+    final match = RegExp(r'^(A\.\d+)\s*(.*)$').firstMatch(category);
+    if (match != null) {
+      code = match.group(1) ?? '';
+      name = match.group(2) ?? category;
     }
+
+    // Get emoji based on category name
+    String emoji = '📁';
+    if (name.toLowerCase().contains('color')) {
+      emoji = '🎨';
+    } else if (name.toLowerCase().contains('material')) {
+      emoji = '🧱';
+    } else if (name.toLowerCase().contains('typography') || name.toLowerCase().contains('text')) {
+      emoji = '📝';
+    } else if (name.toLowerCase().contains('system')) {
+      emoji = '🖥️';
+    } else if (name.toLowerCase().contains('icon')) {
+      emoji = '🔷';
+    } else if (name.toLowerCase().contains('button')) {
+      emoji = '🔘';
+    } else if (name.toLowerCase().contains('menu')) {
+      emoji = '📋';
+    } else if (name.toLowerCase().contains('navigation')) {
+      emoji = '🧭';
+    }
+
+    return GestureDetector(
+      onTap: () {
+        // Open component category in assets panel
+        setState(() {
+          _leftPanelTab = 1; // Switch to Assets tab
+          _selectedAssetCategory = category;
+        });
+      },
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 32,
+              child: Text(
+                code,
+                style: const TextStyle(color: FigmaColors.text3, fontSize: 10),
+              ),
+            ),
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                name.isEmpty ? category : name,
+                style: const TextStyle(color: FigmaColors.text1, fontSize: 11),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Asset panel state
+  String? _selectedAssetCategory;
+  int? _selectedAssetPageIndex; // Selected page in assets panel for drill-down
+  Map<String, dynamic>? _selectedComponentForDetail; // Component shown in detail panel
+  final TextEditingController _assetSearchController = TextEditingController();
+  String _assetSearchQuery = '';
+
+  Widget _buildAssetsContent() {
+    // If a page is selected, show its children
+    if (_selectedAssetPageIndex != null) {
+      return _buildPageChildrenView();
+    }
+
+    // If a component category is selected, show its components
+    if (_selectedAssetCategory != null) {
+      return _buildComponentCategoryView();
+    }
+
+    // Otherwise show the main assets view with Pages and Components sections
+    return _buildAssetsMainView();
+  }
+
+  Widget _buildAssetsMainView() {
+    final allPages = widget.document.pages;
+    final query = _assetSearchQuery.toLowerCase();
+
+    // Filter pages based on search query
+    final filteredPages = query.isEmpty
+        ? allPages.asMap().entries.toList()
+        : allPages.asMap().entries.where((entry) {
+            final pageName = (entry.value['name'] as String? ?? '').toLowerCase();
+            return pageName.contains(query);
+          }).toList();
+
+    // Get filtered component categories
+    final componentsByCategory = _getComponentsByCategory();
+    final filteredCategories = query.isEmpty
+        ? componentsByCategory.keys.toList()
+        : componentsByCategory.keys.where((cat) => cat.toLowerCase().contains(query)).toList();
+
+    // Sort categories
+    filteredCategories.sort((a, b) {
+      if (a.startsWith('A.') && !b.startsWith('A.')) return -1;
+      if (!a.startsWith('A.') && b.startsWith('A.')) return 1;
+      return a.compareTo(b);
+    });
+
+    return Column(
+      children: [
+        // Search bar with real TextField
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: FigmaColors.border, width: 1)),
+          ),
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: FigmaColors.bg1,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: FigmaColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.search, size: 14, color: FigmaColors.text3),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _assetSearchController,
+                    style: const TextStyle(color: FigmaColors.text1, fontSize: 11),
+                    decoration: const InputDecoration(
+                      hintText: 'Search assets (e.g., A.07, Button)',
+                      hintStyle: TextStyle(color: FigmaColors.text3, fontSize: 11),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onChanged: (value) {
+                      setState(() => _assetSearchQuery = value);
+                    },
+                  ),
+                ),
+                if (_assetSearchQuery.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      _assetSearchController.clear();
+                      setState(() => _assetSearchQuery = '');
+                    },
+                    child: const Icon(Icons.close, size: 14, color: FigmaColors.text3),
+                  )
+                else
+                  const Icon(Icons.tune, size: 14, color: FigmaColors.text3),
+              ],
+            ),
+          ),
+        ),
+        // Content
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              // Pages section (only show if matches or no search)
+              if (filteredPages.isNotEmpty) ...[
+                _buildAssetsSectionHeader('Pages', Icons.description_outlined),
+                ...filteredPages.map((entry) => _buildPageAssetItem(entry.key, entry.value)),
+                const SizedBox(height: 8),
+              ],
+              // Components section
+              if (filteredCategories.isNotEmpty) ...[
+                _buildAssetsSectionHeader('Components', Icons.widgets_outlined),
+                ...filteredCategories.take(10).map((category) {
+                  final components = componentsByCategory[category] ?? [];
+                  return _buildComponentCategoryItem(category, components);
+                }),
+              ],
+              // No results message
+              if (filteredPages.isEmpty && filteredCategories.isEmpty && query.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        const Icon(Icons.search_off, size: 32, color: FigmaColors.text3),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No results for "$_assetSearchQuery"',
+                          style: const TextStyle(color: FigmaColors.text3, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        // Footer
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: FigmaColors.border, width: 1)),
+          ),
+          child: Text(
+            query.isEmpty
+                ? '${allPages.length} pages, ${_getComponentCount()} components'
+                : '${filteredPages.length} pages, ${filteredCategories.length} categories',
+            style: const TextStyle(color: FigmaColors.text3, fontSize: 10),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAssetsSectionHeader(String title, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: FigmaColors.text2),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: const TextStyle(
+              color: FigmaColors.text1,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageAssetItem(int index, Map<String, dynamic> page) {
+    final pageName = page['name'] as String? ?? 'Page ${index + 1}';
+    final isCurrentPage = index == _currentPageIndex;
+
+    // Count top-level children for this page
+    final childKeys = page['children'] as List<dynamic>? ?? [];
+    final childCount = childKeys.length;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedAssetPageIndex = index),
+      child: Container(
+        height: 72,
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: FigmaColors.bg1,
+          borderRadius: BorderRadius.circular(8),
+          border: isCurrentPage ? Border.all(color: FigmaColors.accent, width: 1) : null,
+        ),
+        child: Row(
+          children: [
+            // Thumbnail area - shows a mini preview representation
+            Container(
+              width: 64,
+              height: 64,
+              margin: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: _buildPageThumbnail(page),
+            ),
+            // Page info
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        if (isCurrentPage)
+                          Container(
+                            width: 6,
+                            height: 6,
+                            margin: const EdgeInsets.only(right: 4),
+                            decoration: const BoxDecoration(
+                              color: FigmaColors.accent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        Expanded(
+                          child: Text(
+                            pageName.length > 18 ? '${pageName.substring(0, 18)}...' : pageName,
+                            style: const TextStyle(
+                              color: FigmaColors.text1,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$childCount frames',
+                      style: const TextStyle(
+                        color: FigmaColors.text3,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Arrow
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: Icon(Icons.chevron_right, size: 16, color: FigmaColors.text3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPageThumbnail(Map<String, dynamic> page) {
+    // Get children of this page to create a mini preview
+    final childKeys = page['children'] as List<dynamic>? ?? [];
+
+    if (childKeys.isEmpty) {
+      return const Center(
+        child: Icon(Icons.insert_drive_file_outlined, size: 24, color: FigmaColors.text3),
+      );
+    }
+
+    // Show up to 4 rectangles representing frames
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: childKeys.take(4).map((childKey) {
+          final child = widget.document.nodeMap[childKey];
+          final type = child?['type'] as String? ?? '';
+
+          Color frameColor = Colors.grey.shade400;
+          if (type == 'FRAME') {
+            frameColor = Colors.blue.shade300;
+          } else if (type == 'COMPONENT' || type == 'COMPONENT_SET') {
+            frameColor = Colors.purple.shade300;
+          } else if (type == 'SECTION') {
+            frameColor = Colors.green.shade300;
+          }
+
+          return Container(
+            width: 20,
+            height: 16,
+            decoration: BoxDecoration(
+              color: frameColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPageChildrenView() {
+    final pageIndex = _selectedAssetPageIndex!;
+    final page = widget.document.pages[pageIndex];
+    final pageName = page['name'] as String? ?? 'Page ${pageIndex + 1}';
+    final childKeys = page['children'] as List<dynamic>? ?? [];
+
+    // Get actual child nodes
+    final children = childKeys
+        .map((key) => widget.document.nodeMap[key])
+        .whereType<Map<String, dynamic>>()
+        .toList();
 
     return Column(
       children: [
@@ -798,73 +1250,158 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Search in this library',
+                    'Search in page',
                     style: TextStyle(color: FigmaColors.text3, fontSize: 11),
                   ),
                 ),
-                Icon(Icons.tune, size: 14, color: FigmaColors.text3),
               ],
             ),
           ),
         ),
-        // Section header
+        // Breadcrumb navigation
+        GestureDetector(
+          onTap: () => setState(() => _selectedAssetPageIndex = null),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.chevron_left, size: 14, color: FigmaColors.text2),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Pages / $pageName',
+                    style: const TextStyle(color: FigmaColors.text1, fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Children grid
+        Expanded(
+          child: _buildPageChildrenGrid(children),
+        ),
+        // Footer
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.all(8),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: FigmaColors.border, width: 1)),
+          ),
           child: Row(
             children: [
-              const Icon(Icons.chevron_left, size: 14, color: FigmaColors.text2),
-              const SizedBox(width: 4),
-              const Expanded(
-                child: Text(
-                  'Created in this file',
-                  style: TextStyle(color: FigmaColors.text1, fontSize: 11),
+              Text(
+                '${children.length} items',
+                style: const TextStyle(color: FigmaColors.text3, fontSize: 10),
+              ),
+              const Spacer(),
+              // Button to switch to this page
+              GestureDetector(
+                onTap: () {
+                  _onPageChanged(pageIndex);
+                  setState(() => _selectedAssetPageIndex = null);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: FigmaColors.accent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Go to page',
+                    style: TextStyle(color: FigmaColors.text1, fontSize: 10),
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        // Components grid
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 1.0,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
+      ],
+    );
+  }
+
+  Widget _buildPageChildrenGrid(List<Map<String, dynamic>> children) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.85,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: children.length,
+      itemBuilder: (context, index) {
+        final child = children[index];
+        final name = child['name'] as String? ?? 'Element';
+        final type = child['type'] as String? ?? 'FRAME';
+
+        // Icon and color based on type
+        IconData typeIcon = Icons.crop_square;
+        Color iconColor = FigmaColors.text3;
+        Color bgColor = const Color(0xFFF5F5F5);
+
+        switch (type) {
+          case 'FRAME':
+            typeIcon = Icons.crop_square;
+            iconColor = Colors.blue.shade400;
+            break;
+          case 'COMPONENT':
+            typeIcon = Icons.diamond_outlined;
+            iconColor = Colors.purple.shade400;
+            break;
+          case 'COMPONENT_SET':
+            typeIcon = Icons.auto_awesome_mosaic;
+            iconColor = Colors.purple.shade400;
+            break;
+          case 'SECTION':
+            typeIcon = Icons.folder_outlined;
+            iconColor = Colors.green.shade400;
+            break;
+          case 'GROUP':
+            typeIcon = Icons.folder_open;
+            iconColor = Colors.orange.shade400;
+            break;
+        }
+
+        return GestureDetector(
+          onTap: () {
+            DebugOverlayController.instance.selectNode(child);
+            _centerOnNode(child);
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: FigmaColors.bg1,
+              borderRadius: BorderRadius.circular(8),
             ),
-            itemCount: components.length,
-            itemBuilder: (context, index) {
-              final comp = components[index];
-              final name = comp['name'] as String? ?? 'Component';
-              return GestureDetector(
-                onTap: () {
-                  DebugOverlayController.instance.selectNode(comp);
-                  _centerOnNode(comp);
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: FigmaColors.bg3,
-                    borderRadius: BorderRadius.circular(4),
+            child: Column(
+              children: [
+                // Preview area
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                    ),
+                    child: Center(
+                      child: Icon(typeIcon, size: 32, color: iconColor),
+                    ),
                   ),
-                  child: Column(
+                ),
+                // Name area
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
                     children: [
+                      Icon(typeIcon, size: 12, color: iconColor),
+                      const SizedBox(width: 4),
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: FigmaColors.bg1,
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.widgets_outlined, size: 24, color: FigmaColors.text3),
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(6),
                         child: Text(
-                          name,
-                          style: const TextStyle(color: FigmaColors.text2, fontSize: 10),
+                          name.length > 12 ? '${name.substring(0, 12)}...' : name,
+                          style: const TextStyle(
+                            color: FigmaColors.text1,
+                            fontSize: 10,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -872,11 +1409,211 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
                     ],
                   ),
                 ),
-              );
-            },
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  int _getComponentCount() {
+    int count = 0;
+    for (final node in widget.document.nodeMap.values) {
+      final type = node['type'];
+      if (type == 'COMPONENT' || type == 'COMPONENT_SET') {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  Widget _buildComponentCategoryItem(String category, List<Map<String, dynamic>> components) {
+    IconData categoryIcon = Icons.folder_outlined;
+    Color iconColor = FigmaColors.text3;
+
+    if (category.contains('Material')) {
+      categoryIcon = Icons.palette_outlined;
+      iconColor = const Color(0xFFE57373);
+    } else if (category.contains('System') || category.contains('Status')) {
+      categoryIcon = Icons.computer_outlined;
+      iconColor = const Color(0xFF64B5F6);
+    } else if (category.contains('Navigation')) {
+      categoryIcon = Icons.navigation_outlined;
+      iconColor = const Color(0xFF81C784);
+    }
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedAssetCategory = category),
+      child: Container(
+        height: 72,
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: FigmaColors.bg1,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              margin: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: FigmaColors.bg3,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Center(
+                child: Icon(categoryIcon, size: 24, color: iconColor),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      category.length > 20 ? '${category.substring(0, 20)}...' : category,
+                      style: const TextStyle(
+                        color: FigmaColors.text1,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${components.length} items',
+                      style: const TextStyle(
+                        color: FigmaColors.text3,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: Icon(Icons.chevron_right, size: 16, color: FigmaColors.text3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Map<String, List<Map<String, dynamic>>> _getComponentsByCategory() {
+    final componentsByCategory = <String, List<Map<String, dynamic>>>{};
+
+    for (final node in widget.document.nodeMap.values) {
+      final type = node['type'];
+      if (type == 'COMPONENT' || type == 'COMPONENT_SET') {
+        String category = 'Uncategorized';
+
+        final parentIndex = node['parentIndex'];
+        if (parentIndex is Map) {
+          final parentGuid = parentIndex['guid'];
+          if (parentGuid != null) {
+            final parentKey = '${parentGuid['sessionID'] ?? 0}:${parentGuid['localID'] ?? 0}';
+            var parent = widget.document.nodeMap[parentKey];
+
+            while (parent != null) {
+              final parentType = parent['type'];
+              final parentName = parent['name'] as String? ?? '';
+
+              if (parentType == 'SECTION' ||
+                  (parentType == 'FRAME' && parentName.contains('.') && parentName.contains(' '))) {
+                category = parentName;
+                break;
+              }
+
+              final grandParent = parent['parentIndex'];
+              if (grandParent is Map) {
+                final gpGuid = grandParent['guid'];
+                if (gpGuid != null) {
+                  final gpKey = '${gpGuid['sessionID'] ?? 0}:${gpGuid['localID'] ?? 0}';
+                  parent = widget.document.nodeMap[gpKey];
+                } else {
+                  break;
+                }
+              } else {
+                break;
+              }
+            }
+          }
+        }
+
+        componentsByCategory.putIfAbsent(category, () => []);
+        componentsByCategory[category]!.add(node);
+      }
+    }
+
+    return componentsByCategory;
+  }
+
+  Widget _buildComponentCategoryView() {
+    final componentsByCategory = _getComponentsByCategory();
+    final components = componentsByCategory[_selectedAssetCategory] ?? [];
+    final categoryName = _selectedAssetCategory!;
+
+    return Column(
+      children: [
+        // Search bar
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: FigmaColors.border, width: 1)),
+          ),
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: FigmaColors.bg1,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: FigmaColors.border),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.search, size: 14, color: FigmaColors.text3),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Search in category',
+                    style: TextStyle(color: FigmaColors.text3, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        // Footer showing count
+        // Breadcrumb navigation
+        GestureDetector(
+          onTap: () => setState(() => _selectedAssetCategory = null),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.chevron_left, size: 14, color: FigmaColors.text2),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Components / ${categoryName.length > 15 ? '${categoryName.substring(0, 15)}...' : categoryName}',
+                    style: const TextStyle(color: FigmaColors.text1, fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Components grid
+        Expanded(
+          child: _buildComponentsGrid(components),
+        ),
+        // Footer
         Container(
           padding: const EdgeInsets.all(8),
           decoration: const BoxDecoration(
@@ -889,6 +1626,582 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
         ),
       ],
     );
+  }
+
+  Widget _buildComponentsGrid(List<Map<String, dynamic>> components) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.85,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: components.length,
+      itemBuilder: (context, index) {
+        final comp = components[index];
+        final name = comp['name'] as String? ?? 'Component';
+        final type = comp['type'] as String?;
+
+        // Determine icon based on component type/name
+        IconData compIcon = Icons.widgets_outlined;
+        Color iconBg = FigmaColors.bg3;
+
+        if (name.toLowerCase().contains('bar')) {
+          compIcon = Icons.horizontal_rule;
+        } else if (name.toLowerCase().contains('status')) {
+          compIcon = Icons.signal_cellular_alt;
+        } else if (name.toLowerCase().contains('battery')) {
+          compIcon = Icons.battery_full;
+        } else if (name.toLowerCase().contains('wifi')) {
+          compIcon = Icons.wifi;
+        } else if (name.toLowerCase().contains('time') || name.contains(':')) {
+          compIcon = Icons.access_time;
+        }
+
+        // Component type indicator
+        final isVariant = type == 'COMPONENT_SET';
+
+        return GestureDetector(
+          onTap: () {
+            // Show component detail panel
+            setState(() => _selectedComponentForDetail = comp);
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: FigmaColors.bg1,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                // Preview area
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF5F5F5),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                    ),
+                    child: Center(
+                      child: Icon(compIcon, size: 32, color: FigmaColors.text3),
+                    ),
+                  ),
+                ),
+                // Name area
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      // Component type indicator
+                      Icon(
+                        isVariant ? Icons.auto_awesome_mosaic : Icons.diamond_outlined,
+                        size: 12,
+                        color: isVariant ? const Color(0xFF81C784) : const Color(0xFFBA68C8),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          name.length > 12 ? name.substring(0, 12) + '...' : name,
+                          style: const TextStyle(
+                            color: FigmaColors.text1,
+                            fontSize: 10,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ============ COMPONENT DETAIL PANEL ============
+  Widget _buildComponentDetailPanel() {
+    final comp = _selectedComponentForDetail!;
+    final name = comp['name'] as String? ?? 'Component';
+    final type = comp['type'] as String?;
+    final isVariantSet = type == 'COMPONENT_SET';
+
+    // Count variants if this is a component set
+    int variantCount = 0;
+    if (isVariantSet) {
+      final children = comp['children'] as List? ?? [];
+      variantCount = children.length;
+    }
+
+    // Extract component properties from the node
+    final componentProperties = _extractComponentProperties(comp);
+
+    return Positioned(
+      top: 48, // Below toolbar
+      right: 0,
+      bottom: 40, // Above footer
+      width: 360,
+      child: Material(
+        elevation: 16,
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: FigmaColors.bg2,
+            border: Border(
+              left: BorderSide(color: FigmaColors.border, width: 1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(-4, 0),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: FigmaColors.border)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Details',
+                            style: TextStyle(
+                              color: FigmaColors.text1,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.document.documentNode?['name'] as String? ?? 'Document',
+                            style: const TextStyle(
+                              color: FigmaColors.text3,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _selectedComponentForDetail = null),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: FigmaColors.bg3,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(Icons.close, size: 16, color: FigmaColors.text2),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Preview area
+              Container(
+                height: 180,
+                width: double.infinity,
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: _buildComponentPreview(comp),
+                ),
+              ),
+              // Component name and info
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Icon(
+                      isVariantSet ? Icons.auto_awesome_mosaic : Icons.diamond_outlined,
+                      size: 18,
+                      color: isVariantSet ? const Color(0xFF81C784) : const Color(0xFFBA68C8),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              color: FigmaColors.text1,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (isVariantSet)
+                            Text(
+                              'Includes $variantCount variants',
+                              style: const TextStyle(
+                                color: FigmaColors.text3,
+                                fontSize: 11,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Insert instance button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GestureDetector(
+                  onTap: () {
+                    // Insert instance at canvas center
+                    _insertComponentInstance(comp);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: FigmaColors.accent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Insert instance',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Properties section
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    // Properties header
+                    Row(
+                      children: [
+                        const Icon(Icons.tune, size: 14, color: FigmaColors.text2),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Properties',
+                          style: TextStyle(
+                            color: FigmaColors.text1,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () {},
+                          child: const Icon(Icons.refresh, size: 14, color: FigmaColors.text3),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Properties list
+                    ...componentProperties.map((prop) => _buildPropertyRow(prop)),
+                    const SizedBox(height: 16),
+                    // Variable modes section
+                    if (_hasVariableModes(comp)) ...[
+                      const Text(
+                        'Variable modes',
+                        style: TextStyle(
+                          color: FigmaColors.text1,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildVariableModesSection(comp),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComponentPreview(Map<String, dynamic> comp) {
+    final name = comp['name'] as String? ?? '';
+    final type = comp['type'] as String?;
+
+    // Determine icon based on component name
+    IconData icon = Icons.widgets_outlined;
+    Color iconColor = FigmaColors.text3;
+
+    if (name.toLowerCase().contains('button')) {
+      icon = Icons.smart_button;
+      iconColor = Colors.blue;
+    } else if (name.toLowerCase().contains('text')) {
+      icon = Icons.text_fields;
+      iconColor = Colors.blue;
+    } else if (name.toLowerCase().contains('icon')) {
+      icon = Icons.emoji_symbols;
+      iconColor = Colors.purple;
+    } else if (name.toLowerCase().contains('menu')) {
+      icon = Icons.menu;
+      iconColor = Colors.green;
+    } else if (name.toLowerCase().contains('bar')) {
+      icon = Icons.horizontal_rule;
+      iconColor = Colors.orange;
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 48, color: iconColor),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          name.length > 20 ? '${name.substring(0, 20)}...' : name,
+          style: const TextStyle(
+            color: FigmaColors.text3,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Map<String, dynamic>> _extractComponentProperties(Map<String, dynamic> comp) {
+    final properties = <Map<String, dynamic>>[];
+    final name = comp['name'] as String? ?? '';
+
+    // Extract component properties from componentPropertyDefinitions if available
+    final propDefs = comp['componentPropertyDefinitions'] as Map?;
+    if (propDefs != null) {
+      for (final entry in propDefs.entries) {
+        final key = entry.key as String;
+        final def = entry.value as Map?;
+        if (def != null) {
+          final propType = def['type'] as String?;
+          final defaultValue = def['defaultValue'];
+
+          properties.add({
+            'name': _formatPropertyName(key),
+            'type': propType ?? 'TEXT',
+            'value': defaultValue,
+            'options': def['variantOptions'] as List?,
+          });
+        }
+      }
+    }
+
+    // If no properties found, generate some common ones based on component name
+    if (properties.isEmpty) {
+      if (name.toLowerCase().contains('button')) {
+        properties.addAll([
+          {'name': 'Size', 'type': 'VARIANT', 'value': 'Large', 'options': ['Small', 'Medium', 'Large']},
+          {'name': 'Style', 'type': 'VARIANT', 'value': 'Filled', 'options': ['Filled', 'Outlined', 'Ghost']},
+          {'name': 'State', 'type': 'VARIANT', 'value': 'Default', 'options': ['Default', 'Hover', 'Pressed', 'Disabled']},
+          {'name': 'Has Icon', 'type': 'BOOLEAN', 'value': true},
+          {'name': 'Has Text', 'type': 'BOOLEAN', 'value': true},
+          {'name': 'Text', 'type': 'TEXT', 'value': 'Button'},
+        ]);
+      } else if (name.toLowerCase().contains('text')) {
+        properties.addAll([
+          {'name': 'Style', 'type': 'VARIANT', 'value': 'Body', 'options': ['Headline', 'Title', 'Body', 'Caption']},
+          {'name': 'Weight', 'type': 'VARIANT', 'value': 'Regular', 'options': ['Light', 'Regular', 'Medium', 'Bold']},
+          {'name': 'Text', 'type': 'TEXT', 'value': 'Text'},
+        ]);
+      } else {
+        // Generic properties
+        properties.addAll([
+          {'name': 'Visible', 'type': 'BOOLEAN', 'value': true},
+        ]);
+      }
+    }
+
+    return properties;
+  }
+
+  String _formatPropertyName(String key) {
+    // Convert camelCase or snake_case to Title Case
+    return key
+        .replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m[1]} ${m[2]}')
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
+        .join(' ');
+  }
+
+  Widget _buildPropertyRow(Map<String, dynamic> prop) {
+    final name = prop['name'] as String;
+    final type = prop['type'] as String;
+    final value = prop['value'];
+    final options = prop['options'] as List?;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              name,
+              style: const TextStyle(color: FigmaColors.text2, fontSize: 11),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: _buildPropertyControl(type, value, options),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPropertyControl(String type, dynamic value, List? options) {
+    switch (type) {
+      case 'BOOLEAN':
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Container(
+              width: 36,
+              height: 20,
+              decoration: BoxDecoration(
+                color: value == true ? FigmaColors.accent : FigmaColors.bg3,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 150),
+                alignment: value == true ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  margin: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case 'VARIANT':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: FigmaColors.bg3,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (options != null && options.isNotEmpty)
+                const Text('🎨 ', style: TextStyle(fontSize: 10)),
+              Expanded(
+                child: Text(
+                  value?.toString() ?? '',
+                  style: const TextStyle(color: FigmaColors.text1, fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Icon(Icons.keyboard_arrow_down, size: 12, color: FigmaColors.text3),
+            ],
+          ),
+        );
+
+      case 'TEXT':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: FigmaColors.bg3,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            value?.toString() ?? '',
+            style: const TextStyle(color: FigmaColors.text1, fontSize: 11),
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+
+      default:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: FigmaColors.bg3,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            value?.toString() ?? '-',
+            style: const TextStyle(color: FigmaColors.text1, fontSize: 11),
+          ),
+        );
+    }
+  }
+
+  bool _hasVariableModes(Map<String, dynamic> comp) {
+    // Check if component has variable bindings
+    return comp['boundVariables'] != null || comp['explicitVariableModes'] != null;
+  }
+
+  Widget _buildVariableModesSection(Map<String, dynamic> comp) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: FigmaColors.bg1,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        children: [
+          const Text('1. Themes', style: TextStyle(color: FigmaColors.text2, fontSize: 11)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: FigmaColors.bg3,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🌤️ ', style: TextStyle(fontSize: 10)),
+                const Text('Auto (Light)', style: TextStyle(color: FigmaColors.text1, fontSize: 11)),
+                const Icon(Icons.keyboard_arrow_down, size: 12, color: FigmaColors.text3),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _insertComponentInstance(Map<String, dynamic> comp) {
+    // For now, center on the component and close the panel
+    DebugOverlayController.instance.selectNode(comp);
+    _centerOnNode(comp);
+    setState(() => _selectedComponentForDetail = null);
+
+    // TODO: Actually create an instance and add it to the canvas
+    // This would require implementing node creation and document modification
   }
 
   Widget _buildLayerTree() {

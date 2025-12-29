@@ -171,7 +171,7 @@ String imageHashToHex(dynamic imageHash) {
 }
 
 /// Global debug flag for Figma renderer - set to true to enable verbose logging
-bool figmaRendererDebug = false; // Disabled
+bool figmaRendererDebug = false; // Disabled - enable for debugging
 
 /// Tracks which node types have been logged (to reduce log spam)
 Set<String>? _loggedRenderTypes;
@@ -216,12 +216,29 @@ class FigmaNodeWidget extends StatelessWidget {
     Map<String, dynamic> effectiveNode = node;
     if (effectiveOverrides != null && effectiveOverrides.isNotEmpty) {
       effectiveNode = Map<String, dynamic>.from(node);
-      // Merge overrides into the node
+      // Merge overrides into the node (deep merge for textData)
       effectiveOverrides.forEach((key, value) {
         if (value != null) {
-          effectiveNode[key] = value;
+          if (key == 'textData' && value is Map && effectiveNode['textData'] is Map) {
+            // Deep merge textData to preserve existing properties
+            final mergedTextData = Map<String, dynamic>.from(effectiveNode['textData'] as Map);
+            (value as Map).forEach((k, v) {
+              if (v != null) mergedTextData[k] = v;
+            });
+            effectiveNode['textData'] = mergedTextData;
+          } else {
+            effectiveNode[key] = value;
+          }
         }
       });
+
+      // Debug: Log when text override is applied
+      if (figmaRendererDebug && effectiveOverrides.containsKey('textData')) {
+        final td = effectiveNode['textData'];
+        if (td is Map) {
+          print('DEBUG TEXT OVERRIDE APPLIED: "${node['name']}" → characters="${td['characters']}"');
+        }
+      }
     }
 
     final props = FigmaNodeProperties.fromMap(effectiveNode);
@@ -1049,30 +1066,89 @@ class FigmaInstanceWidget extends StatelessWidget {
 
       for (final override in symbolOverrides) {
         if (override is Map) {
+          // Check for text-related overrides (including componentPropAssignments)
+          final hasTextData = override.containsKey('textData');
+          final hasCharacters = override.containsKey('characters');
+          final hasPropAssignments = override.containsKey('componentPropAssignments');
+
+          if (figmaRendererDebug && (hasTextData || hasCharacters)) {
+            print('DEBUG FOUND TEXT OVERRIDE in "${props.name}": textData=$hasTextData, characters=$hasCharacters');
+            if (hasTextData) print('  textData: ${override['textData']}');
+            if (hasCharacters) print('  characters: ${override['characters']}');
+          }
+
+          // Check componentPropAssignments for text properties (Figma's modern way of storing overrides)
+          if (hasPropAssignments) {
+            final propAssignments = override['componentPropAssignments'];
+            if (propAssignments is List && propAssignments.isNotEmpty) {
+              for (final assignment in propAssignments) {
+                if (assignment is Map) {
+                  final defId = assignment['defID'];
+                  final value = assignment['value'];
+                  if (figmaRendererDebug && value != null) {
+                    print('DEBUG PROP ASSIGNMENT in "${props.name}": defID=$defId, value=$value');
+                  }
+                }
+              }
+            }
+          }
+
           final guidPath = override['guidPath'];
+          String? overrideKey;
+
           if (guidPath is Map) {
-            // guidPath is a GUID - convert to key
-            final sessionId = guidPath['sessionID'] ?? 0;
-            final localId = guidPath['localID'] ?? 0;
-            final overrideKey = '$sessionId:$localId';
-            // Store the override properties (excluding guidPath itself)
-            final overrideProps = Map<String, dynamic>.from(override);
-            overrideProps.remove('guidPath');
-            overrideMap[overrideKey] = overrideProps;
+            // guidPath can be in two formats:
+            // 1. Direct GUID: {sessionID: x, localID: y}
+            // 2. Nested: {guids: [{sessionID: x, localID: y}]}
+            if (guidPath.containsKey('guids')) {
+              // Nested format: {guids: [{sessionID: x, localID: y}, ...]}
+              final guids = guidPath['guids'];
+              if (guids is List && guids.isNotEmpty) {
+                // Use the last GUID in the path (the target node)
+                final targetGuid = guids.last;
+                if (targetGuid is Map) {
+                  final sessionId = targetGuid['sessionID'] ?? 0;
+                  final localId = targetGuid['localID'] ?? 0;
+                  overrideKey = '$sessionId:$localId';
+                }
+              }
+            } else if (guidPath.containsKey('sessionID')) {
+              // Direct GUID format: {sessionID: x, localID: y}
+              final sessionId = guidPath['sessionID'] ?? 0;
+              final localId = guidPath['localID'] ?? 0;
+              overrideKey = '$sessionId:$localId';
+            }
           } else if (guidPath is List && guidPath.isNotEmpty) {
             // guidPath is a list of GUIDs - use the last one (target node)
             final targetGuid = guidPath.last;
             if (targetGuid is Map) {
               final sessionId = targetGuid['sessionID'] ?? 0;
               final localId = targetGuid['localID'] ?? 0;
-              final overrideKey = '$sessionId:$localId';
-              final overrideProps = Map<String, dynamic>.from(override);
-              overrideProps.remove('guidPath');
-              overrideMap[overrideKey] = overrideProps;
+              overrideKey = '$sessionId:$localId';
+            }
+          }
+
+          if (overrideKey != null) {
+            // Store the override properties (excluding guidPath itself)
+            final overrideProps = Map<String, dynamic>.from(override);
+            overrideProps.remove('guidPath');
+            overrideMap[overrideKey] = overrideProps;
+
+            // Debug: Log when we find textData overrides
+            if (figmaRendererDebug && overrideProps.containsKey('textData')) {
+              final td = overrideProps['textData'];
+              if (td is Map && td.containsKey('characters')) {
+                print('DEBUG OVERRIDE: key=$overrideKey has textData.characters="${td['characters']}"');
+              }
             }
           }
         }
       }
+    }
+
+    // Debug: Log override map size
+    if (figmaRendererDebug && overrideMap.isNotEmpty) {
+      print('DEBUG OVERRIDE MAP for "${props.name}": ${overrideMap.length} entries, keys=${overrideMap.keys.take(5).toList()}');
     }
 
     // Build child widgets (reversed order for correct z-order)
@@ -1325,8 +1401,23 @@ class FigmaTextWidget extends StatelessWidget {
     String text = '';
     if (textData is Map) {
       text = textData['characters'] as String? ?? '';
+      // Debug: Log text data structure for troubleshooting
+      if (figmaRendererDebug && text.isNotEmpty && text.length < 20) {
+        print('DEBUG TEXT: "${props.name}" textData.characters="$text" codeUnits=${text.codeUnits}');
+        // Check for other text-related fields
+        if (textData['glyphs'] != null) {
+          print('  glyphs: ${textData['glyphs']}');
+        }
+        if (textData['layoutVersion'] != null) {
+          print('  layoutVersion: ${textData['layoutVersion']}');
+        }
+      }
     } else {
       text = nodeData['characters'] as String? ?? props.name ?? '';
+      // Debug: Log when falling back to characters or name
+      if (figmaRendererDebug && text.isNotEmpty && text.length < 20) {
+        print('DEBUG TEXT FALLBACK: "${props.name}" text="$text" (from characters/name)');
+      }
     }
 
     // Extract text style with scaling

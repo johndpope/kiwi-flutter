@@ -508,26 +508,122 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
       );
     }
 
+    // Remove .fig extension for display
+    final displayName = fileName.endsWith('.fig')
+        ? fileName.substring(0, fileName.length - 4)
+        : fileName;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(fileName),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Center(
-              child: Text(
-                '${_document!.nodeCount} nodes',
-                style: const TextStyle(fontSize: 12),
-              ),
+      backgroundColor: const Color(0xFF1E1E1E),
+      body: Column(
+        children: [
+          // Figma-style top tab bar
+          _buildFigmaTabBar(displayName),
+          // Canvas view
+          Expanded(
+            child: FigmaCanvasView(
+              document: _document!,
+              initialPageIndex: DebugConfig.initialPageIndex ?? 0,
+              showPageSelector: true,
+              showDebugInfo: DebugConfig.enabled,
             ),
           ),
         ],
       ),
-      body: FigmaCanvasView(
-        document: _document!,
-        initialPageIndex: DebugConfig.initialPageIndex ?? 0,
-        showPageSelector: true,
-        showDebugInfo: DebugConfig.enabled,
+    );
+  }
+
+  /// Builds Figma-style top tab bar with file name
+  Widget _buildFigmaTabBar(String fileName) {
+    return Container(
+      height: 40,
+      color: const Color(0xFF2C2C2C),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          // Figma icon
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D99FF).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(
+              Icons.diamond_outlined,
+              size: 14,
+              color: Color(0xFF0D99FF),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // File tab
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF383838),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  fileName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Icon(
+                    Icons.close,
+                    size: 14,
+                    color: Color(0xFFB3B3B3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // + button for new tab
+          GestureDetector(
+            onTap: () {
+              // Could open file picker or show recent files
+            },
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(
+                Icons.add,
+                size: 16,
+                color: Color(0xFFB3B3B3),
+              ),
+            ),
+          ),
+          const Spacer(),
+          // Node count badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF383838),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '${_document!.nodeCount} nodes',
+              style: const TextStyle(
+                color: Color(0xFF7A7A7A),
+                fontSize: 10,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
       ),
     );
   }
