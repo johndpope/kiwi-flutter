@@ -52,6 +52,8 @@ class _PluginsPanelState extends State<PluginsPanel> {
   final _manager = PluginManager.instance;
   InstalledPlugin? _selectedPlugin;
   String _searchQuery = '';
+  final List<String> _recentlyUsed = [];
+  bool _showRecentOnly = false;
 
   @override
   void initState() {
@@ -71,6 +73,13 @@ class _PluginsPanelState extends State<PluginsPanel> {
 
   List<InstalledPlugin> get _filteredPlugins {
     var plugins = _manager.plugins;
+
+    // Filter by recent if tab is active
+    if (_showRecentOnly && _recentlyUsed.isNotEmpty) {
+      plugins = plugins.where((p) => _recentlyUsed.contains(p.manifest.id)).toList();
+    }
+
+    // Filter by search query
     if (_searchQuery.isNotEmpty) {
       plugins = plugins.where((p) {
         final query = _searchQuery.toLowerCase();
@@ -82,6 +91,14 @@ class _PluginsPanelState extends State<PluginsPanel> {
     return plugins;
   }
 
+  void _trackRecentUsage(String pluginId) {
+    _recentlyUsed.remove(pluginId);
+    _recentlyUsed.insert(0, pluginId);
+    if (_recentlyUsed.length > 10) {
+      _recentlyUsed.removeLast();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -91,6 +108,7 @@ class _PluginsPanelState extends State<PluginsPanel> {
         children: [
           _buildHeader(),
           _buildSearchBar(),
+          _buildFilterTabs(),
           Expanded(
             child: _filteredPlugins.isEmpty
                 ? _buildEmptyState()
@@ -98,6 +116,43 @@ class _PluginsPanelState extends State<PluginsPanel> {
           ),
           if (_selectedPlugin != null) _buildDetailsPanel(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterTabs() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          _buildFilterTab('All', !_showRecentOnly),
+          const SizedBox(width: 8),
+          _buildFilterTab('Recent', _showRecentOnly),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterTab(String label, bool isActive) {
+    return GestureDetector(
+      onTap: () => setState(() => _showRecentOnly = label == 'Recent'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive ? _Colors.accent.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? _Colors.accent : _Colors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? _Colors.accent : _Colors.text2,
+            fontSize: 11,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
       ),
     );
   }
@@ -204,36 +259,59 @@ class _PluginsPanelState extends State<PluginsPanel> {
   Widget _buildPluginItem(InstalledPlugin plugin) {
     final isSelected = _selectedPlugin?.manifest.id == plugin.manifest.id;
     final isRunning = _manager.isRunning(plugin.manifest.id);
+    final isRecent = _recentlyUsed.contains(plugin.manifest.id);
 
     return GestureDetector(
       onTap: () => setState(() {
         _selectedPlugin = isSelected ? null : plugin;
       }),
+      onDoubleTap: plugin.enabled
+          ? () {
+              _trackRecentUsage(plugin.manifest.id);
+              widget.onRunPlugin?.call(plugin, null);
+            }
+          : null,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isSelected ? _Colors.bg3 : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-          border: isSelected ? Border.all(color: _Colors.accent) : null,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected
+                ? _Colors.accent
+                : isRunning
+                    ? _Colors.success.withOpacity(0.5)
+                    : Colors.transparent,
+          ),
         ),
         child: Row(
           children: [
-            // Plugin icon
+            // Plugin icon with background
             Container(
-              width: 32,
-              height: 32,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: _Colors.bg1,
-                borderRadius: BorderRadius.circular(4),
+                gradient: plugin.enabled
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          _Colors.accent.withOpacity(0.2),
+                          _Colors.accent.withOpacity(0.05),
+                        ],
+                      )
+                    : null,
+                color: plugin.enabled ? null : _Colors.bg1,
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 _getPluginIcon(plugin),
-                size: 18,
+                size: 20,
                 color: plugin.enabled ? _Colors.accent : _Colors.text3,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
 
             // Plugin info
             Expanded(
@@ -248,36 +326,100 @@ class _PluginsPanelState extends State<PluginsPanel> {
                           style: TextStyle(
                             color: plugin.enabled ? _Colors.text1 : _Colors.text3,
                             fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (isRunning)
+                      if (isRunning) ...[
                         Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
                             color: _Colors.success,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _Colors.success.withOpacity(0.5),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      if (isRecent && !_showRecentOnly)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(
+                            Icons.history,
+                            size: 12,
+                            color: _Colors.text3,
                           ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    plugin.manifest.description ?? plugin.manifest.id,
-                    style: const TextStyle(color: _Colors.text3, fontSize: 10),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          plugin.manifest.description ?? plugin.manifest.id,
+                          style: const TextStyle(color: _Colors.text3, fontSize: 10),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Info row: version + API + permissions count
+                  Row(
+                    children: [
+                      _buildInfoChip(
+                        'v${plugin.manifest.version ?? "1.0"}',
+                        _Colors.text3,
+                      ),
+                      const SizedBox(width: 4),
+                      if (plugin.manifest.api != null)
+                        _buildInfoChip(
+                          'API ${plugin.manifest.api}',
+                          _Colors.accent.withOpacity(0.8),
+                        ),
+                      const SizedBox(width: 4),
+                      if (plugin.manifest.permissions?.isNotEmpty ?? false)
+                        _buildInfoChip(
+                          '${plugin.manifest.permissions!.length} perms',
+                          _Colors.warning.withOpacity(0.8),
+                        ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-            // Status and actions
+            // Status badge
             _buildStatusBadge(plugin),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 8,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -462,7 +604,10 @@ class _PluginsPanelState extends State<PluginsPanel> {
                         label: 'Run',
                         color: _Colors.accent,
                         onTap: plugin.enabled
-                            ? () => widget.onRunPlugin?.call(plugin, null)
+                            ? () {
+                                _trackRecentUsage(plugin.manifest.id);
+                                widget.onRunPlugin?.call(plugin, null);
+                              }
                             : null,
                       ),
               ),

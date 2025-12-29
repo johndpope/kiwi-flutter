@@ -540,45 +540,66 @@ void main() {
 
     test('createRectangle creates RECTANGLE node', () {
       final node = api.createRectangle();
-      expect(node.type, 'RECTANGLE');
+      expect(node.type, NodeType.RECTANGLE);
       expect(node.name, 'Rectangle');
     });
 
     test('createFrame creates FRAME node', () {
       final node = api.createFrame();
-      expect(node.type, 'FRAME');
+      expect(node.type, NodeType.FRAME);
       expect(node.name, 'Frame');
     });
 
     test('createText creates TEXT node', () {
       final node = api.createText();
-      expect(node.type, 'TEXT');
+      expect(node.type, NodeType.TEXT);
       expect(node.name, 'Text');
     });
 
     test('createEllipse creates ELLIPSE node', () {
       final node = api.createEllipse();
-      expect(node.type, 'ELLIPSE');
+      expect(node.type, NodeType.ELLIPSE);
       expect(node.name, 'Ellipse');
     });
 
     test('createComponent creates COMPONENT node', () {
       final node = api.createComponent();
-      expect(node.type, 'COMPONENT');
+      expect(node.type, NodeType.COMPONENT);
+    });
+
+    test('createStar creates STAR node', () {
+      final node = api.createStar();
+      expect(node.type, NodeType.STAR);
+      expect(node.name, 'Star');
+    });
+
+    test('createSection creates SECTION node', () {
+      final node = api.createSection();
+      expect(node.type, NodeType.SECTION);
+      expect(node.name, 'Section');
+    });
+
+    test('createTable creates TABLE node with rows/columns', () {
+      final table = api.createTable(rows: 4, columns: 5);
+      expect(table.type, NodeType.TABLE);
+      expect(table.numRows, 4);
+      expect(table.numColumns, 5);
     });
 
     test('boolean operations create correct nodes', () {
-      final union = api.union([], PluginNodeProxy(id: '1', type: 'FRAME', name: 'F'));
-      expect(union.booleanOperation, 'UNION');
+      final parent = PluginNodeProxy(id: '1', type: NodeType.FRAME, name: 'F');
 
-      final subtract = api.subtract([], PluginNodeProxy(id: '1', type: 'FRAME', name: 'F'));
-      expect(subtract.booleanOperation, 'SUBTRACT');
+      final union = api.union([], parent);
+      expect(union.booleanOperation, BooleanOperationType.UNION);
 
-      final intersect = api.intersect([], PluginNodeProxy(id: '1', type: 'FRAME', name: 'F'));
-      expect(intersect.booleanOperation, 'INTERSECT');
+      final subtract = api.subtract([], parent);
+      expect(subtract.booleanOperation, BooleanOperationType.SUBTRACT);
 
-      final exclude = api.exclude([], PluginNodeProxy(id: '1', type: 'FRAME', name: 'F'));
-      expect(exclude.booleanOperation, 'EXCLUDE');
+      final intersect = api.intersect([], parent);
+      expect(intersect.booleanOperation, BooleanOperationType.INTERSECT);
+
+      final exclude = api.exclude([], parent);
+      expect(exclude.booleanOperation, BooleanOperationType.EXCLUDE);
     });
 
     test('mixed symbol is accessible', () {
@@ -594,13 +615,130 @@ void main() {
       final deleted = await api.clientStorage.getAsync('key');
       expect(deleted, isNull);
     });
+
+    test('event handlers register and fire', () {
+      var callCount = 0;
+      api.on('selectionchange', () => callCount++);
+
+      api.triggerSelectionChange();
+      expect(callCount, 1);
+
+      api.triggerSelectionChange();
+      expect(callCount, 2);
+    });
+
+    test('off removes event handlers', () {
+      var callCount = 0;
+      void handler() => callCount++;
+
+      api.on('selectionchange', handler);
+      api.triggerSelectionChange();
+      expect(callCount, 1);
+
+      api.off('selectionchange', handler);
+      api.triggerSelectionChange();
+      expect(callCount, 1); // Still 1, handler removed
+    });
+
+    test('permission checking throws for unauthorized access', () {
+      final manifest = PluginManifest(
+        name: 'Test',
+        id: 'test',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+        // No permissions
+      );
+
+      final restrictedApi = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      expect(
+        () => restrictedApi.currentUser,
+        throwsA(isA<PluginPermissionError>()),
+      );
+    });
+
+    test('permission checking allows authorized access', () {
+      final manifest = PluginManifest(
+        name: 'Test',
+        id: 'test',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+        permissions: ['currentuser'],
+      );
+
+      final authorizedApi = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      // Should not throw
+      expect(() => authorizedApi.currentUser, returnsNormally);
+    });
+
+    test('network access checking works', () {
+      final manifest = PluginManifest(
+        name: 'Test',
+        id: 'test',
+        api: '1.0.0',
+        main: 'code.js',
+        editorType: [PluginEditorType.figma],
+        networkAccess: const NetworkAccess(allowedDomains: ['api.example.com']),
+      );
+
+      final apiWithNetwork = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      expect(apiWithNetwork.isNetworkAccessAllowed('https://api.example.com/v1'), true);
+      expect(apiWithNetwork.isNetworkAccessAllowed('https://other.com/v1'), false);
+    });
+
+    test('createStyles adds to local styles', () {
+      final paintStyle = api.createPaintStyle();
+      expect(api.getLocalPaintStyles(), contains(paintStyle));
+
+      final textStyle = api.createTextStyle();
+      expect(api.getLocalTextStyles(), contains(textStyle));
+
+      final effectStyle = api.createEffectStyle();
+      expect(api.getLocalEffectStyles(), contains(effectStyle));
+
+      final gridStyle = api.createGridStyle();
+      expect(api.getLocalGridStyles(), contains(gridStyle));
+    });
+
+    test('timer setTimeout works', () async {
+      var called = false;
+      api.timer.setTimeout(() => called = true, 10);
+
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(called, true);
+    });
+
+    test('timer clearTimeout cancels', () async {
+      var called = false;
+      final id = api.timer.setTimeout(() => called = true, 50);
+      api.timer.clearTimeout(id);
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      expect(called, false);
+    });
   });
 
   group('PluginNodeProxy', () {
     test('clone creates independent copy', () {
       final original = PluginNodeProxy(
         id: '1',
-        type: 'RECTANGLE',
+        type: NodeType.RECTANGLE,
         name: 'Original',
       );
       original.x = 100;
@@ -620,8 +758,8 @@ void main() {
     });
 
     test('appendChild adds child and sets parent', () {
-      final parent = PluginNodeProxy(id: '1', type: 'FRAME', name: 'Parent');
-      final child = PluginNodeProxy(id: '2', type: 'RECTANGLE', name: 'Child');
+      final parent = PluginNodeProxy(id: '1', type: NodeType.FRAME, name: 'Parent');
+      final child = PluginNodeProxy(id: '2', type: NodeType.RECTANGLE, name: 'Child');
 
       parent.appendChild(child);
 
@@ -630,8 +768,8 @@ void main() {
     });
 
     test('remove removes from parent', () {
-      final parent = PluginNodeProxy(id: '1', type: 'FRAME', name: 'Parent');
-      final child = PluginNodeProxy(id: '2', type: 'RECTANGLE', name: 'Child');
+      final parent = PluginNodeProxy(id: '1', type: NodeType.FRAME, name: 'Parent');
+      final child = PluginNodeProxy(id: '2', type: NodeType.RECTANGLE, name: 'Child');
 
       parent.appendChild(child);
       child.remove();
@@ -641,33 +779,33 @@ void main() {
     });
 
     test('findChild finds nested child', () {
-      final parent = PluginNodeProxy(id: '1', type: 'FRAME', name: 'Parent');
-      final child = PluginNodeProxy(id: '2', type: 'FRAME', name: 'Child');
-      final grandchild = PluginNodeProxy(id: '3', type: 'TEXT', name: 'Target');
+      final parent = PluginNodeProxy(id: '1', type: NodeType.FRAME, name: 'Parent');
+      final child = PluginNodeProxy(id: '2', type: NodeType.FRAME, name: 'Child');
+      final grandchild = PluginNodeProxy(id: '3', type: NodeType.TEXT, name: 'Target');
 
       parent.appendChild(child);
       child.appendChild(grandchild);
 
-      final found = parent.findChild((n) => n.type == 'TEXT');
+      final found = parent.findChild((n) => n.type == NodeType.TEXT);
       expect(found, grandchild);
     });
 
     test('findAll finds all matching nodes', () {
-      final parent = PluginNodeProxy(id: '1', type: 'FRAME', name: 'Parent');
-      final rect1 = PluginNodeProxy(id: '2', type: 'RECTANGLE', name: 'Rect1');
-      final rect2 = PluginNodeProxy(id: '3', type: 'RECTANGLE', name: 'Rect2');
-      final text = PluginNodeProxy(id: '4', type: 'TEXT', name: 'Text');
+      final parent = PluginNodeProxy(id: '1', type: NodeType.FRAME, name: 'Parent');
+      final rect1 = PluginNodeProxy(id: '2', type: NodeType.RECTANGLE, name: 'Rect1');
+      final rect2 = PluginNodeProxy(id: '3', type: NodeType.RECTANGLE, name: 'Rect2');
+      final text = PluginNodeProxy(id: '4', type: NodeType.TEXT, name: 'Text');
 
       parent.appendChild(rect1);
       parent.appendChild(rect2);
       parent.appendChild(text);
 
-      final rects = parent.findAll((n) => n.type == 'RECTANGLE');
+      final rects = parent.findAll((n) => n.type == NodeType.RECTANGLE);
       expect(rects.length, 2);
     });
 
     test('plugin data storage works', () {
-      final node = PluginNodeProxy(id: '1', type: 'FRAME', name: 'Frame');
+      final node = PluginNodeProxy(id: '1', type: NodeType.FRAME, name: 'Frame');
 
       node.setPluginData('key1', 'value1');
       node.setPluginData('key2', 'value2');
@@ -678,7 +816,7 @@ void main() {
     });
 
     test('shared plugin data storage works', () {
-      final node = PluginNodeProxy(id: '1', type: 'FRAME', name: 'Frame');
+      final node = PluginNodeProxy(id: '1', type: NodeType.FRAME, name: 'Frame');
 
       node.setSharedPluginData('namespace', 'key', 'value');
 
@@ -687,7 +825,7 @@ void main() {
     });
 
     test('relaunch data storage works', () {
-      final node = PluginNodeProxy(id: '1', type: 'FRAME', name: 'Frame');
+      final node = PluginNodeProxy(id: '1', type: NodeType.FRAME, name: 'Frame');
 
       node.setRelaunchData({'edit': 'Edit this node', 'refresh': 'Refresh'});
 
@@ -696,11 +834,11 @@ void main() {
     });
 
     test('absoluteBoundingBox calculates correctly', () {
-      final parent = PluginNodeProxy(id: '1', type: 'FRAME', name: 'Parent');
+      final parent = PluginNodeProxy(id: '1', type: NodeType.FRAME, name: 'Parent');
       parent.x = 100;
       parent.y = 100;
 
-      final child = PluginNodeProxy(id: '2', type: 'RECTANGLE', name: 'Child');
+      final child = PluginNodeProxy(id: '2', type: NodeType.RECTANGLE, name: 'Child');
       child.x = 50;
       child.y = 50;
       child.width = 200;
@@ -709,14 +847,14 @@ void main() {
       parent.appendChild(child);
 
       final bounds = child.absoluteBoundingBox;
-      expect(bounds['x'], 150);
-      expect(bounds['y'], 150);
-      expect(bounds['width'], 200);
-      expect(bounds['height'], 100);
+      expect(bounds.x, 150);
+      expect(bounds.y, 150);
+      expect(bounds.width, 200);
+      expect(bounds.height, 100);
     });
 
     test('resize updates dimensions', () {
-      final node = PluginNodeProxy(id: '1', type: 'RECTANGLE', name: 'Rect');
+      final node = PluginNodeProxy(id: '1', type: NodeType.RECTANGLE, name: 'Rect');
       node.width = 100;
       node.height = 100;
 
@@ -727,7 +865,7 @@ void main() {
     });
 
     test('rescale multiplies dimensions', () {
-      final node = PluginNodeProxy(id: '1', type: 'RECTANGLE', name: 'Rect');
+      final node = PluginNodeProxy(id: '1', type: NodeType.RECTANGLE, name: 'Rect');
       node.width = 100;
       node.height = 50;
 
@@ -741,23 +879,23 @@ void main() {
   group('PluginColorUtils', () {
     test('hexToRgb converts correctly', () {
       final rgb = PluginColorUtils.hexToRgb('#FF0000');
-      expect(rgb['r'], 1.0);
-      expect(rgb['g'], 0.0);
-      expect(rgb['b'], 0.0);
+      expect(rgb.r, 1.0);
+      expect(rgb.g, 0.0);
+      expect(rgb.b, 0.0);
     });
 
     test('hexToRgb handles short hex', () {
       final rgb = PluginColorUtils.hexToRgb('#F00');
-      expect(rgb['r'], 1.0);
-      expect(rgb['g'], 0.0);
-      expect(rgb['b'], 0.0);
+      expect(rgb.r, 1.0);
+      expect(rgb.g, 0.0);
+      expect(rgb.b, 0.0);
     });
 
     test('hexToRgb handles without hash', () {
       final rgb = PluginColorUtils.hexToRgb('00FF00');
-      expect(rgb['r'], 0.0);
-      expect(rgb['g'], 1.0);
-      expect(rgb['b'], 0.0);
+      expect(rgb.r, 0.0);
+      expect(rgb.g, 1.0);
+      expect(rgb.b, 0.0);
     });
 
     test('rgbToHex converts correctly', () {
@@ -828,6 +966,620 @@ void main() {
 
       // There should be at least one add icon (in header)
       expect(find.byIcon(Icons.add), findsWidgets);
+    });
+  });
+
+  group('Plugin Manager', () {
+    test('singleton instance is consistent', () {
+      final manager1 = PluginManager.instance;
+      final manager2 = PluginManager.instance;
+      expect(identical(manager1, manager2), true);
+    });
+
+    test('getPlugin returns null for non-existent plugin', () {
+      final manager = PluginManager.instance;
+      expect(manager.getPlugin('non-existent-id'), isNull);
+    });
+
+    test('isRunning returns false for non-existent plugin', () {
+      final manager = PluginManager.instance;
+      expect(manager.isRunning('non-existent-id'), false);
+    });
+
+    test('runPlugin fails gracefully for non-existent plugin', () async {
+      final manager = PluginManager.instance;
+      final result = await manager.runPlugin('non-existent-plugin');
+      expect(result.success, false);
+      expect(result.error, contains('not found'));
+    });
+
+    test('setEnabled does nothing for non-existent plugin', () async {
+      final manager = PluginManager.instance;
+      // Should not throw
+      await manager.setEnabled('non-existent-id', false);
+    });
+
+    test('stopPlugin does nothing for non-existent plugin', () async {
+      final manager = PluginManager.instance;
+      // Should not throw
+      await manager.stopPlugin('non-existent-id');
+    });
+  });
+
+  group('InstalledPlugin', () {
+    test('creates with default values', () {
+      final manifest = PluginManifest.fromJsonString('''
+      {
+        "name": "Test Plugin",
+        "id": "com.test.plugin",
+        "api": "1.0.0",
+        "main": "code.js",
+        "editorType": "figma"
+      }
+      ''');
+
+      final plugin = InstalledPlugin(
+        installationId: 'install-1',
+        manifest: manifest,
+        installPath: '/path/to/plugin',
+        installedAt: DateTime.now(),
+      );
+
+      expect(plugin.status, PluginStatus.installed);
+      expect(plugin.enabled, true);
+      expect(plugin.errorMessage, isNull);
+      expect(plugin.lastRunAt, isNull);
+      expect(plugin.relaunchData, isEmpty);
+    });
+
+    test('serializes to and from JSON', () {
+      final manifest = PluginManifest.fromJsonString('''
+      {
+        "name": "Test Plugin",
+        "id": "com.test.plugin",
+        "api": "1.0.0",
+        "main": "code.js",
+        "editorType": "figma"
+      }
+      ''');
+
+      final installedAt = DateTime(2024, 1, 1, 12, 0);
+      final lastRunAt = DateTime(2024, 1, 2, 14, 30);
+
+      final plugin = InstalledPlugin(
+        installationId: 'install-abc',
+        manifest: manifest,
+        installPath: '/plugins/com.test.plugin',
+        installedAt: installedAt,
+        lastRunAt: lastRunAt,
+        enabled: false,
+        status: PluginStatus.loaded,
+        relaunchData: {'node1': 'data1', 'node2': 'data2'},
+      );
+
+      final json = plugin.toJson();
+      final restored = InstalledPlugin.fromJson(json);
+
+      expect(restored.installationId, 'install-abc');
+      expect(restored.manifest.id, 'com.test.plugin');
+      expect(restored.installPath, '/plugins/com.test.plugin');
+      expect(restored.enabled, false);
+      expect(restored.status, PluginStatus.loaded);
+      expect(restored.relaunchData['node1'], 'data1');
+      expect(restored.relaunchData['node2'], 'data2');
+    });
+  });
+
+  group('PluginExecutionResult', () {
+    test('success result', () {
+      final result = PluginExecutionResult(
+        success: true,
+        result: {'data': 'value'},
+        executionTime: const Duration(milliseconds: 150),
+      );
+
+      expect(result.success, true);
+      expect(result.result, {'data': 'value'});
+      expect(result.error, isNull);
+      expect(result.executionTime.inMilliseconds, 150);
+    });
+
+    test('error result', () {
+      final result = PluginExecutionResult(
+        success: false,
+        error: 'Something went wrong',
+        executionTime: const Duration(milliseconds: 50),
+      );
+
+      expect(result.success, false);
+      expect(result.result, isNull);
+      expect(result.error, 'Something went wrong');
+    });
+  });
+
+  group('Plugin API Document Operations', () {
+    late FigmaPluginAPI api;
+
+    setUp(() {
+      api = FigmaPluginAPI(
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+    });
+
+    test('create and manipulate document structure', () {
+      final page = api.createPage();
+      expect(page.name, 'Page');
+
+      api.root.appendChild(page);
+      expect(api.root.children.length, 1);
+
+      final frame = api.createFrame();
+      frame.name = 'Main Frame';
+      frame.width = 800;
+      frame.height = 600;
+      page.appendChild(frame);
+      expect(page.children.length, 1);
+
+      final rect = api.createRectangle();
+      rect.x = 100;
+      rect.y = 100;
+      rect.width = 200;
+      rect.height = 150;
+      frame.appendChild(rect);
+      expect(frame.children.length, 1);
+    });
+
+    test('selection management', () {
+      final rect1 = api.createRectangle();
+      final rect2 = api.createRectangle();
+      final text = api.createText();
+
+      api.selection = [rect1, rect2];
+      expect(api.selection.length, 2);
+      expect(api.selection, contains(rect1));
+      expect(api.selection, contains(rect2));
+
+      api.selection = [text];
+      expect(api.selection.length, 1);
+      expect(api.selection.first, text);
+    });
+
+    test('boolean operations', () {
+      final page = api.createPage();
+      api.root.appendChild(page);
+
+      final frame = api.createFrame();
+      page.appendChild(frame);
+
+      final rect1 = api.createRectangle();
+      final rect2 = api.createRectangle();
+
+      // Union
+      final union = api.union([rect1.clone(), rect2.clone()], frame);
+      expect(union.type, NodeType.BOOLEAN_OPERATION);
+      expect(union.booleanOperation, BooleanOperationType.UNION);
+      expect(union.children.length, 2);
+
+      // Subtract
+      final subtract = api.subtract([rect1.clone(), rect2.clone()], frame);
+      expect(subtract.booleanOperation, BooleanOperationType.SUBTRACT);
+
+      // Intersect
+      final intersect = api.intersect([rect1.clone(), rect2.clone()], frame);
+      expect(intersect.booleanOperation, BooleanOperationType.INTERSECT);
+
+      // Exclude
+      final exclude = api.exclude([rect1.clone(), rect2.clone()], frame);
+      expect(exclude.booleanOperation, BooleanOperationType.EXCLUDE);
+    });
+
+    test('group and ungroup operations', () {
+      final page = api.createPage();
+      api.root.appendChild(page);
+
+      final frame = api.createFrame();
+      page.appendChild(frame);
+
+      final rect1 = api.createRectangle();
+      rect1.x = 0;
+      rect1.y = 0;
+      frame.appendChild(rect1);
+
+      final rect2 = api.createRectangle();
+      rect2.x = 50;
+      rect2.y = 50;
+      frame.appendChild(rect2);
+
+      expect(frame.children.length, 2);
+
+      // Group
+      final group = api.group([rect1, rect2], frame);
+      expect(group.type, NodeType.GROUP);
+      expect(group.children.length, 2);
+      expect(frame.children.length, 1);
+      expect(frame.children.first, group);
+
+      // Ungroup
+      final ungrouped = api.ungroup(group);
+      expect(ungrouped.length, 2);
+      expect(frame.children.length, 2);
+    });
+
+    test('create all node types', () {
+      expect(api.createRectangle().type, NodeType.RECTANGLE);
+      expect(api.createFrame().type, NodeType.FRAME);
+      expect(api.createText().type, NodeType.TEXT);
+      expect(api.createEllipse().type, NodeType.ELLIPSE);
+      expect(api.createLine().type, NodeType.LINE);
+      expect(api.createPolygon().type, NodeType.POLYGON);
+      expect(api.createStar().type, NodeType.STAR);
+      expect(api.createVector().type, NodeType.VECTOR);
+      expect(api.createBooleanOperation().type, NodeType.BOOLEAN_OPERATION);
+      expect(api.createComponent().type, NodeType.COMPONENT);
+      expect(api.createComponentSet().type, NodeType.COMPONENT_SET);
+      expect(api.createSlice().type, NodeType.SLICE);
+      expect(api.createSection().type, NodeType.SECTION);
+      expect(api.createSticky().type, NodeType.STICKY);
+      expect(api.createShapeWithText().type, NodeType.SHAPE_WITH_TEXT);
+      expect(api.createConnector().type, NodeType.CONNECTOR);
+      expect(api.createCodeBlock().type, NodeType.CODE_BLOCK);
+      expect(api.createTable().type, NodeType.TABLE);
+    });
+  });
+
+  group('Plugin API Styles and Variables', () {
+    late FigmaPluginAPI api;
+
+    setUp(() {
+      api = FigmaPluginAPI(
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+    });
+
+    test('create and manage paint styles', () {
+      expect(api.getLocalPaintStyles().length, 0);
+
+      final style1 = api.createPaintStyle();
+      style1.name = 'Primary Blue';
+      style1.paints = [
+        Paint.solid(const Color(r: 0.0, g: 0.4, b: 1.0)),
+      ];
+
+      final style2 = api.createPaintStyle();
+      style2.name = 'Secondary Gray';
+
+      expect(api.getLocalPaintStyles().length, 2);
+      expect(api.getLocalPaintStyles().first.name, 'Primary Blue');
+    });
+
+    test('create and manage text styles', () {
+      expect(api.getLocalTextStyles().length, 0);
+
+      final style = api.createTextStyle();
+      style.name = 'Heading 1';
+      style.fontSize = 32;
+      style.fontName = const FontName(family: 'Inter', style: 'Bold');
+
+      expect(api.getLocalTextStyles().length, 1);
+      expect(api.getLocalTextStyles().first.name, 'Heading 1');
+    });
+
+    test('create and manage effect styles', () {
+      expect(api.getLocalEffectStyles().length, 0);
+
+      final style = api.createEffectStyle();
+      style.name = 'Elevation 1';
+      style.effects = [
+        Effect.dropShadow(
+          color: const Color(r: 0, g: 0, b: 0, a: 0.25),
+          offsetY: 4,
+          radius: 8,
+        ),
+      ];
+
+      expect(api.getLocalEffectStyles().length, 1);
+    });
+
+    test('create and manage variables', () {
+      final collection = api.createVariableCollection('Brand Colors');
+      expect(collection.name, 'Brand Colors');
+
+      final variable = api.createVariable(
+        'primary',
+        collection.id,
+        'COLOR',
+      );
+      expect(variable.name, 'primary');
+      expect(variable.resolvedType, 'COLOR');
+
+      variable.setValueForMode('mode1', const Color(r: 0, g: 0.4, b: 1.0));
+      expect(variable.valuesByMode['mode1'], isNotNull);
+    });
+  });
+
+  group('Plugin API UI Controller', () {
+    late FigmaPluginAPI api;
+
+    setUp(() {
+      api = FigmaPluginAPI(
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+    });
+
+    test('show and hide UI', () {
+      expect(api.ui.visible, false);
+
+      api.showUI('<html></html>', width: 400, height: 300);
+      expect(api.ui.visible, true);
+
+      api.ui.hide();
+      expect(api.ui.visible, false);
+    });
+
+    test('resize UI', () {
+      api.showUI('<html></html>', width: 400, height: 300);
+      api.ui.resize(600, 500);
+      // Just verify no error is thrown
+    });
+
+    test('close UI', () {
+      api.showUI('<html></html>');
+      expect(api.ui.visible, true);
+
+      api.ui.close();
+      expect(api.ui.visible, false);
+    });
+  });
+
+  group('Plugin API Client Storage', () {
+    late FigmaPluginAPI api;
+
+    setUp(() {
+      api = FigmaPluginAPI(
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+    });
+
+    test('store and retrieve values', () async {
+      await api.clientStorage.setAsync('theme', 'dark');
+      await api.clientStorage.setAsync('fontSize', 14);
+      await api.clientStorage.setAsync('settings', {'a': 1, 'b': 2});
+
+      expect(await api.clientStorage.getAsync('theme'), 'dark');
+      expect(await api.clientStorage.getAsync('fontSize'), 14);
+      expect(await api.clientStorage.getAsync('settings'), {'a': 1, 'b': 2});
+    });
+
+    test('delete values', () async {
+      await api.clientStorage.setAsync('temp', 'value');
+      expect(await api.clientStorage.getAsync('temp'), 'value');
+
+      await api.clientStorage.deleteAsync('temp');
+      expect(await api.clientStorage.getAsync('temp'), isNull);
+    });
+
+    test('list keys', () async {
+      await api.clientStorage.setAsync('key1', 'a');
+      await api.clientStorage.setAsync('key2', 'b');
+      await api.clientStorage.setAsync('key3', 'c');
+
+      final keys = await api.clientStorage.keysAsync();
+      expect(keys, containsAll(['key1', 'key2', 'key3']));
+    });
+  });
+
+  group('Plugin API Viewport', () {
+    late FigmaPluginAPI api;
+
+    setUp(() {
+      api = FigmaPluginAPI(
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+    });
+
+    test('viewport properties', () {
+      expect(api.viewport.zoom, 1);
+      expect(api.viewport.center, isA<Vector2>());
+      expect(api.viewport.bounds, isA<Rect>());
+    });
+
+    test('scroll and zoom into view', () {
+      final page = api.createPage();
+      api.root.appendChild(page);
+
+      final frame = api.createFrame();
+      frame.x = 1000;
+      frame.y = 1000;
+      page.appendChild(frame);
+
+      // Just verify no error is thrown
+      api.viewport.scrollAndZoomIntoView([frame]);
+    });
+  });
+
+  group('Plugin API Codegen Support', () {
+    late FigmaPluginAPI api;
+
+    setUp(() {
+      api = FigmaPluginAPI(
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+    });
+
+    test('getCSSAsync generates basic CSS', () async {
+      final rect = api.createRectangle();
+      rect.width = 200;
+      rect.height = 100;
+      rect.cornerRadius = 8;
+      rect.fills = [
+        Paint.solid(const Color(r: 1.0, g: 0.0, b: 0.0)),
+      ];
+
+      final css = await api.getCSSAsync(rect);
+
+      expect(css['width'], '200.0px');
+      expect(css['height'], '100.0px');
+      expect(css['border-radius'], '8.0px');
+      expect(css['background-color'], contains('255'));
+    });
+
+    test('skipInvisibleInstanceChildren default is false', () {
+      expect(api.skipInvisibleInstanceChildren, false);
+      api.skipInvisibleInstanceChildren = true;
+      expect(api.skipInvisibleInstanceChildren, true);
+    });
+  });
+
+  group('Plugin API Team Library Import', () {
+    test('importComponentByKeyAsync requires teamlibrary permission', () async {
+      final manifest = PluginManifest.fromJsonString('''
+      {
+        "name": "Test",
+        "id": "test",
+        "api": "1.0.0",
+        "main": "code.js",
+        "editorType": "figma",
+        "permissions": []
+      }
+      ''');
+
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      expect(
+        () => api.importComponentByKeyAsync('key123'),
+        throwsA(isA<PluginPermissionError>()),
+      );
+    });
+
+    test('importComponentByKeyAsync succeeds with permission', () async {
+      final manifest = PluginManifest.fromJsonString('''
+      {
+        "name": "Test",
+        "id": "test",
+        "api": "1.0.0",
+        "main": "code.js",
+        "editorType": "figma",
+        "permissions": ["teamlibrary"]
+      }
+      ''');
+
+      final api = FigmaPluginAPI(
+        manifest: manifest,
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+
+      // Should not throw
+      final result = await api.importComponentByKeyAsync('key123');
+      expect(result, isNull); // Returns null in mock implementation
+    });
+  });
+
+  group('Plugin Error Types', () {
+    test('PluginPermissionError has correct message', () {
+      final error = PluginPermissionError('Test error message');
+      expect(error.message, 'Test error message');
+      expect(error.toString(), contains('PluginPermissionError'));
+      expect(error.toString(), contains('Test error message'));
+    });
+
+    test('PluginNetworkError includes URL', () {
+      final error = PluginNetworkError(
+        'Domain not allowed',
+        url: 'https://blocked.com/api',
+      );
+      expect(error.message, 'Domain not allowed');
+      expect(error.url, 'https://blocked.com/api');
+      expect(error.toString(), contains('blocked.com'));
+    });
+
+    test('PluginTypeError includes type info', () {
+      final error = PluginTypeError(
+        'Invalid value',
+        expectedType: 'String',
+        actualType: 'int',
+      );
+      expect(error.toString(), contains('expected: String'));
+      expect(error.toString(), contains('got: int'));
+    });
+
+    test('PluginNodeError includes node ID', () {
+      final error = PluginNodeError(
+        'Node not found',
+        nodeId: '1:234',
+      );
+      expect(error.toString(), contains('node: 1:234'));
+    });
+
+    test('PluginManifestError includes error list', () {
+      final error = PluginManifestError(
+        'Invalid manifest',
+        errors: ['Missing name', 'Invalid API version'],
+      );
+      expect(error.toString(), contains('Missing name'));
+      expect(error.toString(), contains('Invalid API version'));
+    });
+  });
+
+  group('BoundVariable', () {
+    test('creates with required fields', () {
+      const bound = BoundVariable(variableId: 'var-123');
+      expect(bound.variableId, 'var-123');
+      expect(bound.modeId, isNull);
+    });
+
+    test('creates with mode ID', () {
+      const bound = BoundVariable(variableId: 'var-456', modeId: 'mode-1');
+      expect(bound.variableId, 'var-456');
+      expect(bound.modeId, 'mode-1');
+    });
+
+    test('toJson includes all fields', () {
+      const bound = BoundVariable(variableId: 'var-789', modeId: 'mode-2');
+      final json = bound.toJson();
+      expect(json['variableId'], 'var-789');
+      expect(json['modeId'], 'mode-2');
+    });
+  });
+
+  group('Plugin API Dev Mode', () {
+    late FigmaPluginAPI api;
+
+    setUp(() {
+      api = FigmaPluginAPI(
+        ui: PluginUIController(),
+        viewport: PluginViewportProxy(),
+      );
+    });
+
+    test('add and get annotations', () {
+      final node = api.createRectangle();
+      expect(api.getAnnotations(node), isEmpty);
+
+      const annotation = Annotation(
+        label: 'Design Note',
+        properties: [AnnotationProperty(type: 'text', textValue: 'Use brand colors')],
+      );
+      api.addAnnotation(node, annotation);
+
+      final annotations = api.getAnnotations(node);
+      expect(annotations.length, 1);
+      expect(annotations.first.label, 'Design Note');
+    });
+
+    test('get measurements', () {
+      final node = api.createRectangle();
+      expect(api.getMeasurements(node), isEmpty);
     });
   });
 }

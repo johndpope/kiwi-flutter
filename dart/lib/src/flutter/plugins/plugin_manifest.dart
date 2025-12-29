@@ -59,24 +59,144 @@ class NetworkAccess {
       };
 
   /// Check if a URL is allowed by this network access configuration
-  bool isUrlAllowed(String url) {
+  ///
+  /// Returns a [NetworkAccessResult] with details about whether access is allowed.
+  NetworkAccessResult checkUrl(String url) {
     final uri = Uri.tryParse(url);
-    if (uri == null || uri.host.isEmpty) return false;
 
+    // Invalid URL
+    if (uri == null) {
+      return NetworkAccessResult(
+        allowed: false,
+        reason: NetworkDenyReason.invalidUrl,
+        message: 'Invalid URL format',
+      );
+    }
+
+    // Empty host
+    if (uri.host.isEmpty) {
+      return NetworkAccessResult(
+        allowed: false,
+        reason: NetworkDenyReason.invalidUrl,
+        message: 'URL must have a host',
+      );
+    }
+
+    // Only allow http and https
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      return NetworkAccessResult(
+        allowed: false,
+        reason: NetworkDenyReason.invalidProtocol,
+        message: 'Only http and https protocols are allowed',
+      );
+    }
+
+    // Block localhost and private IPs unless explicitly allowed
+    if (_isPrivateNetwork(uri.host) && !_hasExplicitPrivateAccess()) {
+      return NetworkAccessResult(
+        allowed: false,
+        reason: NetworkDenyReason.privateNetwork,
+        message: 'Access to private network addresses is not allowed',
+      );
+    }
+
+    // Check against allowed domains
+    for (final pattern in allowedDomains) {
+      if (pattern == '*') {
+        return NetworkAccessResult(allowed: true);
+      }
+      if (_matchesDomain(uri.host, pattern)) {
+        return NetworkAccessResult(allowed: true, matchedPattern: pattern);
+      }
+    }
+
+    return NetworkAccessResult(
+      allowed: false,
+      reason: NetworkDenyReason.domainNotAllowed,
+      message: 'Domain "${uri.host}" is not in the allowed list',
+    );
+  }
+
+  /// Simple check if URL is allowed (convenience method)
+  bool isUrlAllowed(String url) {
+    return checkUrl(url).allowed;
+  }
+
+  /// Check if host is a private network address
+  bool _isPrivateNetwork(String host) {
+    // Localhost variations
+    if (host == 'localhost' || host == '127.0.0.1' || host == '::1') {
+      return true;
+    }
+
+    // Private IPv4 ranges
+    final ipv4Pattern = RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
+    final match = ipv4Pattern.firstMatch(host);
+    if (match != null) {
+      final a = int.parse(match.group(1)!);
+      final b = int.parse(match.group(2)!);
+
+      // 10.0.0.0/8
+      if (a == 10) return true;
+      // 172.16.0.0/12
+      if (a == 172 && b >= 16 && b <= 31) return true;
+      // 192.168.0.0/16
+      if (a == 192 && b == 168) return true;
+      // 169.254.0.0/16 (link-local)
+      if (a == 169 && b == 254) return true;
+    }
+
+    return false;
+  }
+
+  /// Check if private access is explicitly allowed
+  bool _hasExplicitPrivateAccess() {
     for (final pattern in allowedDomains) {
       if (pattern == '*') return true;
-      if (_matchesDomain(uri.host, pattern)) return true;
+      if (pattern == 'localhost' || pattern.startsWith('127.')) return true;
+      if (pattern.startsWith('10.') || pattern.startsWith('192.168.')) return true;
     }
     return false;
   }
 
   bool _matchesDomain(String host, String pattern) {
+    // Wildcard subdomain matching (e.g., *.example.com)
     if (pattern.startsWith('*.')) {
       final suffix = pattern.substring(2);
-      return host.endsWith(suffix) || host == suffix.substring(1);
+      // Match exact suffix or subdomain
+      return host == suffix || host.endsWith('.$suffix');
     }
-    return host == pattern;
+
+    // Exact match
+    return host.toLowerCase() == pattern.toLowerCase();
   }
+}
+
+/// Result of a network access check
+class NetworkAccessResult {
+  final bool allowed;
+  final NetworkDenyReason? reason;
+  final String? message;
+  final String? matchedPattern;
+
+  const NetworkAccessResult({
+    required this.allowed,
+    this.reason,
+    this.message,
+    this.matchedPattern,
+  });
+}
+
+/// Reasons why network access might be denied
+enum NetworkDenyReason {
+  /// URL format is invalid
+  invalidUrl,
+  /// Protocol is not http or https
+  invalidProtocol,
+  /// Attempting to access private network (localhost, 192.168.x.x, etc.)
+  privateNetwork,
+  /// Domain is not in the allowed list
+  domainNotAllowed,
 }
 
 /// Plugin parameter definition
