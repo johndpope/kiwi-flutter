@@ -17,3 +17,6 @@ export 'effects_panel.dart';
 export 'layers_panel.dart';
 export 'rulers_overlay.dart';
 export 'component_browser.dart';
+
+// Design Panel (Figma-style right-hand panel)
+export 'design_panel/design_panel_exports.dart';

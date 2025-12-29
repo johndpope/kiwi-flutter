@@ -95,6 +95,12 @@ class DesignPanelTypography {
     fontSize: fontSizeLg,
     fontWeight: FontWeight.w400,
   );
+
+  static const sectionTitleStyle = TextStyle(
+    color: DesignPanelColors.text1,
+    fontSize: fontSizeMd,
+    fontWeight: FontWeight.w500,
+  );
 }
 
 /// Dimension constants
@@ -103,9 +109,11 @@ class DesignPanelDimensions {
   static const double inputHeight = 28.0;
   static const double smallInputHeight = 24.0;
   static const double buttonSize = 28.0;
+  static const double buttonHeight = 32.0;
   static const double iconSize = 16.0;
   static const double smallIconSize = 14.0;
   static const double borderRadius = 4.0;
   static const double colorSwatchSize = 24.0;
   static const double tabHeight = 40.0;
+  static const double sectionHeaderHeight = 32.0;
 }
