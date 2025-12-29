@@ -55,29 +55,29 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
   Future<void> _loadExampleFile() async {
     // Try to load the Apple iOS UI Kit from the fixtures
     final paths = [
-      '${Directory.current.path}/../Apple_iOS_UI_Kit/canvas.fig',
-      '${Directory.current.path}/../../Apple_iOS_UI_Kit/canvas.fig',
-      'test/fixtures/figma_message.bin', // Pre-decompressed message
+      // Check from example directory
+      '${Directory.current.path}/test/fixtures/figma_message.bin',
+      // Check from dart directory
+      'test/fixtures/figma_message.bin',
+      // Check parent directories
+      '${Directory.current.path}/../test/fixtures/figma_message.bin',
     ];
 
+    print('Current directory: ${Directory.current.path}');
     for (final path in paths) {
+      print('Trying path: $path');
       final file = File(path);
       if (await file.exists()) {
-        if (path.endsWith('.fig')) {
-          // For .fig files, we need decompression
-          setState(() {
-            _statusMessage = 'Found .fig file but ZSTD decompression not available.\n'
-                'Use the pre-decompressed fixtures or add ZSTD support.';
-          });
-        } else if (path.endsWith('.bin')) {
-          await _loadPreDecompressedMessage(file);
-        }
+        print('Found file at: $path');
+        await _loadPreDecompressedMessage(file);
         return;
       }
     }
 
     setState(() {
-      _statusMessage = 'No Figma file found. Place canvas.fig in Apple_iOS_UI_Kit/ directory.';
+      _statusMessage = 'No Figma file found.\n'
+          'Run: python3 /tmp/decompress_fig.py /path/to/canvas.fig test/fixtures\n'
+          'to create test fixtures.';
     });
   }
 
@@ -88,10 +88,24 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
     });
 
     try {
-      // Load schema
-      final schemaFile = File('${Directory.current.path}/test/fixtures/figma_schema.bin');
-      if (!schemaFile.existsSync()) {
-        throw Exception('Schema file not found');
+      // Find schema file
+      final schemaPaths = [
+        'test/fixtures/figma_schema.bin',
+        '${Directory.current.path}/test/fixtures/figma_schema.bin',
+        '${Directory.current.path}/../test/fixtures/figma_schema.bin',
+      ];
+
+      File? schemaFile;
+      for (final path in schemaPaths) {
+        final file = File(path);
+        if (file.existsSync()) {
+          schemaFile = file;
+          break;
+        }
+      }
+
+      if (schemaFile == null) {
+        throw Exception('Schema file not found in any of: ${schemaPaths.join(", ")}');
       }
 
       final schemaBytes = await schemaFile.readAsBytes();
@@ -105,12 +119,24 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
       // Create document
       final document = FigmaDocument.fromMessage(message);
 
+      // Set images directory (for rendering images from the Figma file)
+      final imagesDirPaths = [
+        '/Users/johndpope/Downloads/Apple iOS UI Kit/images',
+      ];
+      for (final path in imagesDirPaths) {
+        if (Directory(path).existsSync()) {
+          document.imagesDirectory = path;
+          break;
+        }
+      }
+
       setState(() {
         _document = document;
         _isLoading = false;
         _statusMessage = 'Loaded ${document.nodeCount} nodes';
       });
-    } catch (e) {
+    } catch (e, stack) {
+      print('Error loading: $e\n$stack');
       setState(() {
         _error = e.toString();
         _isLoading = false;

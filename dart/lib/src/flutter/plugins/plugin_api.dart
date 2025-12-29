@@ -1109,7 +1109,7 @@ class PluginDocumentProxy {
   final String id;
   String name;
   final List<PluginNodeProxy> children = [];
-  Color? backgrounds;
+  List<Paint>? backgrounds;
   List<PluginGuideProxy> guides = [];
   List<FlowStartingPoint> flowStartingPoints = [];
   PluginNodeProxy? selection;
@@ -1355,9 +1355,9 @@ class PluginNodeProxy {
   }
 
   /// Get absolute bounding box
-  Rect get absoluteBoundingBox {
+  FigmaRect get absoluteBoundingBox {
     final transform = absoluteTransform;
-    return Rect(
+    return FigmaRect(
       x: transform[0][2],
       y: transform[1][2],
       width: width,
@@ -1366,7 +1366,7 @@ class PluginNodeProxy {
   }
 
   /// Get absolute render bounds (includes effects like shadows)
-  Rect get absoluteRenderBounds {
+  FigmaRect get absoluteRenderBounds {
     final box = absoluteBoundingBox;
     // Would expand for effects
     return box;
@@ -1500,14 +1500,14 @@ class PluginNodeProxy {
   }
 }
 
-/// Rectangle bounds
-class Rect {
+/// Figma rectangle bounds (to avoid conflict with dart:ui Rect)
+class FigmaRect {
   final double x;
   final double y;
   final double width;
   final double height;
 
-  const Rect({
+  const FigmaRect({
     required this.x,
     required this.y,
     required this.width,
@@ -1522,14 +1522,14 @@ class Rect {
       };
 }
 
-/// Color structure
-class Color {
+/// Figma RGBA color structure (0-1 range, not Flutter's Color)
+class FigmaColor {
   final double r;
   final double g;
   final double b;
   final double a;
 
-  const Color({
+  const FigmaColor({
     required this.r,
     required this.g,
     required this.b,
@@ -1555,7 +1555,7 @@ class Paint {
   final bool visible;
   final double opacity;
   final BlendMode blendMode;
-  final Color? color;
+  final FigmaColor? color;
   final List<ColorStop>? gradientStops;
   final List<List<double>>? gradientTransform;
   final String? imageHash;
@@ -1573,7 +1573,7 @@ class Paint {
     this.scaleMode,
   });
 
-  factory Paint.solid(Color color, {double opacity = 1}) {
+  factory Paint.solid(FigmaColor color, {double opacity = 1}) {
     return Paint(type: 'SOLID', color: color, opacity: opacity);
   }
 
@@ -1593,7 +1593,7 @@ class Paint {
 /// Gradient color stop
 class ColorStop {
   final double position;
-  final Color color;
+  final FigmaColor color;
 
   const ColorStop({required this.position, required this.color});
 }
@@ -1603,7 +1603,7 @@ class Effect {
   final String type;
   final bool visible;
   final double radius;
-  final Color? color;
+  final FigmaColor? color;
   final double? offsetX;
   final double? offsetY;
   final double? spread;
@@ -1623,7 +1623,7 @@ class Effect {
   });
 
   factory Effect.dropShadow({
-    required Color color,
+    required FigmaColor color,
     double offsetX = 0,
     double offsetY = 4,
     double radius = 4,
@@ -1640,7 +1640,7 @@ class Effect {
   }
 
   factory Effect.innerShadow({
-    required Color color,
+    required FigmaColor color,
     double offsetX = 0,
     double offsetY = 4,
     double radius = 4,
@@ -2157,7 +2157,7 @@ class PluginUIError implements Exception {
 class PluginViewportProxy {
   double zoom = 1;
   Vector2 center = Vector2(0, 0);
-  Rect bounds = const Rect(x: 0, y: 0, width: 1920, height: 1080);
+  FigmaRect bounds = const FigmaRect(x: 0, y: 0, width: 1920, height: 1080);
 
   void scrollAndZoomIntoView(List<PluginNodeProxy> nodes) {
     if (nodes.isEmpty) return;
@@ -2450,17 +2450,17 @@ class PluginImageProxy {
     return bytes ?? [];
   }
 
-  Future<Size> getSizeAsync() async {
-    return const Size(0, 0);
+  Future<FigmaSize> getSizeAsync() async {
+    return const FigmaSize(0, 0);
   }
 }
 
-/// Size
-class Size {
+/// Figma Size (to avoid conflict with dart:ui Size)
+class FigmaSize {
   final double width;
   final double height;
 
-  const Size(this.width, this.height);
+  const FigmaSize(this.width, this.height);
 }
 
 /// Document change event
@@ -2638,7 +2638,7 @@ class BoundVariable {
 /// Color utilities
 class PluginColorUtils {
   /// Convert hex to RGB (0-1 range)
-  static Color hexToRgb(String hex) {
+  static FigmaColor hexToRgb(String hex) {
     hex = hex.replaceAll('#', '');
     if (hex.length == 3) {
       hex = hex.split('').map((c) => '$c$c').join();
@@ -2646,7 +2646,7 @@ class PluginColorUtils {
     final r = int.parse(hex.substring(0, 2), radix: 16) / 255;
     final g = int.parse(hex.substring(2, 4), radix: 16) / 255;
     final b = int.parse(hex.substring(4, 6), radix: 16) / 255;
-    return Color(r: r, g: g, b: b);
+    return FigmaColor(r: r, g: g, b: b);
   }
 
   /// Convert RGB (0-1 range) to hex
@@ -2683,9 +2683,9 @@ class PluginColorUtils {
   }
 
   /// Convert HSL to RGB
-  static Color hslToRgb(double h, double s, double l) {
+  static FigmaColor hslToRgb(double h, double s, double l) {
     if (s == 0) {
-      return Color(r: l, g: l, b: l);
+      return FigmaColor(r: l, g: l, b: l);
     }
 
     double hue2rgb(double p, double q, double t) {
@@ -2700,7 +2700,7 @@ class PluginColorUtils {
     final q = l < 0.5 ? l * (1 + s) : l + s - l * s;
     final p = 2 * l - q;
 
-    return Color(
+    return FigmaColor(
       r: hue2rgb(p, q, h + 1 / 3),
       g: hue2rgb(p, q, h),
       b: hue2rgb(p, q, h - 1 / 3),

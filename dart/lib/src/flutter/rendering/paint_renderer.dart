@@ -38,7 +38,11 @@ class PaintRenderer {
     if (type == null) return null;
 
     final stops = paint['gradientStops'] as List?;
-    if (stops == null || stops.isEmpty) return null;
+    if (stops == null || stops.isEmpty) {
+      // If no gradientStops, create default 2-color gradient from colors if available
+      // Some Figma files might not have explicit stops
+      return null;
+    }
 
     final colors = <Color>[];
     final stopPositions = <double>[];
@@ -57,9 +61,12 @@ class PaintRenderer {
 
     if (colors.length < 2) return null;
 
-    // Parse gradient transform if available
-    final transform = paint['gradientTransform'] as Map<String, dynamic>?;
-    final handles = _parseGradientHandles(transform, size);
+    // Parse gradient transform - try multiple formats
+    // 1. Check for 'gradientTransform' with handle positions
+    // 2. Check for 'transform' with matrix values (m00, m01, etc)
+    final gradientTransform = paint['gradientTransform'] as Map<String, dynamic>?;
+    final matrixTransform = paint['transform'] as Map<String, dynamic>?;
+    final handles = _parseGradientHandles(gradientTransform, matrixTransform, size);
 
     switch (type) {
       case 'GRADIENT_LINEAR':
@@ -76,28 +83,66 @@ class PaintRenderer {
   }
 
   /// Parse gradient handle positions from transform data
+  /// Supports two formats:
+  /// 1. Handle positions (handlePositionA/B/C)
+  /// 2. Transform matrix (m00, m01, m02, m10, m11, m12)
   static _GradientHandles _parseGradientHandles(
-    Map<String, dynamic>? transform,
+    Map<String, dynamic>? gradientTransform,
+    Map<String, dynamic>? matrixTransform,
     Size size,
   ) {
-    if (transform == null) {
-      // Default: vertical gradient from top to bottom
+    // Try handle positions format first
+    if (gradientTransform != null) {
+      final handleA = gradientTransform['handlePositionA'] as Map<String, dynamic>?;
+      final handleB = gradientTransform['handlePositionB'] as Map<String, dynamic>?;
+      final handleC = gradientTransform['handlePositionC'] as Map<String, dynamic>?;
+
+      if (handleA != null || handleB != null) {
+        return _GradientHandles(
+          a: _parseVector(handleA) ?? const Offset(0.5, 0),
+          b: _parseVector(handleB) ?? const Offset(0.5, 1),
+          c: _parseVector(handleC) ?? const Offset(0, 0.5),
+        );
+      }
+    }
+
+    // Try transform matrix format
+    if (matrixTransform != null) {
+      final m00 = (matrixTransform['m00'] as num?)?.toDouble() ?? 1.0;
+      final m01 = (matrixTransform['m01'] as num?)?.toDouble() ?? 0.0;
+      final m02 = (matrixTransform['m02'] as num?)?.toDouble() ?? 0.0;
+      final m10 = (matrixTransform['m10'] as num?)?.toDouble() ?? 0.0;
+      final m11 = (matrixTransform['m11'] as num?)?.toDouble() ?? 1.0;
+      final m12 = (matrixTransform['m12'] as num?)?.toDouble() ?? 0.0;
+
+      // The transform matrix maps from gradient space to node space
+      // Gradient space: x=0 to 1 (along gradient), y=0.5 (center)
+      // Apply transform to get start and end points in normalized coordinates
+
+      // Start point (gradient position 0, center)
+      final startX = m00 * 0.0 + m01 * 0.5 + m02;
+      final startY = m10 * 0.0 + m11 * 0.5 + m12;
+
+      // End point (gradient position 1, center)
+      final endX = m00 * 1.0 + m01 * 0.5 + m02;
+      final endY = m10 * 1.0 + m11 * 0.5 + m12;
+
+      // Control point for radial gradient (perpendicular direction)
+      final ctrlX = m00 * 0.5 + m01 * 0.0 + m02;
+      final ctrlY = m10 * 0.5 + m11 * 0.0 + m12;
+
       return _GradientHandles(
-        a: Offset(0.5, 0), // Start at top center
-        b: Offset(0.5, 1), // End at bottom center
-        c: Offset(0, 0.5), // Control point
+        a: Offset(startX, startY),
+        b: Offset(endX, endY),
+        c: Offset(ctrlX, ctrlY),
       );
     }
 
-    // Handle positions are in normalized coordinates (0-1)
-    final handleA = transform['handlePositionA'] as Map<String, dynamic>?;
-    final handleB = transform['handlePositionB'] as Map<String, dynamic>?;
-    final handleC = transform['handlePositionC'] as Map<String, dynamic>?;
-
+    // Default: vertical gradient from top to bottom
     return _GradientHandles(
-      a: _parseVector(handleA) ?? const Offset(0.5, 0),
-      b: _parseVector(handleB) ?? const Offset(0.5, 1),
-      c: _parseVector(handleC) ?? const Offset(0, 0.5),
+      a: const Offset(0.5, 0), // Start at top center
+      b: const Offset(0.5, 1), // End at bottom center
+      c: const Offset(0, 0.5), // Control point
     );
   }
 

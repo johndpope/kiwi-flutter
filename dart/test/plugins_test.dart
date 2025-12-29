@@ -1456,7 +1456,7 @@ void main() {
       final style1 = api.createPaintStyle();
       style1.name = 'Primary Blue';
       style1.paints = [
-        Paint.solid(const Color(r: 0.0, g: 0.4, b: 1.0)),
+        Paint.solid(const FigmaColor(r: 0.0, g: 0.4, b: 1.0)),
       ];
 
       final style2 = api.createPaintStyle();
@@ -1485,7 +1485,7 @@ void main() {
       style.name = 'Elevation 1';
       style.effects = [
         Effect.dropShadow(
-          color: const Color(r: 0, g: 0, b: 0, a: 0.25),
+          color: const FigmaColor(r: 0, g: 0, b: 0, a: 0.25),
           offsetY: 4,
           radius: 8,
         ),
@@ -1506,7 +1506,7 @@ void main() {
       expect(variable.name, 'primary');
       expect(variable.resolvedType, 'COLOR');
 
-      variable.setValueForMode('mode1', const Color(r: 0, g: 0.4, b: 1.0));
+      variable.setValueForMode('mode1', const FigmaColor(r: 0, g: 0.4, b: 1.0));
       expect(variable.valuesByMode['mode1'], isNotNull);
     });
   });
@@ -1597,7 +1597,7 @@ void main() {
     test('viewport properties', () {
       expect(api.viewport.zoom, 1);
       expect(api.viewport.center, isA<Vector2>());
-      expect(api.viewport.bounds, isA<Rect>());
+      expect(api.viewport.bounds, isA<FigmaRect>());
     });
 
     test('scroll and zoom into view', () {
@@ -1630,7 +1630,7 @@ void main() {
       rect.height = 100;
       rect.cornerRadius = 8;
       rect.fills = [
-        Paint.solid(const Color(r: 1.0, g: 0.0, b: 0.0)),
+        Paint.solid(const FigmaColor(r: 1.0, g: 0.0, b: 0.0)),
       ];
 
       final css = await api.getCSSAsync(rect);

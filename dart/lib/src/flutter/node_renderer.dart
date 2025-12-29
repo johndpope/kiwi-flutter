@@ -4,6 +4,7 @@
 /// following the structure of grida-canvas-react-renderer-dom.
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 
@@ -176,6 +177,260 @@ bool figmaRendererDebug = false; // Disabled - see docs/TEXT_RENDERING_ISSUE.md
 /// Tracks which node types have been logged (to reduce log spam)
 Set<String>? _loggedRenderTypes;
 
+// ============================================================================
+// GUID Mapping Helpers for Component Instance Override Resolution
+// ============================================================================
+// These helpers solve the issue where symbolOverrides use original component
+// GUIDs that don't match the instance's nodeMap GUIDs.
+// See docs/TEXT_RENDERING_ISSUE.md for details.
+
+/// Information about a node in a source component for GUID mapping
+class _SourceNodeInfo {
+  final String name;
+  final String type;
+  final List<int> path; // Index path from component root
+  final String guidKey; // Original GUID key (sessionID:localID)
+
+  const _SourceNodeInfo({
+    required this.name,
+    required this.type,
+    required this.path,
+    required this.guidKey,
+  });
+}
+
+/// Build a GUID map from source component hierarchy
+/// Maps original GUIDs to node info (name, type, path) for matching
+Map<String, _SourceNodeInfo> _buildSourceGuidMap(
+  Map<String, dynamic> sourceComponent,
+  Map<String, Map<String, dynamic>>? nodeMap,
+) {
+  final map = <String, _SourceNodeInfo>{};
+
+  void recurse(Map<String, dynamic> node, List<int> path) {
+    // Extract GUID key
+    final guid = node['guid'];
+    String? guidKey;
+    if (guid is Map) {
+      final sessionId = guid['sessionID'] ?? 0;
+      final localId = guid['localID'] ?? 0;
+      guidKey = '$sessionId:$localId';
+    }
+
+    final name = (node['name'] as String?) ?? '';
+    final type = (node['type'] as String?) ?? '';
+
+    if (guidKey != null) {
+      map[guidKey] = _SourceNodeInfo(
+        name: name,
+        type: type,
+        path: List.from(path),
+        guidKey: guidKey,
+      );
+    }
+
+    // Recurse into children
+    final children = node['children'];
+    if (children is List) {
+      for (int i = 0; i < children.length; i++) {
+        final childKey = children[i];
+        Map<String, dynamic>? childNode;
+
+        if (childKey is String && nodeMap != null) {
+          childNode = nodeMap[childKey];
+        } else if (childKey is Map<String, dynamic>) {
+          childNode = childKey;
+        }
+
+        if (childNode != null) {
+          recurse(childNode, [...path, i]);
+        }
+      }
+    }
+  }
+
+  recurse(sourceComponent, []);
+  return map;
+}
+
+/// Find a node in the instance hierarchy matching the source node's name/type/path
+Map<String, dynamic>? _findMatchingInstanceNode(
+  Map<String, dynamic> instanceNode,
+  _SourceNodeInfo sourceInfo,
+  Map<String, Map<String, dynamic>>? nodeMap,
+  List<int> currentPath,
+) {
+  // First, try to navigate by path
+  Map<String, dynamic>? current = instanceNode;
+  for (int i = 0; i < sourceInfo.path.length && current != null; i++) {
+    final targetIndex = sourceInfo.path[i];
+    final children = current['children'];
+    if (children is List && targetIndex < children.length) {
+      final childKey = children[targetIndex];
+      if (childKey is String && nodeMap != null) {
+        current = nodeMap[childKey];
+      } else if (childKey is Map<String, dynamic>) {
+        current = childKey;
+      } else {
+        current = null;
+      }
+    } else {
+      current = null;
+    }
+  }
+
+  // Verify the path-found node matches by name and type
+  if (current != null) {
+    final currentName = (current['name'] as String?) ?? '';
+    final currentType = (current['type'] as String?) ?? '';
+    if (currentName == sourceInfo.name && currentType == sourceInfo.type) {
+      return current;
+    }
+  }
+
+  // Path didn't work - fall back to recursive search by name/type
+  return _searchByNameType(instanceNode, sourceInfo.name, sourceInfo.type, nodeMap);
+}
+
+/// Recursively search for a node by name and type
+Map<String, dynamic>? _searchByNameType(
+  Map<String, dynamic> root,
+  String name,
+  String type,
+  Map<String, Map<String, dynamic>>? nodeMap,
+) {
+  final rootName = (root['name'] as String?) ?? '';
+  final rootType = (root['type'] as String?) ?? '';
+
+  if (rootName == name && rootType == type) {
+    return root;
+  }
+
+  final children = root['children'];
+  if (children is List) {
+    for (final childKey in children) {
+      Map<String, dynamic>? childNode;
+      if (childKey is String && nodeMap != null) {
+        childNode = nodeMap[childKey];
+      } else if (childKey is Map<String, dynamic>) {
+        childNode = childKey;
+      }
+
+      if (childNode != null) {
+        final match = _searchByNameType(childNode, name, type, nodeMap);
+        if (match != null) return match;
+      }
+    }
+  }
+
+  return null;
+}
+
+/// Build override map with GUID resolution for component instances
+/// Returns a map from instance nodeMap keys to override data
+Map<String, Map<String, dynamic>> _buildResolvedOverrideMap({
+  required List<dynamic> symbolOverrides,
+  required Map<String, dynamic> sourceComponent,
+  required Map<String, dynamic> instanceNode,
+  required Map<String, Map<String, dynamic>>? nodeMap,
+  required List<String> instanceChildKeys,
+}) {
+  final resolvedMap = <String, Map<String, dynamic>>{};
+
+  // Build source GUID map
+  final sourceGuidMap = _buildSourceGuidMap(sourceComponent, nodeMap);
+
+  if (figmaRendererDebug) {
+    print('DEBUG GUID MAP: ${sourceGuidMap.length} entries');
+    for (final entry in sourceGuidMap.entries.take(3)) {
+      print('  ${entry.key} → name="${entry.value.name}" type=${entry.value.type} path=${entry.value.path}');
+    }
+  }
+
+  for (final override in symbolOverrides) {
+    if (override is! Map) continue;
+
+    // Extract the target GUID from guidPath
+    final guidPath = override['guidPath'];
+    String? targetGuidKey;
+
+    if (guidPath is Map) {
+      if (guidPath.containsKey('guids')) {
+        final guids = guidPath['guids'];
+        if (guids is List && guids.isNotEmpty) {
+          final targetGuid = guids.last;
+          if (targetGuid is Map) {
+            targetGuidKey = '${targetGuid['sessionID'] ?? 0}:${targetGuid['localID'] ?? 0}';
+          }
+        }
+      } else if (guidPath.containsKey('sessionID')) {
+        targetGuidKey = '${guidPath['sessionID'] ?? 0}:${guidPath['localID'] ?? 0}';
+      }
+    }
+
+    if (targetGuidKey == null) continue;
+
+    // Look up source node info
+    final sourceInfo = sourceGuidMap[targetGuidKey];
+    if (sourceInfo == null) {
+      if (figmaRendererDebug) {
+        print('DEBUG: No source info for GUID $targetGuidKey');
+      }
+      continue;
+    }
+
+    // Find matching instance node
+    final matchedNode = _findMatchingInstanceNode(
+      instanceNode,
+      sourceInfo,
+      nodeMap,
+      [],
+    );
+
+    if (matchedNode != null) {
+      // Get the instance node's key
+      String? instanceKey;
+      final matchedGuid = matchedNode['guid'];
+      if (matchedGuid is Map) {
+        instanceKey = '${matchedGuid['sessionID'] ?? 0}:${matchedGuid['localID'] ?? 0}';
+      }
+
+      // Also try to find by matching in instanceChildKeys
+      if (instanceKey == null) {
+        for (final ck in instanceChildKeys) {
+          final cn = nodeMap?[ck];
+          if (cn != null) {
+            final cnName = (cn['name'] as String?) ?? '';
+            final cnType = (cn['type'] as String?) ?? '';
+            if (cnName == sourceInfo.name && cnType == sourceInfo.type) {
+              instanceKey = ck;
+              break;
+            }
+          }
+        }
+      }
+
+      if (instanceKey != null) {
+        // Store override data (excluding guidPath)
+        final overrideData = Map<String, dynamic>.from(override);
+        overrideData.remove('guidPath');
+        resolvedMap[instanceKey] = overrideData;
+
+        if (figmaRendererDebug) {
+          final hasTextData = overrideData.containsKey('textData');
+          if (hasTextData) {
+            final td = overrideData['textData'];
+            final chars = td is Map ? td['characters'] : null;
+            print('DEBUG RESOLVED: $targetGuidKey → $instanceKey (text="$chars")');
+          }
+        }
+      }
+    }
+  }
+
+  return resolvedMap;
+}
+
 /// Main node renderer widget that routes to specific renderers based on node type
 class FigmaNodeWidget extends StatelessWidget {
   final Map<String, dynamic> node;
@@ -188,6 +443,9 @@ class FigmaNodeWidget extends StatelessWidget {
   final Map<String, dynamic>? propertyOverrides;
   /// Full override map from parent INSTANCE for nested children lookup
   final Map<String, Map<String, dynamic>>? instanceOverrides;
+  /// Component property values from parent INSTANCE's componentPropAssignments
+  /// Maps defID key (e.g., "6:0") to value containing textValue/boolValue/etc
+  final Map<String, dynamic>? componentPropValues;
 
   const FigmaNodeWidget({
     super.key,
@@ -199,6 +457,7 @@ class FigmaNodeWidget extends StatelessWidget {
     this.showBounds = false,
     this.propertyOverrides,
     this.instanceOverrides,
+    this.componentPropValues,
   });
 
   @override
@@ -248,6 +507,58 @@ class FigmaNodeWidget extends StatelessWidget {
         final td = effectiveNode['textData'];
         if (td is Map) {
           print('DEBUG TEXT OVERRIDE APPLIED: "${node['name']}" → characters="${td['characters']}"');
+        }
+      }
+    }
+
+    // Apply componentPropValues via componentPropRefs
+    // TEXT nodes with componentPropRefs get their text from componentPropAssignments
+    if (componentPropValues != null && componentPropValues!.isNotEmpty) {
+      final propRefs = node['componentPropRefs'] as List?;
+      if (propRefs != null && propRefs.isNotEmpty) {
+        for (final ref in propRefs) {
+          if (ref is! Map) continue;
+          final defId = ref['defID'];
+          final propField = ref['componentPropNodeField'] as String?;
+
+          if (defId is Map && propField != null) {
+            final defKey = '${defId['sessionID']}:${defId['localID']}';
+            final propValue = componentPropValues![defKey];
+
+            if (propValue != null) {
+              if (effectiveNode == node) {
+                effectiveNode = Map<String, dynamic>.from(node);
+              }
+
+              if (propField == 'TEXT_DATA') {
+                // Apply text value override
+                final textValue = propValue['textValue'] as Map<String, dynamic>?;
+                if (textValue != null) {
+                  final characters = textValue['characters'] as String?;
+                  if (characters != null) {
+                    // Create or merge textData
+                    final existingTextData = effectiveNode['textData'] as Map<String, dynamic>?;
+                    if (existingTextData != null) {
+                      final mergedTextData = Map<String, dynamic>.from(existingTextData);
+                      mergedTextData['characters'] = characters;
+                      // Also copy lines if present
+                      if (textValue.containsKey('lines')) {
+                        mergedTextData['lines'] = textValue['lines'];
+                      }
+                      effectiveNode['textData'] = mergedTextData;
+                    } else {
+                      effectiveNode['textData'] = textValue;
+                    }
+
+                    if (figmaRendererDebug) {
+                      print('DEBUG COMPONENT PROP APPLIED: "${node['name']}" [$defKey] → "$characters"');
+                    }
+                  }
+                }
+              }
+              // Other prop fields could be handled here (e.g., VISIBLE for boolean props)
+            }
+          }
         }
       }
     }
@@ -325,7 +636,7 @@ class FigmaNodeWidget extends StatelessWidget {
             }
           }
         }
-        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides, componentPropValues: componentPropValues);
         break;
       case 'INSTANCE':
         // INSTANCE nodes reference a COMPONENT via symbolData - resolve it
@@ -339,14 +650,14 @@ class FigmaNodeWidget extends StatelessWidget {
         break;
       case 'SYMBOL':
       case 'SECTION':
-        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides, componentPropValues: componentPropValues);
         break;
       case 'RECTANGLE':
       case 'ROUNDED_RECTANGLE':
         // Check if this rectangle has IMAGE fills - if so, use FigmaFrameWidget which handles images
         final hasImageFill = props.fills.any((fill) => fill['type'] == 'IMAGE');
         if (hasImageFill) {
-          child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+          child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides, componentPropValues: componentPropValues);
         } else {
           child = FigmaRectangleWidget(props: props);
         }
@@ -363,7 +674,7 @@ class FigmaNodeWidget extends StatelessWidget {
       case 'POLYGON':
       case 'REGULAR_POLYGON':
       case 'BOOLEAN_OPERATION':
-        child = FigmaVectorWidget(props: props);
+        child = FigmaVectorWidget(props: props, blobMap: blobMap);
         break;
       case 'SLICE':
         // SLICE nodes are export areas - render as invisible with debug outline
@@ -392,7 +703,7 @@ class FigmaNodeWidget extends StatelessWidget {
       case 'HIGHLIGHT':
       case 'WASHI_TAPE':
         // FigJam decorative elements - render as vectors or placeholders
-        child = FigmaVectorWidget(props: props);
+        child = FigmaVectorWidget(props: props, blobMap: blobMap);
         break;
 
       // Advanced node types - render as frames or placeholders
@@ -400,13 +711,13 @@ class FigmaNodeWidget extends StatelessWidget {
         child = FigmaTableWidget(props: props, nodeMap: nodeMap, scale: scale);
         break;
       case 'TABLE_CELL':
-        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides, componentPropValues: componentPropValues);
         break;
       case 'SECTION_OVERLAY':
       case 'SLIDE':
       case 'SLIDE_ROW':
         // Presentation elements - treat as frames
-        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides, componentPropValues: componentPropValues);
         break;
 
       // Media and embedded content
@@ -423,7 +734,7 @@ class FigmaNodeWidget extends StatelessWidget {
         break;
       case 'WIDGET':
         // Interactive widget - render as frame
-        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides, componentPropValues: componentPropValues);
         break;
       case 'VARIABLE':
         // Variable definition - typically invisible
@@ -433,7 +744,7 @@ class FigmaNodeWidget extends StatelessWidget {
       case 'DIAGRAMMING_ELEMENT':
       case 'DIAGRAMMING_CONNECTION':
         // Newer node types - render as frames or vectors
-        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides);
+        child = FigmaFrameWidget(props: props, nodeMap: nodeMap, blobMap: blobMap, imagesDirectory: imagesDirectory, scale: scale, instanceOverrides: instanceOverrides, componentPropValues: componentPropValues);
         break;
 
       default:
@@ -492,6 +803,7 @@ class FigmaFrameWidget extends StatelessWidget {
   final String? imagesDirectory;
   final double scale;
   final Map<String, Map<String, dynamic>>? instanceOverrides;
+  final Map<String, dynamic>? componentPropValues;
 
   const FigmaFrameWidget({
     super.key,
@@ -501,6 +813,7 @@ class FigmaFrameWidget extends StatelessWidget {
     this.imagesDirectory,
     this.scale = 1.0,
     this.instanceOverrides,
+    this.componentPropValues,
   });
 
   @override
@@ -797,6 +1110,7 @@ class FigmaFrameWidget extends StatelessWidget {
               imagesDirectory: imagesDirectory,
               scale: scale,
               instanceOverrides: instanceOverrides,
+              componentPropValues: componentPropValues,
             ),
           ),
         );
@@ -836,6 +1150,7 @@ class FigmaFrameWidget extends StatelessWidget {
               imagesDirectory: imagesDirectory,
               scale: scale,
               instanceOverrides: instanceOverrides,
+              componentPropValues: componentPropValues,
             ),
           ),
         );
@@ -912,6 +1227,7 @@ class FigmaFrameWidget extends StatelessWidget {
             imagesDirectory: imagesDirectory,
             scale: scale,
             instanceOverrides: instanceOverrides,
+            componentPropValues: componentPropValues,
           ),
         );
       }
@@ -1060,7 +1376,49 @@ class FigmaInstanceWidget extends StatelessWidget {
     final componentPropDefs = <String, String>{}; // defID key -> target property type
     final componentPropValues = <String, dynamic>{}; // defID key -> value
 
-    final overrideMap = <String, Map<String, dynamic>>{};
+    // Extract componentPropAssignments DIRECTLY from instance node (not from symbolOverrides)
+    // This is Figma's modern way of storing component property overrides
+    final directPropAssignments = props.raw['componentPropAssignments'] as List?;
+    if (directPropAssignments != null && directPropAssignments.isNotEmpty) {
+      if (figmaRendererDebug) {
+        print('DEBUG DIRECT componentPropAssignments for "${props.name}": ${directPropAssignments.length} items');
+      }
+      for (final assignment in directPropAssignments) {
+        if (assignment is! Map) continue;
+        final defId = assignment['defID'];
+        final value = assignment['value'];
+        if (defId is Map && value != null) {
+          final defKey = '${defId['sessionID']}:${defId['localID']}';
+          componentPropValues[defKey] = value;
+          if (figmaRendererDebug) {
+            final textValue = value['textValue'] as Map?;
+            if (textValue != null) {
+              print('  DIRECT PROP [$defKey]: "${textValue['characters']}"');
+            }
+          }
+        }
+      }
+    }
+
+    // Use GUID mapping resolution when we have source component
+    Map<String, Map<String, dynamic>> overrideMap;
+    if (symbolOverrides != null && sourceComponent != null && nodeMap != null) {
+      overrideMap = _buildResolvedOverrideMap(
+        symbolOverrides: symbolOverrides,
+        sourceComponent: sourceComponent,
+        instanceNode: props.raw,
+        nodeMap: nodeMap,
+        instanceChildKeys: childrenKeys,
+      );
+
+      if (figmaRendererDebug && overrideMap.isNotEmpty) {
+        print('DEBUG RESOLVED OVERRIDE MAP for "${props.name}": ${overrideMap.length} entries');
+      }
+    } else {
+      overrideMap = <String, Map<String, dynamic>>{};
+    }
+
+    // Also build legacy override map as fallback (for cases where GUID resolution fails)
     if (symbolOverrides != null) {
       // Debug: log first few overrides to understand structure
       if (figmaRendererDebug && symbolOverrides.isNotEmpty) {
@@ -1167,15 +1525,18 @@ class FigmaInstanceWidget extends StatelessWidget {
 
           if (overrideKey != null) {
             // Store the override properties (excluding guidPath itself)
-            final overrideProps = Map<String, dynamic>.from(override);
-            overrideProps.remove('guidPath');
-            overrideMap[overrideKey] = overrideProps;
+            // Only add if not already resolved by GUID mapping (fallback)
+            if (!overrideMap.containsKey(overrideKey)) {
+              final overrideProps = Map<String, dynamic>.from(override);
+              overrideProps.remove('guidPath');
+              overrideMap[overrideKey] = overrideProps;
 
-            // Debug: Log when we find textData overrides
-            if (figmaRendererDebug && overrideProps.containsKey('textData')) {
-              final td = overrideProps['textData'];
-              if (td is Map && td.containsKey('characters')) {
-                print('DEBUG OVERRIDE: key=$overrideKey has textData.characters="${td['characters']}"');
+              // Debug: Log when we find textData overrides
+              if (figmaRendererDebug && overrideProps.containsKey('textData')) {
+                final td = overrideProps['textData'];
+                if (td is Map && td.containsKey('characters')) {
+                  print('DEBUG LEGACY OVERRIDE: key=$overrideKey has textData.characters="${td['characters']}"');
+                }
               }
             }
           }
@@ -1288,6 +1649,7 @@ class FigmaInstanceWidget extends StatelessWidget {
                 scale: scale,
                 propertyOverrides: childOverride,
                 instanceOverrides: overrideMap, // Pass full map for nested lookups
+                componentPropValues: componentPropValues.isNotEmpty ? componentPropValues : null,
               ),
             ),
           );
@@ -1771,22 +2133,24 @@ class FigmaTextWidget extends StatelessWidget {
 /// Vector/path renderer
 class FigmaVectorWidget extends StatelessWidget {
   final FigmaNodeProperties props;
+  final Map<String, List<int>>? blobMap;
 
-  const FigmaVectorWidget({super.key, required this.props});
+  const FigmaVectorWidget({super.key, required this.props, this.blobMap});
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
       size: Size(props.width, props.height),
-      painter: _VectorPainter(props: props),
+      painter: _VectorPainter(props: props, blobMap: blobMap),
     );
   }
 }
 
 class _VectorPainter extends CustomPainter {
   final FigmaNodeProperties props;
+  final Map<String, List<int>>? blobMap;
 
-  _VectorPainter({required this.props});
+  _VectorPainter({required this.props, this.blobMap});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1798,26 +2162,23 @@ class _VectorPainter extends CustomPainter {
     if (fillGeometry is List) {
       for (final geom in fillGeometry) {
         if (geom is Map) {
-          final pathData = geom['path'] as String?;
-          if (pathData != null) {
-            final path = _parseSvgPath(pathData, size);
+          final path = _parseGeometry(geom, size);
+          if (path == null) continue;
 
-            for (final fill in props.fills) {
-              if (fill['visible'] == false) continue;
+          // Determine winding rule
+          final windingRule = geom['windingRule'] as String?;
+          if (windingRule == 'ODD') {
+            path.fillType = ui.PathFillType.evenOdd;
+          } else {
+            path.fillType = ui.PathFillType.nonZero;
+          }
 
-              final paint = Paint();
-              if (fill['type'] == 'SOLID') {
-                final color = fill['color'];
-                if (color is Map) {
-                  paint.color = Color.fromRGBO(
-                    ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-                    ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-                    ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-                    (color['a'] as num?)?.toDouble() ?? 1.0,
-                  );
-                  canvas.drawPath(path, paint);
-                }
-              }
+          for (final fill in props.fills) {
+            if (fill['visible'] == false) continue;
+
+            final paint = _createFillPaint(fill);
+            if (paint != null) {
+              canvas.drawPath(path, paint);
             }
           }
         }
@@ -1828,27 +2189,25 @@ class _VectorPainter extends CustomPainter {
     if (strokeGeometry is List && props.strokeWeight > 0) {
       for (final geom in strokeGeometry) {
         if (geom is Map) {
-          final pathData = geom['path'] as String?;
-          if (pathData != null) {
-            final path = _parseSvgPath(pathData, size);
+          final path = _parseGeometry(geom, size);
+          if (path == null) continue;
 
-            for (final stroke in props.strokes) {
-              if (stroke['visible'] == false) continue;
+          for (final stroke in props.strokes) {
+            if (stroke['visible'] == false) continue;
 
-              final paint = Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = props.strokeWeight;
+            final paint = Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = props.strokeWeight;
 
-              final color = stroke['color'];
-              if (color is Map) {
-                paint.color = Color.fromRGBO(
-                  ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-                  ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-                  ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-                  (color['a'] as num?)?.toDouble() ?? 1.0,
-                );
-                canvas.drawPath(path, paint);
-              }
+            final color = stroke['color'];
+            if (color is Map) {
+              paint.color = Color.fromRGBO(
+                ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+                ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+                ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+                (color['a'] as num?)?.toDouble() ?? 1.0,
+              );
+              canvas.drawPath(path, paint);
             }
           }
         }
@@ -1862,30 +2221,127 @@ class _VectorPainter extends CustomPainter {
       for (final fill in props.fills) {
         if (fill['visible'] == false) continue;
 
-        final paint = Paint();
-        if (fill['type'] == 'SOLID') {
-          final color = fill['color'];
-          if (color is Map) {
-            paint.color = Color.fromRGBO(
-              ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-              ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-              ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-              (color['a'] as num?)?.toDouble() ?? 1.0,
-            );
-            canvas.drawRect(rect, paint);
-          }
+        final paint = _createFillPaint(fill);
+        if (paint != null) {
+          canvas.drawRect(rect, paint);
         }
       }
     }
   }
 
+  /// Parse geometry from either commandsBlob (binary) or path (SVG string)
+  ui.Path? _parseGeometry(Map<dynamic, dynamic> geom, Size size) {
+    // First, try to parse from commandsBlob (Figma binary format)
+    final commandsBlobIndex = geom['commandsBlob'] as int?;
+    if (commandsBlobIndex != null && blobMap != null) {
+      // blobMap keys are stored as 'blob_N' format
+      final blobData = blobMap!['blob_$commandsBlobIndex'];
+      if (blobData != null) {
+        return _parseCommandsBlob(Uint8List.fromList(blobData));
+      }
+    }
+
+    // Fallback to SVG path string
+    final pathData = geom['path'] as String?;
+    if (pathData != null) {
+      return _parseSvgPath(pathData, size);
+    }
+
+    return null;
+  }
+
+  /// Parse Figma binary commands blob format
+  /// Format: command_byte followed by float32 coordinates
+  /// Commands: 0=close, 1=moveTo(x,y), 2=lineTo(x,y), 4=cubicTo(x1,y1,x2,y2,x3,y3)
+  ui.Path _parseCommandsBlob(Uint8List bytes) {
+    final path = ui.Path();
+    if (bytes.isEmpty) return path;
+
+    final data = ByteData.sublistView(bytes);
+    int offset = 0;
+
+    double readFloat() {
+      if (offset + 4 > bytes.length) return 0.0;
+      final value = data.getFloat32(offset, Endian.little);
+      offset += 4;
+      return value;
+    }
+
+    while (offset < bytes.length) {
+      final cmd = bytes[offset];
+      offset++;
+
+      switch (cmd) {
+        case 0: // closePath
+          path.close();
+          break;
+        case 1: // moveTo
+          final x = readFloat();
+          final y = readFloat();
+          path.moveTo(x, y);
+          break;
+        case 2: // lineTo
+          final x = readFloat();
+          final y = readFloat();
+          path.lineTo(x, y);
+          break;
+        case 3: // quadraticBezierTo
+          final x1 = readFloat();
+          final y1 = readFloat();
+          final x2 = readFloat();
+          final y2 = readFloat();
+          path.quadraticBezierTo(x1, y1, x2, y2);
+          break;
+        case 4: // cubicTo
+          final x1 = readFloat();
+          final y1 = readFloat();
+          final x2 = readFloat();
+          final y2 = readFloat();
+          final x3 = readFloat();
+          final y3 = readFloat();
+          path.cubicTo(x1, y1, x2, y2, x3, y3);
+          break;
+        default:
+          // Unknown command - skip to avoid infinite loop
+          // Try to continue if there are more bytes
+          if (figmaRendererDebug) {
+            print('Unknown vector command: $cmd at offset ${offset - 1}');
+          }
+          break;
+      }
+    }
+
+    return path;
+  }
+
+  /// Create fill paint from fill definition
+  Paint? _createFillPaint(Map<String, dynamic> fill) {
+    final paint = Paint();
+
+    if (fill['type'] == 'SOLID') {
+      final color = fill['color'];
+      if (color is Map) {
+        final opacity = (fill['opacity'] as num?)?.toDouble() ?? 1.0;
+        paint.color = Color.fromRGBO(
+          ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+          ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+          ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+          ((color['a'] as num?)?.toDouble() ?? 1.0) * opacity,
+        );
+        return paint;
+      }
+    }
+
+    return null;
+  }
+
   ui.Path _parseSvgPath(String pathData, Size size) {
     final path = ui.Path();
-    // Basic SVG path parser - handles M, L, C, Z commands
-    // This is a simplified implementation
-    final commands = pathData.split(RegExp(r'(?=[MLCQZmlcqz])'));
+    // Enhanced SVG path parser - handles M, L, H, V, C, S, Q, T, A, Z commands
+    final commands = pathData.split(RegExp(r'(?=[MLHVCSQTAZmlhvcsqtaz])'));
 
     double x = 0, y = 0;
+    double lastCx = 0, lastCy = 0; // Last control point for smooth curves
 
     for (var cmd in commands) {
       cmd = cmd.trim();
@@ -1900,6 +2356,12 @@ class _VectorPainter extends CustomPainter {
             x = args[0];
             y = args[1];
             path.moveTo(x, y);
+            // Subsequent pairs are implicit lineTo
+            for (int i = 2; i + 1 < args.length; i += 2) {
+              x = args[i];
+              y = args[i + 1];
+              path.lineTo(x, y);
+            }
           }
           break;
         case 'm':
@@ -1907,48 +2369,140 @@ class _VectorPainter extends CustomPainter {
             x += args[0];
             y += args[1];
             path.moveTo(x, y);
+            for (int i = 2; i + 1 < args.length; i += 2) {
+              x += args[i];
+              y += args[i + 1];
+              path.lineTo(x, y);
+            }
           }
           break;
         case 'L':
-          if (args.length >= 2) {
-            x = args[0];
-            y = args[1];
+          for (int i = 0; i + 1 < args.length; i += 2) {
+            x = args[i];
+            y = args[i + 1];
             path.lineTo(x, y);
           }
           break;
         case 'l':
-          if (args.length >= 2) {
-            x += args[0];
-            y += args[1];
+          for (int i = 0; i + 1 < args.length; i += 2) {
+            x += args[i];
+            y += args[i + 1];
+            path.lineTo(x, y);
+          }
+          break;
+        case 'H':
+          for (final arg in args) {
+            x = arg;
+            path.lineTo(x, y);
+          }
+          break;
+        case 'h':
+          for (final arg in args) {
+            x += arg;
+            path.lineTo(x, y);
+          }
+          break;
+        case 'V':
+          for (final arg in args) {
+            y = arg;
+            path.lineTo(x, y);
+          }
+          break;
+        case 'v':
+          for (final arg in args) {
+            y += arg;
             path.lineTo(x, y);
           }
           break;
         case 'C':
-          if (args.length >= 6) {
-            path.cubicTo(args[0], args[1], args[2], args[3], args[4], args[5]);
-            x = args[4];
-            y = args[5];
+          for (int i = 0; i + 5 < args.length; i += 6) {
+            lastCx = args[i + 2];
+            lastCy = args[i + 3];
+            x = args[i + 4];
+            y = args[i + 5];
+            path.cubicTo(args[i], args[i + 1], lastCx, lastCy, x, y);
           }
           break;
         case 'c':
-          if (args.length >= 6) {
-            path.cubicTo(x + args[0], y + args[1], x + args[2], y + args[3], x + args[4], y + args[5]);
-            x += args[4];
-            y += args[5];
+          for (int i = 0; i + 5 < args.length; i += 6) {
+            final x1 = x + args[i];
+            final y1 = y + args[i + 1];
+            lastCx = x + args[i + 2];
+            lastCy = y + args[i + 3];
+            x += args[i + 4];
+            y += args[i + 5];
+            path.cubicTo(x1, y1, lastCx, lastCy, x, y);
+          }
+          break;
+        case 'S':
+          for (int i = 0; i + 3 < args.length; i += 4) {
+            final x1 = 2 * x - lastCx;
+            final y1 = 2 * y - lastCy;
+            lastCx = args[i];
+            lastCy = args[i + 1];
+            x = args[i + 2];
+            y = args[i + 3];
+            path.cubicTo(x1, y1, lastCx, lastCy, x, y);
+          }
+          break;
+        case 's':
+          for (int i = 0; i + 3 < args.length; i += 4) {
+            final x1 = 2 * x - lastCx;
+            final y1 = 2 * y - lastCy;
+            lastCx = x + args[i];
+            lastCy = y + args[i + 1];
+            x += args[i + 2];
+            y += args[i + 3];
+            path.cubicTo(x1, y1, lastCx, lastCy, x, y);
           }
           break;
         case 'Q':
-          if (args.length >= 4) {
-            path.quadraticBezierTo(args[0], args[1], args[2], args[3]);
-            x = args[2];
-            y = args[3];
+          for (int i = 0; i + 3 < args.length; i += 4) {
+            lastCx = args[i];
+            lastCy = args[i + 1];
+            x = args[i + 2];
+            y = args[i + 3];
+            path.quadraticBezierTo(lastCx, lastCy, x, y);
           }
           break;
         case 'q':
-          if (args.length >= 4) {
-            path.quadraticBezierTo(x + args[0], y + args[1], x + args[2], y + args[3]);
-            x += args[2];
-            y += args[3];
+          for (int i = 0; i + 3 < args.length; i += 4) {
+            lastCx = x + args[i];
+            lastCy = y + args[i + 1];
+            x += args[i + 2];
+            y += args[i + 3];
+            path.quadraticBezierTo(lastCx, lastCy, x, y);
+          }
+          break;
+        case 'T':
+          for (int i = 0; i + 1 < args.length; i += 2) {
+            lastCx = 2 * x - lastCx;
+            lastCy = 2 * y - lastCy;
+            x = args[i];
+            y = args[i + 1];
+            path.quadraticBezierTo(lastCx, lastCy, x, y);
+          }
+          break;
+        case 't':
+          for (int i = 0; i + 1 < args.length; i += 2) {
+            lastCx = 2 * x - lastCx;
+            lastCy = 2 * y - lastCy;
+            x += args[i];
+            y += args[i + 1];
+            path.quadraticBezierTo(lastCx, lastCy, x, y);
+          }
+          break;
+        case 'A':
+        case 'a':
+          // Arc command - simplified conversion to cubic beziers
+          // Full arc support would require more complex math
+          for (int i = 0; i + 6 < args.length; i += 7) {
+            final endX = type == 'A' ? args[i + 5] : x + args[i + 5];
+            final endY = type == 'A' ? args[i + 6] : y + args[i + 6];
+            // Simplified: just draw a line for now (proper arc conversion is complex)
+            path.lineTo(endX, endY);
+            x = endX;
+            y = endY;
           }
           break;
         case 'Z':
