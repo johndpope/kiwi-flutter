@@ -171,7 +171,7 @@ String imageHashToHex(dynamic imageHash) {
 }
 
 /// Global debug flag for Figma renderer - set to true to enable verbose logging
-bool figmaRendererDebug = false; // Disabled - enable for debugging
+bool figmaRendererDebug = false; // Disabled - see docs/TEXT_RENDERING_ISSUE.md
 
 /// Tracks which node types have been logged (to reduce log spam)
 Set<String>? _loggedRenderTypes;
@@ -206,9 +206,20 @@ class FigmaNodeWidget extends StatelessWidget {
     // Look up overrides for this node from instanceOverrides if not directly provided
     Map<String, dynamic>? effectiveOverrides = propertyOverrides;
     if (effectiveOverrides == null && instanceOverrides != null) {
+      // First try by _guidKey (nodeMap key)
       final nodeKey = node['_guidKey']?.toString();
       if (nodeKey != null) {
         effectiveOverrides = instanceOverrides![nodeKey];
+      }
+      // If not found, try by the node's original guid (which matches symbolOverrides guidPath)
+      if (effectiveOverrides == null) {
+        final nodeGuid = node['guid'];
+        if (nodeGuid is Map) {
+          final sessionId = nodeGuid['sessionID'] ?? 0;
+          final localId = nodeGuid['localID'] ?? 0;
+          final guidKey = '$sessionId:$localId';
+          effectiveOverrides = instanceOverrides![guidKey];
+        }
       }
     }
 
@@ -1042,6 +1053,13 @@ class FigmaInstanceWidget extends StatelessWidget {
 
     // Build override map from symbolOverrides
     // Each override has a guidPath that identifies which nested node to override
+    // IMPORTANT: guidPath uses the ORIGINAL component's guids, not the nodeMap guids
+    // So we need to build a mapping from original guids to nodeMap keys
+
+    // First, try to find the component property definitions (for componentPropAssignments)
+    final componentPropDefs = <String, String>{}; // defID key -> target property type
+    final componentPropValues = <String, dynamic>{}; // defID key -> value
+
     final overrideMap = <String, Map<String, dynamic>>{};
     if (symbolOverrides != null) {
       // Debug: log first few overrides to understand structure
@@ -1059,6 +1077,25 @@ class FigmaInstanceWidget extends StatelessWidget {
             }
             if (o.containsKey('characters')) {
               print('      characters: "${o['characters']}"');
+            }
+          }
+        }
+      }
+
+      // First pass: extract componentPropAssignments (text values etc)
+      for (final override in symbolOverrides) {
+        if (override is Map && override.containsKey('componentPropAssignments')) {
+          final propAssignments = override['componentPropAssignments'];
+          if (propAssignments is List) {
+            for (final assignment in propAssignments) {
+              if (assignment is Map) {
+                final defId = assignment['defID'];
+                final value = assignment['value'];
+                if (defId is Map && value != null) {
+                  final defKey = '${defId['sessionID']}:${defId['localID']}';
+                  componentPropValues[defKey] = value;
+                }
+              }
             }
           }
         }
@@ -1156,6 +1193,46 @@ class FigmaInstanceWidget extends StatelessWidget {
     if (nodeMap != null) {
       // Reverse order: Figma's first child = top, Flutter Stack's last = top
       final reversedKeys = childrenKeys.reversed.toList();
+
+      // Debug: Log child keys vs override keys for first instance with overrides
+      if (figmaRendererDebug && overrideMap.isNotEmpty && reversedKeys.isNotEmpty) {
+        print('DEBUG CHILD MATCHING for "${props.name}":');
+        print('  childKeys: ${reversedKeys.take(5).toList()}');
+        print('  overrideKeys: ${overrideMap.keys.take(5).toList()}');
+        // Also check what the child node's guid looks like
+        for (final ck in reversedKeys.take(2)) {
+          final cn = nodeMap![ck];
+          if (cn != null) {
+            final cnGuid = cn['guid'];
+            print('  child "$ck" guid=${cnGuid}');
+          }
+        }
+      }
+
+      // Pre-scan: collect text overrides and text children for fallback matching
+      // This handles the case where guidPath uses original component guids that don't match nodeMap
+      final textOverrides = <String, Map<String, dynamic>>{};
+      for (final entry in overrideMap.entries) {
+        if (entry.value.containsKey('textData')) {
+          textOverrides[entry.key] = entry.value;
+        }
+      }
+      final textChildKeys = <String>[];
+      for (final ck in reversedKeys) {
+        final cn = nodeMap![ck];
+        if (cn != null && cn['type'] == 'TEXT') {
+          textChildKeys.add(ck);
+        }
+      }
+      // If there's exactly one text child and one text override, they should match
+      Map<String, dynamic>? singleTextOverride;
+      if (textChildKeys.length == 1 && textOverrides.length == 1) {
+        singleTextOverride = textOverrides.values.first;
+        if (figmaRendererDebug) {
+          print('DEBUG SINGLE TEXT MATCH: using fallback for "${props.name}"');
+        }
+      }
+
       for (final childKey in reversedKeys) {
         final childNode = nodeMap![childKey];
         if (childNode != null) {
@@ -1163,7 +1240,41 @@ class FigmaInstanceWidget extends StatelessWidget {
           if (!childProps.visible) continue;
 
           // Check if there's an override for this child
-          final childOverride = overrideMap[childKey];
+          // First try by childKey (nodeMap key)
+          Map<String, dynamic>? childOverride = overrideMap[childKey];
+
+          // If not found, try by the node's original guid (which matches symbolOverrides guidPath)
+          if (childOverride == null && overrideMap.isNotEmpty) {
+            final childGuid = childNode['guid'];
+            if (childGuid is Map) {
+              final sessionId = childGuid['sessionID'] ?? 0;
+              final localId = childGuid['localID'] ?? 0;
+              final guidKey = '$sessionId:$localId';
+              childOverride = overrideMap[guidKey];
+              if (figmaRendererDebug && childOverride != null) {
+                print('DEBUG OVERRIDE FOUND BY GUID: childKey="$childKey" → guidKey="$guidKey"');
+              }
+            }
+          }
+
+          // Fallback: if this is the only TEXT child and there's only one text override, use it
+          if (childOverride == null && singleTextOverride != null && childProps.type == 'TEXT') {
+            childOverride = singleTextOverride;
+            if (figmaRendererDebug) {
+              print('DEBUG OVERRIDE FALLBACK: applying single text override to "$childKey"');
+            }
+          }
+
+          // Debug: Log when we find/don't find override for TEXT nodes
+          if (figmaRendererDebug && childProps.type == 'TEXT' && overrideMap.isNotEmpty) {
+            print('DEBUG TEXT CHILD: key="$childKey" name="${childProps.name}" hasOverride=${childOverride != null}');
+            if (childOverride != null && childOverride.containsKey('textData')) {
+              final td = childOverride['textData'];
+              if (td is Map) {
+                print('  → OVERRIDE TEXT: "${td['characters']}"');
+              }
+            }
+          }
 
           children.add(
             Positioned(

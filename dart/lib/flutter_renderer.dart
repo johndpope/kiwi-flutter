@@ -75,3 +75,6 @@ export 'src/flutter/assets_panel/assets_panel_exports.dart';
 
 // Menu Bar (File, Edit, View, Object, Vector, Text, Arrange menus)
 export 'src/flutter/menu_bar/menu_bar_exports.dart';
+
+// Plugins (plugin system, manifest parsing, plugin management)
+export 'src/flutter/plugins/plugin_exports.dart';

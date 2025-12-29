@@ -58,6 +58,8 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
   bool _strokeExpanded = true;
   bool _effectsExpanded = true;
   bool _layoutExpanded = true;
+  bool _typographyExpanded = true;
+  bool _exportExpanded = false;
 
   // Active editors
   int? _editingFillIndex;
@@ -123,8 +125,17 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
             child: _buildEffectsSection(),
           ),
 
-          // Type-specific sections
+          // Type-specific sections (Typography for TEXT nodes)
           ..._buildTypeSpecificSections(),
+
+          // Export section
+          _buildSection(
+            title: 'Export',
+            expanded: _exportExpanded,
+            onToggle: () => setState(() => _exportExpanded = !_exportExpanded),
+            trailing: _buildAddButton(() => _addExport()),
+            child: _buildExportSection(),
+          ),
         ],
       ),
     );
@@ -499,8 +510,10 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
     final type = fill['type'] as String? ?? 'SOLID';
     final visible = fill['visible'] ?? true;
     final opacity = (fill['opacity'] as num?)?.toDouble() ?? 1.0;
+    final blendMode = fill['blendMode'] as String? ?? 'NORMAL';
 
     Color? color;
+    Gradient? gradient;
     if (type == 'SOLID') {
       final c = fill['color'] as Map<String, dynamic>?;
       if (c != null) {
@@ -511,6 +524,8 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
           opacity,
         );
       }
+    } else if (type.contains('GRADIENT')) {
+      gradient = _extractGradient(fill);
     }
 
     return Column(
@@ -528,25 +543,33 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: color ?? _Colors.bg3,
+                    color: gradient == null ? (color ?? _Colors.bg3) : null,
+                    gradient: gradient,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: _Colors.border),
                   ),
                   child: type == 'IMAGE'
                       ? const Icon(Icons.image, size: 14, color: _Colors.text2)
-                      : type.contains('GRADIENT')
-                          ? const Icon(Icons.gradient, size: 14, color: _Colors.text2)
-                          : null,
+                      : null,
                 ),
                 const SizedBox(width: 8),
 
-                // Type label
+                // Type and color label
                 Expanded(
-                  child: Text(
-                    type == 'SOLID' && color != null
-                        ? '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}'
-                        : type,
-                    style: const TextStyle(color: _Colors.text1, fontSize: 11),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        type == 'SOLID' && color != null
+                            ? '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}'
+                            : _getFillTypeLabel(type),
+                        style: const TextStyle(color: _Colors.text1, fontSize: 11),
+                      ),
+                      Text(
+                        '${(opacity * 100).toInt()}%',
+                        style: const TextStyle(color: _Colors.text3, fontSize: 9),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -559,23 +582,231 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
                     color: _Colors.text3,
                   ),
                 ),
+                const SizedBox(width: 4),
+                // Delete fill
+                GestureDetector(
+                  onTap: () => _updateProperty('removeFill', index),
+                  child: const Icon(Icons.close, size: 14, color: _Colors.text3),
+                ),
               ],
             ),
           ),
         ),
 
-        // Inline color picker
-        if (_editingFillIndex == index && type == 'SOLID')
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: FigmaColorPicker(
+        // Expanded fill editor
+        if (_editingFillIndex == index) ...[
+          const SizedBox(height: 8),
+          // Fill type selector
+          _buildFillTypeSelector(index, type),
+          const SizedBox(height: 8),
+
+          // Color picker for solid fills
+          if (type == 'SOLID')
+            FigmaColorPicker(
               initialColor: color ?? Colors.grey,
               initialOpacity: opacity,
               onColorChanged: (result) {
                 _updateFillColor(index, result.color, result.opacity);
               },
             ),
+
+          // Gradient editor for gradient fills
+          if (type.contains('GRADIENT'))
+            _buildGradientEditor(fill, index),
+
+          const SizedBox(height: 8),
+          // Blend mode selector
+          _buildBlendModeSelector(index, blendMode, 'fill'),
+        ],
+      ],
+    );
+  }
+
+  String _getFillTypeLabel(String type) {
+    switch (type) {
+      case 'SOLID': return 'Solid';
+      case 'GRADIENT_LINEAR': return 'Linear';
+      case 'GRADIENT_RADIAL': return 'Radial';
+      case 'GRADIENT_ANGULAR': return 'Angular';
+      case 'GRADIENT_DIAMOND': return 'Diamond';
+      case 'IMAGE': return 'Image';
+      default: return type;
+    }
+  }
+
+  Widget _buildFillTypeSelector(int index, String currentType) {
+    final types = [
+      ('SOLID', Icons.square_rounded, 'Solid'),
+      ('GRADIENT_LINEAR', Icons.gradient, 'Linear'),
+      ('GRADIENT_RADIAL', Icons.blur_circular, 'Radial'),
+      ('GRADIENT_ANGULAR', Icons.donut_large, 'Angular'),
+      ('GRADIENT_DIAMOND', Icons.diamond_outlined, 'Diamond'),
+      ('IMAGE', Icons.image, 'Image'),
+    ];
+
+    return Row(
+      children: types.map((t) {
+        final isSelected = t.$1 == currentType;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => _updateProperty('fillType.$index', t.$1),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? _Colors.accent.withOpacity(0.2) : _Colors.bg1,
+                border: Border.all(
+                  color: isSelected ? _Colors.accent : _Colors.border,
+                ),
+              ),
+              child: Tooltip(
+                message: t.$3,
+                child: Icon(
+                  t.$2,
+                  size: 14,
+                  color: isSelected ? _Colors.accent : _Colors.text2,
+                ),
+              ),
+            ),
           ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildGradientEditor(Map<String, dynamic> fill, int index) {
+    final gradientStops = fill['gradientStops'] as List? ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Gradient Stops', style: TextStyle(color: _Colors.text2, fontSize: 10)),
+        const SizedBox(height: 4),
+        // Gradient preview bar
+        Container(
+          height: 20,
+          decoration: BoxDecoration(
+            gradient: _extractGradient(fill),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: _Colors.border),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Stop list
+        ...gradientStops.asMap().entries.map((entry) {
+          final stop = entry.value as Map<String, dynamic>? ?? {};
+          final position = (stop['position'] as num?)?.toDouble() ?? 0;
+          final stopColor = stop['color'] as Map<String, dynamic>?;
+          Color color = Colors.grey;
+          if (stopColor != null) {
+            color = Color.fromRGBO(
+              ((stopColor['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+              ((stopColor['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+              ((stopColor['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+              (stopColor['a'] as num?)?.toDouble() ?? 1.0,
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                    border: Border.all(color: _Colors.border),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${(position * 100).toInt()}%',
+                    style: const TextStyle(color: _Colors.text1, fontSize: 10),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Gradient? _extractGradient(Map<String, dynamic> fill) {
+    final type = fill['type'] as String? ?? '';
+    final stops = fill['gradientStops'] as List? ?? [];
+
+    if (stops.isEmpty) return null;
+
+    final colors = <Color>[];
+    final positions = <double>[];
+
+    for (final stop in stops) {
+      if (stop is Map) {
+        final c = stop['color'] as Map?;
+        final pos = (stop['position'] as num?)?.toDouble() ?? 0;
+        if (c != null) {
+          colors.add(Color.fromRGBO(
+            ((c['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+            ((c['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+            ((c['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
+            (c['a'] as num?)?.toDouble() ?? 1.0,
+          ));
+          positions.add(pos);
+        }
+      }
+    }
+
+    if (colors.length < 2) return null;
+
+    if (type == 'GRADIENT_RADIAL') {
+      return RadialGradient(colors: colors, stops: positions);
+    }
+    return LinearGradient(colors: colors, stops: positions);
+  }
+
+  Widget _buildBlendModeSelector(int index, String currentMode, String propertyPrefix) {
+    final modes = [
+      'NORMAL', 'DARKEN', 'MULTIPLY', 'COLOR_BURN',
+      'LIGHTEN', 'SCREEN', 'COLOR_DODGE',
+      'OVERLAY', 'SOFT_LIGHT', 'HARD_LIGHT',
+      'DIFFERENCE', 'EXCLUSION', 'HUE', 'SATURATION', 'COLOR', 'LUMINOSITY',
+    ];
+
+    return Row(
+      children: [
+        const Text('Blend', style: TextStyle(color: _Colors.text2, fontSize: 11)),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _Colors.bg1,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: _Colors.border),
+          ),
+          child: DropdownButton<String>(
+            value: modes.contains(currentMode) ? currentMode : 'NORMAL',
+            dropdownColor: _Colors.bg2,
+            isDense: true,
+            underline: const SizedBox(),
+            style: const TextStyle(color: _Colors.text1, fontSize: 11),
+            items: modes.map((mode) {
+              return DropdownMenuItem(
+                value: mode,
+                child: Text(
+                  mode.replaceAll('_', ' ').toLowerCase().split(' ').map((w) => w[0].toUpperCase() + w.substring(1)).join(' '),
+                  style: const TextStyle(color: _Colors.text1, fontSize: 11),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value != null) {
+                _updateProperty('${propertyPrefix}BlendMode.$index', value);
+              }
+            },
+          ),
+        ),
       ],
     );
   }
@@ -606,6 +837,10 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
   Widget _buildStrokeSection() {
     final strokes = widget.properties!.strokes;
     final strokeWeight = widget.properties!.strokeWeight;
+    final strokeAlign = widget.node?['strokeAlign'] as String? ?? 'CENTER';
+    final strokeCap = widget.node?['strokeCap'] as String? ?? 'NONE';
+    final strokeJoin = widget.node?['strokeJoin'] as String? ?? 'MITER';
+    final strokeDashes = widget.node?['strokeDashes'] as List? ?? [];
 
     return Column(
       children: [
@@ -624,6 +859,7 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
 
         if (strokes.isNotEmpty) ...[
           const SizedBox(height: 8),
+          // Weight row
           Row(
             children: [
               const Text('Weight', style: TextStyle(color: _Colors.text2, fontSize: 11)),
@@ -634,14 +870,221 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+
+          // Position row (Inside/Center/Outside)
+          Row(
+            children: [
+              const Text('Position', style: TextStyle(color: _Colors.text2, fontSize: 11)),
+              const Spacer(),
+              _buildStrokePositionSelector(strokeAlign),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Cap and Join row
+          Row(
+            children: [
+              // Cap style
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Cap', style: TextStyle(color: _Colors.text2, fontSize: 10)),
+                    const SizedBox(height: 4),
+                    _buildStrokeCapSelector(strokeCap),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Join style
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Join', style: TextStyle(color: _Colors.text2, fontSize: 10)),
+                    const SizedBox(height: 4),
+                    _buildStrokeJoinSelector(strokeJoin),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Dashes row
+          Row(
+            children: [
+              const Text('Dashes', style: TextStyle(color: _Colors.text2, fontSize: 11)),
+              const Spacer(),
+              _buildDashSelector(strokeDashes),
+            ],
+          ),
         ],
       ],
+    );
+  }
+
+  Widget _buildStrokePositionSelector(String currentPosition) {
+    final positions = [
+      ('INSIDE', 'Inside'),
+      ('CENTER', 'Center'),
+      ('OUTSIDE', 'Outside'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _Colors.bg1,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _Colors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: positions.map((p) {
+          final isSelected = p.$1 == currentPosition;
+          return GestureDetector(
+            onTap: () => _updateProperty('strokeAlign', p.$1),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? _Colors.accent.withOpacity(0.2) : Colors.transparent,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                p.$2,
+                style: TextStyle(
+                  color: isSelected ? _Colors.accent : _Colors.text2,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildStrokeCapSelector(String currentCap) {
+    final caps = [
+      ('NONE', Icons.remove, 'None'),
+      ('ROUND', Icons.fiber_manual_record, 'Round'),
+      ('SQUARE', Icons.crop_square, 'Square'),
+    ];
+
+    return Row(
+      children: caps.map((c) {
+        final isSelected = c.$1 == currentCap;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => _updateProperty('strokeCap', c.$1),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? _Colors.accent.withOpacity(0.2) : _Colors.bg1,
+                border: Border.all(
+                  color: isSelected ? _Colors.accent : _Colors.border,
+                ),
+              ),
+              child: Tooltip(
+                message: c.$3,
+                child: Icon(
+                  c.$2,
+                  size: 12,
+                  color: isSelected ? _Colors.accent : _Colors.text2,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildStrokeJoinSelector(String currentJoin) {
+    final joins = [
+      ('MITER', Icons.change_history, 'Miter'),
+      ('ROUND', Icons.circle_outlined, 'Round'),
+      ('BEVEL', Icons.crop_square, 'Bevel'),
+    ];
+
+    return Row(
+      children: joins.map((j) {
+        final isSelected = j.$1 == currentJoin;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => _updateProperty('strokeJoin', j.$1),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? _Colors.accent.withOpacity(0.2) : _Colors.bg1,
+                border: Border.all(
+                  color: isSelected ? _Colors.accent : _Colors.border,
+                ),
+              ),
+              child: Tooltip(
+                message: j.$3,
+                child: Icon(
+                  j.$2,
+                  size: 12,
+                  color: isSelected ? _Colors.accent : _Colors.text2,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildDashSelector(List dashes) {
+    final hasDashes = dashes.isNotEmpty;
+    final dashPattern = hasDashes ? dashes.map((d) => d.toString()).join(', ') : 'None';
+
+    return GestureDetector(
+      onTap: () {
+        // Toggle between solid and dashed
+        if (hasDashes) {
+          _updateProperty('strokeDashes', <double>[]);
+        } else {
+          _updateProperty('strokeDashes', [8.0, 8.0]);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: _Colors.bg1,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _Colors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Dash preview
+            Container(
+              width: 40,
+              height: 2,
+              decoration: BoxDecoration(
+                color: hasDashes ? Colors.transparent : _Colors.text1,
+              ),
+              child: hasDashes
+                  ? CustomPaint(
+                      painter: _DashPainter(color: _Colors.text1),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.arrow_drop_down, size: 14, color: _Colors.text2),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildStrokeItem(Map<String, dynamic> stroke, int index) {
     final type = stroke['type'] as String? ?? 'SOLID';
     final visible = stroke['visible'] ?? true;
+    final opacity = (stroke['opacity'] as num?)?.toDouble() ?? 1.0;
+    final blendMode = stroke['blendMode'] as String? ?? 'NORMAL';
 
     Color? color;
     if (type == 'SOLID') {
@@ -651,46 +1094,78 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
           ((c['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
           ((c['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
           ((c['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-          1.0,
+          opacity,
         );
       }
     }
 
-    return GestureDetector(
-      onTap: () => setState(() {
-        _editingStrokeIndex = _editingStrokeIndex == index ? null : index;
-      }),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: color ?? _Colors.text2, width: 2),
-              ),
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () => setState(() {
+            _editingStrokeIndex = _editingStrokeIndex == index ? null : index;
+          }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: color ?? _Colors.text2, width: 2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        color != null ? '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}' : type,
+                        style: const TextStyle(color: _Colors.text1, fontSize: 11),
+                      ),
+                      Text(
+                        '${(opacity * 100).toInt()}%',
+                        style: const TextStyle(color: _Colors.text3, fontSize: 9),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _toggleStrokeVisibility(index),
+                  child: Icon(
+                    visible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    size: 14,
+                    color: _Colors.text3,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () => _updateProperty('removeStroke', index),
+                  child: const Icon(Icons.close, size: 14, color: _Colors.text3),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                color != null ? '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}' : type,
-                style: const TextStyle(color: _Colors.text1, fontSize: 11),
-              ),
-            ),
-            GestureDetector(
-              onTap: () => _toggleStrokeVisibility(index),
-              child: Icon(
-                visible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                size: 14,
-                color: _Colors.text3,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+
+        // Expanded stroke editor
+        if (_editingStrokeIndex == index && type == 'SOLID') ...[
+          const SizedBox(height: 8),
+          FigmaColorPicker(
+            initialColor: color ?? Colors.grey,
+            initialOpacity: opacity,
+            onColorChanged: (result) {
+              _updateStrokeColor(index, result.color, result.opacity);
+            },
+          ),
+          const SizedBox(height: 8),
+          _buildBlendModeSelector(index, blendMode, 'stroke'),
+        ],
+      ],
     );
   }
 
@@ -704,6 +1179,15 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
 
   void _toggleStrokeVisibility(int index) {
     _updateProperty('strokeVisible.$index', !(widget.properties!.strokes[index]['visible'] ?? true));
+  }
+
+  void _updateStrokeColor(int index, Color color, double opacity) {
+    _updateProperty('strokeColor.$index', {
+      'r': color.red / 255,
+      'g': color.green / 255,
+      'b': color.blue / 255,
+    });
+    _updateProperty('strokeOpacity.$index', opacity);
   }
 
   // ============ Effects Section ============
@@ -793,6 +1277,125 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
     _updateProperty('effectVisible.$index', !(widget.properties!.effects[index]['visible'] ?? true));
   }
 
+  // ============ Export Section ============
+
+  void _addExport() {
+    _updateProperty('addExport', {
+      'format': 'PNG',
+      'constraint': {'type': 'SCALE', 'value': 1.0},
+      'suffix': '',
+    });
+  }
+
+  Widget _buildExportSection() {
+    // Get existing export settings from node
+    final exportSettings = widget.node?['exportSettings'] as List? ?? [];
+
+    if (exportSettings.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          'Click + to add export',
+          style: TextStyle(color: _Colors.text3, fontSize: 11),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (int i = 0; i < exportSettings.length; i++)
+          _buildExportItem(exportSettings[i], i),
+      ],
+    );
+  }
+
+  Widget _buildExportItem(dynamic setting, int index) {
+    final format = setting['format'] ?? 'PNG';
+    final constraint = setting['constraint'] as Map? ?? {};
+    final constraintType = constraint['type'] ?? 'SCALE';
+    final constraintValue = (constraint['value'] as num?)?.toDouble() ?? 1.0;
+    final suffix = setting['suffix'] ?? '';
+
+    String sizeText;
+    if (constraintType == 'SCALE') {
+      sizeText = '${constraintValue}x';
+    } else if (constraintType == 'WIDTH') {
+      sizeText = '${constraintValue.toInt()}w';
+    } else if (constraintType == 'HEIGHT') {
+      sizeText = '${constraintValue.toInt()}h';
+    } else {
+      sizeText = '1x';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          // Size/Scale dropdown
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _Colors.bg1,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: _Colors.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(sizeText, style: const TextStyle(color: _Colors.text1, fontSize: 11)),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_drop_down, size: 14, color: _Colors.text2),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Suffix field
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _Colors.bg1,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: _Colors.border),
+              ),
+              child: Text(
+                suffix.isEmpty ? 'Suffix' : suffix,
+                style: TextStyle(
+                  color: suffix.isEmpty ? _Colors.text3 : _Colors.text1,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Format dropdown
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _Colors.bg1,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: _Colors.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(format, style: const TextStyle(color: _Colors.text1, fontSize: 11)),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_drop_down, size: 14, color: _Colors.text2),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Delete button
+          GestureDetector(
+            onTap: () => _updateProperty('removeExport', index),
+            child: const Icon(Icons.remove_circle_outline, size: 16, color: _Colors.text3),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ============ Type-specific Sections ============
 
   List<Widget> _buildTypeSpecificSections() {
@@ -810,31 +1413,97 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
 
   Widget _buildTextSection() {
     final textData = widget.node?['textData'] as Map<String, dynamic>? ?? {};
-    final fontSize = (textData['fontSize'] as num?)?.toDouble() ?? 14;
+    final fontSize = (textData['fontSize'] as num?)?.toDouble() ??
+                     (widget.node?['fontSize'] as num?)?.toDouble() ?? 14;
     final lineHeight = (textData['lineHeight'] as num?)?.toDouble();
     final letterSpacing = (textData['letterSpacing'] as num?)?.toDouble() ?? 0;
+    final paragraphSpacing = (textData['paragraphSpacing'] as num?)?.toDouble() ?? 0;
+
+    // Get font info from fontMetaData or fontName
+    final fontMetaData = widget.node?['fontMetaData'] as Map?;
+    final fontName = widget.node?['fontName'] as Map?;
+    String fontFamily = 'Inter';
+    String fontWeight = 'Regular';
+
+    if (fontMetaData != null && fontMetaData.isNotEmpty) {
+      final firstMeta = fontMetaData.values.first as Map?;
+      if (firstMeta != null) {
+        fontFamily = firstMeta['family'] as String? ?? fontFamily;
+        fontWeight = firstMeta['style'] as String? ?? fontWeight;
+      }
+    } else if (fontName != null) {
+      fontFamily = fontName['family'] as String? ?? fontFamily;
+      fontWeight = fontName['style'] as String? ?? fontWeight;
+    }
+
+    // Text alignment
+    final textAlignHorizontal = widget.node?['textAlignHorizontal'] as String? ?? 'LEFT';
+    final textAlignVertical = widget.node?['textAlignVertical'] as String? ?? 'TOP';
+
+    // Text decoration
+    final textDecoration = widget.node?['textDecoration'] as String? ?? 'NONE';
+    final textCase = widget.node?['textCase'] as String? ?? 'ORIGINAL';
 
     return _buildSection(
-      title: 'Text',
-      expanded: true,
-      onToggle: () {},
+      title: 'Typography',
+      expanded: _typographyExpanded,
+      onToggle: () => setState(() => _typographyExpanded = !_typographyExpanded),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Font family (simplified)
+          // Font family row
           Row(
             children: [
-              const Text('Font', style: TextStyle(color: _Colors.text2, fontSize: 11)),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _Colors.bg1,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: _Colors.border),
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _Colors.bg1,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: _Colors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          fontFamily,
+                          style: const TextStyle(color: _Colors.text1, fontSize: 11),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down, size: 14, color: _Colors.text2),
+                    ],
+                  ),
                 ),
-                child: const Text(
-                  'Inter',
-                  style: TextStyle(color: _Colors.text1, fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Font weight and style row
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _Colors.bg1,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: _Colors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          fontWeight,
+                          style: const TextStyle(color: _Colors.text1, fontSize: 11),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down, size: 14, color: _Colors.text2),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -857,7 +1526,7 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
           ),
           const SizedBox(height: 8),
 
-          // Letter spacing
+          // Letter spacing and paragraph spacing
           Row(
             children: [
               Expanded(
@@ -869,7 +1538,45 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Expanded(child: SizedBox()),
+              Expanded(
+                child: _buildNumericField(
+                  'Para',
+                  paragraphSpacing,
+                  (v) => _updateProperty('paragraphSpacing', v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Text alignment row
+          Row(
+            children: [
+              const Text('Align', style: TextStyle(color: _Colors.text2, fontSize: 11)),
+              const SizedBox(width: 12),
+              _buildAlignmentButton(Icons.format_align_left, textAlignHorizontal == 'LEFT', () => _updateProperty('textAlignHorizontal', 'LEFT')),
+              _buildAlignmentButton(Icons.format_align_center, textAlignHorizontal == 'CENTER', () => _updateProperty('textAlignHorizontal', 'CENTER')),
+              _buildAlignmentButton(Icons.format_align_right, textAlignHorizontal == 'RIGHT', () => _updateProperty('textAlignHorizontal', 'RIGHT')),
+              _buildAlignmentButton(Icons.format_align_justify, textAlignHorizontal == 'JUSTIFIED', () => _updateProperty('textAlignHorizontal', 'JUSTIFIED')),
+              const SizedBox(width: 12),
+              _buildAlignmentButton(Icons.vertical_align_top, textAlignVertical == 'TOP', () => _updateProperty('textAlignVertical', 'TOP')),
+              _buildAlignmentButton(Icons.vertical_align_center, textAlignVertical == 'CENTER', () => _updateProperty('textAlignVertical', 'CENTER')),
+              _buildAlignmentButton(Icons.vertical_align_bottom, textAlignVertical == 'BOTTOM', () => _updateProperty('textAlignVertical', 'BOTTOM')),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Text decoration and case row
+          Row(
+            children: [
+              const Text('Style', style: TextStyle(color: _Colors.text2, fontSize: 11)),
+              const SizedBox(width: 12),
+              _buildAlignmentButton(Icons.format_underlined, textDecoration == 'UNDERLINE', () => _updateProperty('textDecoration', textDecoration == 'UNDERLINE' ? 'NONE' : 'UNDERLINE')),
+              _buildAlignmentButton(Icons.format_strikethrough, textDecoration == 'STRIKETHROUGH', () => _updateProperty('textDecoration', textDecoration == 'STRIKETHROUGH' ? 'NONE' : 'STRIKETHROUGH')),
+              const SizedBox(width: 12),
+              _buildTextCaseButton('Aa', textCase == 'ORIGINAL', () => _updateProperty('textCase', 'ORIGINAL')),
+              _buildTextCaseButton('AA', textCase == 'UPPER', () => _updateProperty('textCase', 'UPPER')),
+              _buildTextCaseButton('aa', textCase == 'LOWER', () => _updateProperty('textCase', 'LOWER')),
             ],
           ),
         ],
@@ -905,7 +1612,77 @@ class _PropertiesPanelState extends State<PropertiesPanel> {
     );
   }
 
+  Widget _buildAlignmentButton(IconData icon, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isSelected ? _Colors.accent.withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: isSelected ? _Colors.accent : _Colors.text2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextCaseButton(String label, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? _Colors.accent.withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? _Colors.accent : _Colors.text2,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
   void _updateProperty(String property, dynamic value) {
     widget.onPropertyChanged?.call(property, value);
   }
+}
+
+/// Custom painter for dashed line preview
+class _DashPainter extends CustomPainter {
+  final Color color;
+
+  _DashPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    const dashWidth = 4.0;
+    const dashSpace = 3.0;
+    double startX = 0;
+
+    while (startX < size.width) {
+      canvas.drawLine(
+        Offset(startX, size.height / 2),
+        Offset(startX + dashWidth, size.height / 2),
+        paint,
+      );
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
