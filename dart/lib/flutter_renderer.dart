@@ -36,3 +36,27 @@ export 'src/flutter/state/state.dart';
 
 // Editing tools
 export 'src/flutter/editing/editing.dart';
+
+// UI panels and widgets
+export 'src/flutter/ui/ui.dart';
+
+// Auto layout
+export 'src/flutter/auto_layout/auto_layout.dart';
+
+// Assets (components, styles, variables, frame presets)
+export 'src/flutter/assets/assets.dart';
+
+// Operations (boolean operations, export)
+export 'src/flutter/operations/operations.dart';
+
+// Constraints (layout constraints)
+export 'src/flutter/constraints/constraints.dart';
+
+// Shape tools
+export 'src/flutter/tools/tools.dart';
+
+// Advanced stroke options
+export 'src/flutter/rendering/stroke_options.dart';
+
+// Prototyping (interactions, navigation, player)
+export 'src/flutter/prototyping/prototyping.dart';

@@ -50,6 +50,14 @@ enum ShortcutAction {
   toggleGrid,
   toggleRulers,
   save,
+  // Auto layout shortcuts
+  toggleAutoLayout,
+  setFlowVertical,
+  setFlowHorizontal,
+  toggleSpaceAuto,
+  addConstraints,
+  removeConstraints,
+  toggleAbsolutePosition,
 }
 
 /// Callback for shortcut actions
@@ -177,6 +185,24 @@ class KeyboardShortcuts extends StatelessWidget {
       // Save
       SingleActivator(LogicalKeyboardKey.keyS, meta: isMac, control: !isMac):
           const _ShortcutIntent(ShortcutAction.save),
+
+      // Auto layout (Shift+A)
+      const SingleActivator(LogicalKeyboardKey.keyA, shift: true):
+          const _ShortcutIntent(ShortcutAction.toggleAutoLayout),
+
+      // Auto layout direction (Alt+V for vertical, Alt+H for horizontal)
+      const SingleActivator(LogicalKeyboardKey.keyV, alt: true):
+          const _ShortcutIntent(ShortcutAction.setFlowVertical),
+      const SingleActivator(LogicalKeyboardKey.keyH, alt: true):
+          const _ShortcutIntent(ShortcutAction.setFlowHorizontal),
+
+      // Auto spacing toggle (X key in Figma)
+      const SingleActivator(LogicalKeyboardKey.keyX):
+          const _ShortcutIntent(ShortcutAction.toggleSpaceAuto),
+
+      // Absolute position toggle (Ctrl+Shift+A)
+      SingleActivator(LogicalKeyboardKey.keyA, meta: isMac, control: !isMac, shift: true, alt: true):
+          const _ShortcutIntent(ShortcutAction.toggleAbsolutePosition),
     };
   }
 
