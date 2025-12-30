@@ -37,28 +37,35 @@ class TabSwitcher extends StatelessWidget {
           bottom: BorderSide(color: DesignPanelColors.border, width: 1),
         ),
       ),
-      child: Row(
-        children: [
-          // Design tab
-          _TabButton(
-            label: 'Design',
-            isActive: activeTab == DesignPanelTab.design,
-            onTap: () => onTabChanged?.call(DesignPanelTab.design),
-          ),
-          const SizedBox(width: DesignPanelSpacing.lg),
-          // Prototype tab
-          _TabButton(
-            label: 'Prototype',
-            isActive: activeTab == DesignPanelTab.prototype,
-            onTap: () => onTabChanged?.call(DesignPanelTab.prototype),
-          ),
-          const Spacer(),
-          // Zoom percentage
-          _ZoomDropdown(
-            zoomLevel: zoomLevel,
-            onZoomChanged: onZoomChanged,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Hide tabs on narrow widths (tabs + spacing + dropdown ~ 290px)
+          final showTabs = constraints.maxWidth > 290;
+          return Row(
+            children: [
+              // Tabs (only show if there's room)
+              if (showTabs) ...[
+                _TabButton(
+                  label: 'Design',
+                  isActive: activeTab == DesignPanelTab.design,
+                  onTap: () => onTabChanged?.call(DesignPanelTab.design),
+                ),
+                const SizedBox(width: DesignPanelSpacing.lg),
+                _TabButton(
+                  label: 'Prototype',
+                  isActive: activeTab == DesignPanelTab.prototype,
+                  onTap: () => onTabChanged?.call(DesignPanelTab.prototype),
+                ),
+              ],
+              const Spacer(),
+              // Zoom percentage
+              _ZoomDropdown(
+                zoomLevel: zoomLevel,
+                onZoomChanged: onZoomChanged,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

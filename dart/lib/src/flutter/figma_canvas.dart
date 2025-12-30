@@ -246,6 +246,12 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   int _rightPanelTab = 0; // 0=Design, 1=Prototype, 2=Inspect
   int _leftPanelTab = 0; // 0=Layers, 1=Assets
 
+  // View options
+  bool _showPixelGrid = false;
+  bool _showLayoutGrids = false;
+  bool _showRulers = false;
+  bool _showOutlines = false;
+
   // Cached canvas content widget
   Widget? _cachedCanvasContent;
   int? _cachedPageIndex;
@@ -335,7 +341,7 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
               },
               onAction: (action) {
                 _hideMainMenu();
-                debugPrint('Menu action: $action');
+                _handleMenuAction(action);
               },
             ),
           ),
@@ -434,6 +440,103 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
         break;
       default:
         // Other actions not yet implemented
+        break;
+    }
+  }
+
+  /// Handle menu actions
+  void _handleMenuAction(String action) {
+    debugPrint('Menu action: $action');
+
+    switch (action.toLowerCase()) {
+      // Edit menu
+      case 'undo':
+        _handleShortcut(ShortcutAction.undo);
+        break;
+      case 'redo':
+        _handleShortcut(ShortcutAction.redo);
+        break;
+      case 'copy':
+        _handleShortcut(ShortcutAction.copy);
+        break;
+      case 'cut':
+        _handleShortcut(ShortcutAction.cut);
+        break;
+      case 'paste':
+        _handleShortcut(ShortcutAction.paste);
+        break;
+      case 'duplicate':
+        _handleShortcut(ShortcutAction.duplicate);
+        break;
+      case 'delete':
+        _handleShortcut(ShortcutAction.delete);
+        break;
+      case 'select all':
+        _handleShortcut(ShortcutAction.selectAll);
+        break;
+
+      // View menu - toggles
+      case 'pixel grid':
+        setState(() => _showPixelGrid = !_showPixelGrid);
+        break;
+      case 'layout grids':
+        setState(() => _showLayoutGrids = !_showLayoutGrids);
+        break;
+      case 'rulers':
+        setState(() => _showRulers = !_showRulers);
+        break;
+      case 'outlines':
+        setState(() => _showOutlines = !_showOutlines);
+        break;
+      case 'panels':
+        setState(() {
+          _showLeftPanel = !_showLeftPanel;
+          _showRightPanel = !_showRightPanel;
+        });
+        break;
+
+      // View menu - zoom
+      case 'zoom in':
+        _handleShortcut(ShortcutAction.zoomIn);
+        break;
+      case 'zoom out':
+        _handleShortcut(ShortcutAction.zoomOut);
+        break;
+      case 'zoom to 100%':
+        _handleShortcut(ShortcutAction.zoomTo100);
+        break;
+      case 'zoom to fit':
+        _handleShortcut(ShortcutAction.zoomToFit);
+        break;
+      case 'zoom to selection':
+        _zoomToSelection();
+        break;
+
+      // Object menu
+      case 'group selection':
+        _handleShortcut(ShortcutAction.group);
+        break;
+      case 'ungroup selection':
+        _handleShortcut(ShortcutAction.ungroup);
+        break;
+
+      // Arrange menu
+      case 'bring to front':
+        _handleShortcut(ShortcutAction.bringToFront);
+        break;
+      case 'bring forward':
+        _handleShortcut(ShortcutAction.bringForward);
+        break;
+      case 'send backward':
+        _handleShortcut(ShortcutAction.sendBackward);
+        break;
+      case 'send to back':
+        _handleShortcut(ShortcutAction.sendToBack);
+        break;
+
+      default:
+        // Action not yet implemented - just log it
+        debugPrint('Unhandled menu action: $action');
         break;
     }
   }
@@ -596,6 +699,34 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     final offsetY = availableHeight / 2 - centerY * newScale + 48;
 
     // Update scale without setState
+    _scale = newScale;
+    final matrix = Matrix4.identity();
+    matrix.setEntry(0, 3, offsetX);
+    matrix.setEntry(1, 3, offsetY);
+    matrix.setEntry(0, 0, newScale);
+    matrix.setEntry(1, 1, newScale);
+    _transformController.value = matrix;
+  }
+
+  void _zoomToSelection() {
+    final selectedNode = DebugOverlayController.instance.selectedNode;
+    if (selectedNode == null) return;
+
+    final bounds = _getAbsoluteNodeBounds(selectedNode, widget.document.nodeMap);
+    final screenSize = MediaQuery.of(context).size;
+    final availableWidth = screenSize.width - (_showLeftPanel ? 240 : 0) - (_showRightPanel ? 300 : 0);
+    final availableHeight = screenSize.height - 88;
+    final padding = 100.0;
+
+    final scaleX = (availableWidth - padding) / bounds.width;
+    final scaleY = (availableHeight - padding) / bounds.height;
+    final newScale = (scaleX < scaleY ? scaleX : scaleY).clamp(0.1, 8.0);
+
+    final centerX = bounds.left + bounds.width / 2;
+    final centerY = bounds.top + bounds.height / 2;
+    final offsetX = availableWidth / 2 - centerX * newScale + (_showLeftPanel ? 240 : 0);
+    final offsetY = availableHeight / 2 - centerY * newScale + 48;
+
     _scale = newScale;
     final matrix = Matrix4.identity();
     matrix.setEntry(0, 3, offsetX);
@@ -2374,6 +2505,52 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
             ),
           ),
 
+          // Pixel grid overlay
+          if (_showPixelGrid)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _scaleNotifier,
+                  builder: (context, scale, _) {
+                    // Only show grid when zoomed in enough
+                    if (scale < 4.0) {
+                      return const Center(
+                        child: Text(
+                          'Zoom in to see pixel grid',
+                          style: TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                      );
+                    }
+                    return CustomPaint(
+                      painter: _PixelGridPainter(
+                        scale: scale,
+                        transform: _transformController.value,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+          // Rulers overlay
+          if (_showRulers)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _scaleNotifier,
+                  builder: (context, scale, _) {
+                    return CustomPaint(
+                      painter: _RulersPainter(
+                        scale: scale,
+                        transform: _transformController.value,
+                        leftPanelWidth: _showLeftPanel ? 240.0 : 0.0,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
           // Bottom toolbar
           Positioned(
             left: 0,
@@ -2966,10 +3143,18 @@ class _InlineTextEditFieldState extends State<_InlineTextEditField> {
         },
         child: Focus(
           onKeyEvent: (node, event) {
-            // Handle escape to cancel
-            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
-              widget.onCancel();
-              return KeyEventResult.handled;
+            if (event is KeyDownEvent) {
+              // Handle escape to cancel
+              if (event.logicalKey == LogicalKeyboardKey.escape) {
+                widget.onCancel();
+                return KeyEventResult.handled;
+              }
+              // Handle Enter to submit (without shift for newline)
+              if (event.logicalKey == LogicalKeyboardKey.enter &&
+                  !HardwareKeyboard.instance.isShiftPressed) {
+                widget.onComplete(_controller.text);
+                return KeyEventResult.handled;
+              }
             }
             // Let all other keys pass through to TextField
             return KeyEventResult.ignored;
@@ -3808,6 +3993,7 @@ class _FigmaMainMenu extends StatefulWidget {
 class _FigmaMainMenuState extends State<_FigmaMainMenu> {
   String? _hoveredSubmenu;
   OverlayEntry? _submenuOverlay;
+  bool _isMouseOnSubmenu = false;
 
   @override
   void dispose() {
@@ -3818,6 +4004,19 @@ class _FigmaMainMenuState extends State<_FigmaMainMenu> {
   void _hideSubmenu() {
     _submenuOverlay?.remove();
     _submenuOverlay = null;
+    _isMouseOnSubmenu = false;
+  }
+
+  void _tryHideSubmenu(String submenuId) {
+    // Only hide if mouse is not on the submenu and we're still on this submenu
+    Future.delayed(const Duration(milliseconds: 150), () {
+      // Check if widget is still mounted before calling setState
+      if (!mounted) return;
+      if (_hoveredSubmenu == submenuId && !_isMouseOnSubmenu) {
+        _hideSubmenu();
+        setState(() => _hoveredSubmenu = null);
+      }
+    });
   }
 
   void _showSubmenu(BuildContext context, String submenuId, List<_MainMenuItem> items) {
@@ -3831,10 +4030,17 @@ class _FigmaMainMenuState extends State<_FigmaMainMenu> {
       builder: (ctx) => Positioned(
         left: position.dx + size.width - 4,
         top: position.dy - 6,
-        child: _MainMenuSubmenu(
-          items: items,
-          onDismiss: widget.onDismiss,
-          onAction: widget.onAction,
+        child: MouseRegion(
+          onEnter: (_) => _isMouseOnSubmenu = true,
+          onExit: (_) {
+            _isMouseOnSubmenu = false;
+            _tryHideSubmenu(submenuId);
+          },
+          child: _MainMenuSubmenu(
+            items: items,
+            onDismiss: widget.onDismiss,
+            onAction: widget.onAction,
+          ),
         ),
       ),
     );
@@ -3886,112 +4092,62 @@ class _FigmaMainMenuState extends State<_FigmaMainMenu> {
               label: 'File',
               isHovered: _hoveredSubmenu == 'file',
               onHover: (ctx) => _showSubmenu(ctx, 'file', _fileMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'file') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('file'),
             ),
             _MainMenuSubmenuItem(
               label: 'Edit',
               isHovered: _hoveredSubmenu == 'edit',
               onHover: (ctx) => _showSubmenu(ctx, 'edit', _editMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'edit') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('edit'),
             ),
             _MainMenuSubmenuItem(
               label: 'View',
               isHovered: _hoveredSubmenu == 'view',
               onHover: (ctx) => _showSubmenu(ctx, 'view', _viewMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'view') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('view'),
             ),
             _MainMenuSubmenuItem(
               label: 'Object',
               isHovered: _hoveredSubmenu == 'object',
               onHover: (ctx) => _showSubmenu(ctx, 'object', _objectMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'object') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('object'),
             ),
             _MainMenuSubmenuItem(
               label: 'Text',
               isHovered: _hoveredSubmenu == 'text',
               onHover: (ctx) => _showSubmenu(ctx, 'text', _textMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'text') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('text'),
             ),
             _MainMenuSubmenuItem(
               label: 'Arrange',
               isHovered: _hoveredSubmenu == 'arrange',
               onHover: (ctx) => _showSubmenu(ctx, 'arrange', _arrangeMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'arrange') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('arrange'),
             ),
             _MainMenuSubmenuItem(
               label: 'Vector',
               isHovered: _hoveredSubmenu == 'vector',
               onHover: (ctx) => _showSubmenu(ctx, 'vector', _vectorMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'vector') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('vector'),
             ),
             const _MainMenuDivider(),
             _MainMenuSubmenuItem(
               label: 'Plugins',
               isHovered: _hoveredSubmenu == 'plugins',
               onHover: (ctx) => _showSubmenu(ctx, 'plugins', _pluginsMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'plugins') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('plugins'),
             ),
             _MainMenuSubmenuItem(
               label: 'Widgets',
               isHovered: _hoveredSubmenu == 'widgets',
               onHover: (ctx) => _showSubmenu(ctx, 'widgets', _widgetsMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'widgets') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('widgets'),
             ),
             _MainMenuSubmenuItem(
               label: 'Preferences',
               isHovered: _hoveredSubmenu == 'preferences',
               onHover: (ctx) => _showSubmenu(ctx, 'preferences', _preferencesMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'preferences') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('preferences'),
             ),
             _MainMenuActionItem(
               label: 'Libraries',
@@ -4006,12 +4162,7 @@ class _FigmaMainMenuState extends State<_FigmaMainMenu> {
               label: 'Help and account',
               isHovered: _hoveredSubmenu == 'help',
               onHover: (ctx) => _showSubmenu(ctx, 'help', _helpMenuItems),
-              onLeave: () {
-                if (_hoveredSubmenu == 'help') {
-                  _hideSubmenu();
-                  setState(() => _hoveredSubmenu = null);
-                }
-              },
+              onLeave: () => _tryHideSubmenu('help'),
             ),
             const SizedBox(height: 8),
           ],
@@ -4301,30 +4452,37 @@ class _MainMenuSubmenuItemState extends State<_MainMenuSubmenuItem> {
   Widget build(BuildContext context) {
     final showHighlight = widget.isHovered || _isLocalHovered;
 
-    return MouseRegion(
-      onEnter: (_) {
+    return GestureDetector(
+      onTap: () {
+        // Support tap to open submenu (for touch and testing)
         setState(() => _isLocalHovered = true);
         widget.onHover(context);
       },
-      onExit: (_) {
-        setState(() => _isLocalHovered = false);
-        // Delay leaving to allow moving to submenu
-        Future.delayed(const Duration(milliseconds: 100), widget.onLeave);
-      },
-      cursor: SystemMouseCursors.click,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        color: showHighlight ? const Color(0xFF0D99FF) : Colors.transparent,
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                widget.label,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+      child: MouseRegion(
+        onEnter: (_) {
+          setState(() => _isLocalHovered = true);
+          widget.onHover(context);
+        },
+        onExit: (_) {
+          setState(() => _isLocalHovered = false);
+          // Call onLeave immediately - the parent handles the delay
+          widget.onLeave();
+        },
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: showHighlight ? const Color(0xFF0D99FF) : Colors.transparent,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right, size: 16, color: Color(0xFF8C8C8C)),
-          ],
+              const Icon(Icons.chevron_right, size: 16, color: Color(0xFF8C8C8C)),
+            ],
+          ),
         ),
       ),
     );
@@ -4448,4 +4606,146 @@ class _SubmenuActionItemState extends State<_SubmenuActionItem> {
       ),
     );
   }
+}
+
+// ============ VIEW OVERLAY PAINTERS ============
+
+/// Paints a pixel grid overlay
+class _PixelGridPainter extends CustomPainter {
+  final double scale;
+  final Matrix4 transform;
+
+  _PixelGridPainter({required this.scale, required this.transform});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0x40FFFFFF)
+      ..strokeWidth = 1 / scale;
+
+    final translation = transform.getTranslation();
+    final gridSize = 1.0 * scale; // 1px grid
+
+    // Calculate grid offset based on transform
+    final offsetX = translation.x % gridSize;
+    final offsetY = translation.y % gridSize;
+
+    // Draw vertical lines
+    for (double x = offsetX; x < size.width; x += gridSize) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    // Draw horizontal lines
+    for (double y = offsetY; y < size.height; y += gridSize) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PixelGridPainter oldDelegate) =>
+      scale != oldDelegate.scale || transform != oldDelegate.transform;
+}
+
+/// Paints rulers overlay
+class _RulersPainter extends CustomPainter {
+  final double scale;
+  final Matrix4 transform;
+  final double leftPanelWidth;
+
+  _RulersPainter({
+    required this.scale,
+    required this.transform,
+    required this.leftPanelWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const rulerSize = 20.0;
+    final bgPaint = Paint()..color = const Color(0xFF2C2C2C);
+    final linePaint = Paint()
+      ..color = const Color(0xFF666666)
+      ..strokeWidth = 1;
+    final textStyle = const TextStyle(
+      color: Color(0xFF999999),
+      fontSize: 9,
+    );
+
+    final translation = transform.getTranslation();
+
+    // Draw horizontal ruler background
+    canvas.drawRect(
+      Rect.fromLTWH(leftPanelWidth, 0, size.width - leftPanelWidth, rulerSize),
+      bgPaint,
+    );
+
+    // Draw vertical ruler background
+    canvas.drawRect(
+      Rect.fromLTWH(leftPanelWidth, rulerSize, rulerSize, size.height - rulerSize),
+      bgPaint,
+    );
+
+    // Calculate tick spacing based on scale
+    double tickSpacing = 100.0;
+    if (scale > 2) tickSpacing = 50;
+    if (scale > 4) tickSpacing = 25;
+    if (scale > 8) tickSpacing = 10;
+    if (scale < 0.5) tickSpacing = 200;
+    if (scale < 0.25) tickSpacing = 500;
+
+    final scaledTick = tickSpacing * scale;
+
+    // Draw horizontal ticks
+    final startX = ((leftPanelWidth - translation.x) / scale / tickSpacing).floor() * tickSpacing;
+    for (double x = startX; x < (size.width - translation.x) / scale; x += tickSpacing) {
+      final screenX = x * scale + translation.x;
+      if (screenX >= leftPanelWidth && screenX < size.width) {
+        canvas.drawLine(
+          Offset(screenX, rulerSize - 6),
+          Offset(screenX, rulerSize),
+          linePaint,
+        );
+
+        final textPainter = TextPainter(
+          text: TextSpan(text: x.toInt().toString(), style: textStyle),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        textPainter.paint(canvas, Offset(screenX + 2, 4));
+      }
+    }
+
+    // Draw vertical ticks
+    final startY = ((rulerSize - translation.y) / scale / tickSpacing).floor() * tickSpacing;
+    for (double y = startY; y < (size.height - translation.y) / scale; y += tickSpacing) {
+      final screenY = y * scale + translation.y;
+      if (screenY >= rulerSize && screenY < size.height) {
+        canvas.drawLine(
+          Offset(leftPanelWidth + rulerSize - 6, screenY),
+          Offset(leftPanelWidth + rulerSize, screenY),
+          linePaint,
+        );
+
+        canvas.save();
+        canvas.translate(leftPanelWidth + 4, screenY + 2);
+        canvas.rotate(-1.5708); // -90 degrees
+        final textPainter = TextPainter(
+          text: TextSpan(text: y.toInt().toString(), style: textStyle),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        textPainter.paint(canvas, Offset.zero);
+        canvas.restore();
+      }
+    }
+
+    // Draw corner square
+    canvas.drawRect(
+      Rect.fromLTWH(leftPanelWidth, 0, rulerSize, rulerSize),
+      bgPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RulersPainter oldDelegate) =>
+      scale != oldDelegate.scale ||
+      transform != oldDelegate.transform ||
+      leftPanelWidth != oldDelegate.leftPanelWidth;
 }
