@@ -829,7 +829,8 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
     final centerX = (minX + maxX) / 2;
     final centerY = (minY + maxY) / 2;
-    final offsetX = availableWidth / 2 - centerX * newScale + (_showLeftPanel ? 240 : 0);
+    // Don't add left panel offset - InteractiveViewer is already positioned after the left panel
+    final offsetX = availableWidth / 2 - centerX * newScale;
     final offsetY = availableHeight / 2 - centerY * newScale + 48;
 
     // Update scale without setState
@@ -858,7 +859,8 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
     final centerX = bounds.left + bounds.width / 2;
     final centerY = bounds.top + bounds.height / 2;
-    final offsetX = availableWidth / 2 - centerX * newScale + (_showLeftPanel ? 240 : 0);
+    // Don't add left panel offset - InteractiveViewer is already positioned after the left panel
+    final offsetX = availableWidth / 2 - centerX * newScale;
     final offsetY = availableHeight / 2 - centerY * newScale + 48;
 
     _scale = newScale;
@@ -2640,7 +2642,8 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     final nodeCenterY = absoluteBounds.top + absoluteBounds.height / 2;
 
     // Calculate offset to center the node in the canvas
-    final offsetX = canvasWidth / 2 - nodeCenterX * _scale + (_showLeftPanel ? 240 : 0);
+    // Don't add left panel offset - InteractiveViewer is already positioned after the left panel
+    final offsetX = canvasWidth / 2 - nodeCenterX * _scale;
     final offsetY = canvasHeight / 2 - nodeCenterY * _scale + 48; // 48 for toolbar
 
     // Update transform
@@ -2712,12 +2715,8 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
           ),
 
           // Selection/hover overlay - draws on top of canvas with transform
-          // Clipped to canvas area (excludes side panels)
-          Positioned(
-            left: _leftPanelWidth,
-            top: 0,
-            right: _showRightPanel ? _rightPanelWidth : 0,
-            bottom: 0,
+          // Fills the canvas area (we're already inside the Expanded canvas widget)
+          Positioned.fill(
             child: ClipRect(
               child: Stack(
                 children: [
@@ -2736,12 +2735,8 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
                           final duration = DateTime.now().difference(_pointerDownTime!);
                           // Tap if moved < 10px and < 300ms
                           if (distance < 10 && duration.inMilliseconds < 300) {
-                            // Add left panel offset for correct screen position
-                            final screenPos = Offset(
-                              event.localPosition.dx + _leftPanelWidth,
-                              event.localPosition.dy,
-                            );
-                            _handleCanvasTap(screenPos);
+                            // localPosition is already relative to canvas area
+                            _handleCanvasTap(event.localPosition);
                           }
                         }
                         _pointerDownPos = null;
@@ -2755,6 +2750,7 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
                         opaque: false,
                         onHover: (event) => _handleCanvasHover(event.localPosition),
                         onExit: (_) => _documentState.selection.clearHover(),
+                        child: const SizedBox.expand(),
                       ),
                     ),
                   ),
@@ -2772,7 +2768,6 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
                                   selection: _documentState.selection,
                                   nodeMap: widget.document.nodeMap,
                                   transform: transform,
-                                  canvasOffset: Offset(_leftPanelWidth, 0),
                                 ),
                               );
                             },
@@ -2913,11 +2908,10 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   }
 
   /// Handle hover on canvas - find node under cursor
-  /// Note: screenPos is relative to the canvas overlay area (excluding left panel)
+  /// Note: localPos is relative to the canvas overlay area which matches the InteractiveViewer
   void _handleCanvasHover(Offset localPos) {
-    // Add left panel offset since localPos is relative to the clipped overlay
-    final screenPos = Offset(localPos.dx + _leftPanelWidth, localPos.dy);
-    final canvasPos = _screenToCanvas(screenPos);
+    // localPos is already in the correct coordinate space (relative to canvas area)
+    final canvasPos = _screenToCanvas(localPos);
     final hitNodeId = _hitTestNode(canvasPos);
     _documentState.selection.setHoveredNode(hitNodeId);
   }
@@ -2981,7 +2975,8 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     final children = node['children'] as List?;
     if (children != null) {
       for (int i = children.length - 1; i >= 0; i--) {
-        final childId = children[i] as String;
+        // Children can be various types, convert to string key format
+        final childId = children[i].toString();
         final childHit = _hitTestNodeRecursive(childId, canvasPos);
         if (childHit != null) {
           hitNodeId = childHit;
@@ -2992,8 +2987,10 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
     // If no child was hit, check this node
     if (hitNodeId == null) {
-      final bounds = _getNodeBounds(node);
-      if (bounds != null && bounds.contains(canvasPos)) {
+      // Use direct node bounds - Figma stores absolute canvas coordinates
+      final props = FigmaNodeProperties.fromMap(node);
+      final bounds = Rect.fromLTWH(props.x, props.y, props.width, props.height);
+      if (bounds.width > 0 && bounds.height > 0 && bounds.contains(canvasPos)) {
         final type = node['type']?.toString();
         // Don't hit test pages/canvas - only frames and shapes
         if (type != 'DOCUMENT' && type != 'CANVAS') {
@@ -3003,37 +3000,6 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     }
 
     return hitNodeId;
-  }
-
-  /// Get bounds of a node for hit testing
-  Rect? _getNodeBounds(Map<String, dynamic> node) {
-    // Try transform + size first
-    final transform = node['transform'] as Map?;
-    final size = node['size'] as Map?;
-
-    if (transform != null && size != null) {
-      final x = (transform['m02'] as num?)?.toDouble() ?? 0;
-      final y = (transform['m12'] as num?)?.toDouble() ?? 0;
-      final w = (size['x'] as num?)?.toDouble() ?? 0;
-      final h = (size['y'] as num?)?.toDouble() ?? 0;
-      if (w > 0 && h > 0) {
-        return Rect.fromLTWH(x, y, w, h);
-      }
-    }
-
-    // Try bounding box
-    final bbox = node['boundingBox'] as Map?;
-    if (bbox != null) {
-      final x = (bbox['x'] as num?)?.toDouble() ?? 0;
-      final y = (bbox['y'] as num?)?.toDouble() ?? 0;
-      final w = (bbox['width'] as num?)?.toDouble() ?? 0;
-      final h = (bbox['height'] as num?)?.toDouble() ?? 0;
-      if (w > 0 && h > 0) {
-        return Rect.fromLTWH(x, y, w, h);
-      }
-    }
-
-    return null;
   }
 
   Widget _buildCanvasContent() {
@@ -3126,56 +3092,59 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
   // ============ NEW RIGHT PANEL (FigmaDesignPanel) ============
   Widget _buildNewRightPanel() {
-    return Row(
-      children: [
-        // Resize handle
-        MouseRegion(
-          cursor: SystemMouseCursors.resizeColumn,
-          child: GestureDetector(
-            onHorizontalDragUpdate: (details) {
-              setState(() {
-                _rightPanelWidth = (_rightPanelWidth - details.delta.dx)
-                    .clamp(_minRightPanelWidth, _maxRightPanelWidth);
-              });
-            },
-            child: Container(
-              width: 4,
-              color: Colors.transparent,
-              child: Center(
-                child: Container(
-                  width: 2,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: FigmaColors.border,
-                    borderRadius: BorderRadius.circular(1),
+    return SizedBox(
+      width: _rightPanelWidth,
+      child: Row(
+        children: [
+          // Resize handle
+          MouseRegion(
+            cursor: SystemMouseCursors.resizeColumn,
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                setState(() {
+                  _rightPanelWidth = (_rightPanelWidth - details.delta.dx)
+                      .clamp(_minRightPanelWidth, _maxRightPanelWidth);
+                });
+              },
+              child: Container(
+                width: 4,
+                color: Colors.transparent,
+                child: Center(
+                  child: Container(
+                    width: 2,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: FigmaColors.border,
+                      borderRadius: BorderRadius.circular(1),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        // Panel content
-        Expanded(
-          child: ListenableBuilder(
-            listenable: DebugOverlayController.instance,
-            builder: (context, _) {
-              final node = DebugOverlayController.instance.selectedNode;
-              return FigmaDesignPanel(
-                node: node,
-                zoomLevel: _scale,
-                width: _rightPanelWidth - 4, // Account for resize handle
-                onPropertyChanged: (path, value) {
-                  // Handle property changes
-                  print('Property changed: $path = $value');
-                },
-                onZoomChanged: (zoom) {
-                  setState(() => _scale = zoom);
-                },
-              );
-            },
+          // Panel content
+          Expanded(
+            child: ListenableBuilder(
+              listenable: DebugOverlayController.instance,
+              builder: (context, _) {
+                final node = DebugOverlayController.instance.selectedNode;
+                return FigmaDesignPanel(
+                  node: node,
+                  zoomLevel: _scale,
+                  width: _rightPanelWidth - 4, // Account for resize handle
+                  onPropertyChanged: (path, value) {
+                    // Handle property changes
+                    print('Property changed: $path = $value');
+                  },
+                  onZoomChanged: (zoom) {
+                    setState(() => _scale = zoom);
+                  },
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -5360,44 +5329,27 @@ class _CanvasSelectionPainter extends CustomPainter {
   final Selection selection;
   final Map<String, Map<String, dynamic>> nodeMap;
   final Matrix4 transform;
-  final Offset canvasOffset;
 
   _CanvasSelectionPainter({
     required this.selection,
     required this.nodeMap,
     required this.transform,
-    this.canvasOffset = Offset.zero,
   });
 
-  /// Get bounds of a node
+  /// Get bounds of a node in canvas coordinates
+  /// Note: Figma stores absolute canvas coordinates in the transform, not relative to parent
   Rect? _getNodeBounds(Map<String, dynamic> node) {
-    // Try transform + size first
-    final transformData = node['transform'] as Map?;
-    final size = node['size'] as Map?;
+    // Get position and size directly - Figma stores absolute canvas coordinates
+    final props = FigmaNodeProperties.fromMap(node);
 
-    if (transformData != null && size != null) {
-      final x = (transformData['m02'] as num?)?.toDouble() ?? 0;
-      final y = (transformData['m12'] as num?)?.toDouble() ?? 0;
-      final w = (size['x'] as num?)?.toDouble() ?? 0;
-      final h = (size['y'] as num?)?.toDouble() ?? 0;
-      if (w > 0 && h > 0) {
-        return Rect.fromLTWH(x, y, w, h);
-      }
-    }
+    final double x = props.x;
+    final double y = props.y;
+    final double width = props.width;
+    final double height = props.height;
 
-    // Try bounding box
-    final bbox = node['boundingBox'] as Map?;
-    if (bbox != null) {
-      final x = (bbox['x'] as num?)?.toDouble() ?? 0;
-      final y = (bbox['y'] as num?)?.toDouble() ?? 0;
-      final w = (bbox['width'] as num?)?.toDouble() ?? 0;
-      final h = (bbox['height'] as num?)?.toDouble() ?? 0;
-      if (w > 0 && h > 0) {
-        return Rect.fromLTWH(x, y, w, h);
-      }
-    }
+    if (width <= 0 || height <= 0) return null;
 
-    return null;
+    return Rect.fromLTWH(x, y, width, height);
   }
 
   /// Transform a rect from canvas to screen coordinates
@@ -5452,6 +5404,8 @@ class _CanvasSelectionPainter extends CustomPainter {
           canvas.drawRect(screenBounds, selectionPaint);
           // Draw resize handles
           _drawResizeHandles(canvas, screenBounds);
+          // Draw size label below selection
+          _drawSizeLabel(canvas, screenBounds, canvasBounds);
           // Draw auto layout gap indicators (pink lines)
           _drawAutoLayoutGaps(canvas, node);
         }
@@ -5513,6 +5467,49 @@ class _CanvasSelectionPainter extends CustomPainter {
       canvas.drawRect(rect, handleFillPaint);
       canvas.drawRect(rect, handleBorderPaint);
     }
+  }
+
+  /// Draw size label below selection (shows canvas dimensions)
+  void _drawSizeLabel(Canvas canvas, Rect screenBounds, Rect canvasBounds) {
+    final sizeText = '${canvasBounds.width.toStringAsFixed(0)} × ${canvasBounds.height.toStringAsFixed(0)}';
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: sizeText,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+
+    // Draw background pill
+    const padding = 4.0;
+    final labelWidth = textPainter.width + padding * 2;
+    final labelHeight = textPainter.height + padding;
+    final labelRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        screenBounds.left,
+        screenBounds.bottom + 4, // 4px below selection
+        labelWidth,
+        labelHeight,
+      ),
+      const Radius.circular(2),
+    );
+
+    canvas.drawRRect(
+      labelRect,
+      Paint()..color = FigmaColors.accent,
+    );
+
+    // Draw text
+    textPainter.paint(
+      canvas,
+      Offset(screenBounds.left + padding, screenBounds.bottom + 4 + padding / 2),
+    );
   }
 
   /// Draw pink/magenta gap indicator lines for auto layout frames

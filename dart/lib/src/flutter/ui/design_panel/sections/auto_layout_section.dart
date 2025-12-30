@@ -192,10 +192,10 @@ class _AutoLayoutSectionState extends State<AutoLayoutSection> {
       children: [
         // Section header with auto layout toggle
         SectionHeader(
-          icon: _AutoLayoutIcon(),
+          leadingIcon: _AutoLayoutIcon(),
           title: 'Auto layout',
           expanded: widget.expanded,
-          onToggle: widget.onToggle,
+          onToggle: widget.onToggle ?? () {},
           trailing: _buildAutoLayoutToggle(),
         ),
         if (widget.expanded && widget.hasAutoLayout) ...[

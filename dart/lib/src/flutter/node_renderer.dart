@@ -4146,125 +4146,13 @@ class _DebugNodeWrapperState extends State<DebugNodeWrapper> {
             behavior: isValidTarget || isEnteredGroup || isSelected
                 ? HitTestBehavior.opaque
                 : HitTestBehavior.deferToChild,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                widget.child,
-                // Selection outline - Figma style
-                if (isSelected || isHovered)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: isSelected
-                                ? const Color(0xFF0D99FF) // Figma blue
-                                : const Color(0x600D99FF),
-                            width: isSelected ? 2.0 : 1.0,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                // Selection handles (corners and edges)
-                if (isSelected) ..._buildSelectionHandles(props),
-                // Type label on hover
-                if (isHovered && !isSelected)
-                  Positioned(
-                    left: 0,
-                    top: -18,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0D99FF),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Text(
-                        '${widget.node['type']}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                // Size label when selected
-                if (isSelected)
-                  Positioned(
-                    left: 0,
-                    bottom: -20,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0D99FF),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Text(
-                        '${props.width.toStringAsFixed(0)} × ${props.height.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            // Selection/hover rendering is now handled by _CanvasSelectionPainter
+            // in figma_canvas.dart using absolute coordinates
+            child: widget.child,
           ),
         );
       },
     );
-  }
-
-  List<Widget> _buildSelectionHandles(FigmaNodeProperties props) {
-    const handleSize = 8.0;
-    const handleColor = Color(0xFF0D99FF);
-
-    Widget buildHandle(Alignment alignment, MouseCursor cursor) {
-      double? left, right, top, bottom;
-
-      if (alignment.x == -1) left = -handleSize / 2;
-      if (alignment.x == 1) right = -handleSize / 2;
-      if (alignment.x == 0) left = (props.width * widget.scale - handleSize) / 2;
-
-      if (alignment.y == -1) top = -handleSize / 2;
-      if (alignment.y == 1) bottom = -handleSize / 2;
-      if (alignment.y == 0) top = (props.height * widget.scale - handleSize) / 2;
-
-      return Positioned(
-        left: left,
-        right: right,
-        top: top,
-        bottom: bottom,
-        child: MouseRegion(
-          cursor: cursor,
-          child: Container(
-            width: handleSize,
-            height: handleSize,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: handleColor, width: 1),
-              borderRadius: BorderRadius.circular(1),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return [
-      // Corners
-      buildHandle(Alignment.topLeft, SystemMouseCursors.resizeUpLeft),
-      buildHandle(Alignment.topRight, SystemMouseCursors.resizeUpRight),
-      buildHandle(Alignment.bottomLeft, SystemMouseCursors.resizeDownLeft),
-      buildHandle(Alignment.bottomRight, SystemMouseCursors.resizeDownRight),
-      // Edges
-      buildHandle(Alignment.topCenter, SystemMouseCursors.resizeUp),
-      buildHandle(Alignment.bottomCenter, SystemMouseCursors.resizeDown),
-      buildHandle(Alignment.centerLeft, SystemMouseCursors.resizeLeft),
-      buildHandle(Alignment.centerRight, SystemMouseCursors.resizeRight),
-    ];
   }
 }
 
