@@ -221,6 +221,9 @@ class FigmaCanvasView extends StatefulWidget {
   final bool showPageSelector;
   final bool showDebugInfo;
   final Color backgroundColor;
+  final String? imagesDirectory;
+  final double? initialViewportWidth;
+  final double? initialViewportHeight;
 
   const FigmaCanvasView({
     super.key,
@@ -229,6 +232,9 @@ class FigmaCanvasView extends StatefulWidget {
     this.showPageSelector = true,
     this.showDebugInfo = false,
     this.backgroundColor = FigmaColors.canvas,
+    this.imagesDirectory,
+    this.initialViewportWidth,
+    this.initialViewportHeight,
   });
 
   @override
@@ -2834,7 +2840,7 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
           node: page,
           nodeMap: widget.document.nodeMap,
           blobMap: widget.document.blobMap,
-          imagesDirectory: widget.document.imagesDirectory,
+          imagesDirectory: widget.imagesDirectory ?? widget.document.imagesDirectory,
           scale: 1.0,
           hiddenNodeIds: _hiddenNodeIds,
         ),
@@ -4287,10 +4293,20 @@ class _Divider extends StatelessWidget {
 class FigmaSimpleCanvas extends StatelessWidget {
   final Map<String, dynamic> node;
   final Map<String, Map<String, dynamic>> nodeMap;
+  final Map<String, List<int>>? blobMap;
+  final String? imagesDirectory;
   final double scale;
   final bool showBounds;
 
-  const FigmaSimpleCanvas({super.key, required this.node, required this.nodeMap, this.scale = 1.0, this.showBounds = false});
+  const FigmaSimpleCanvas({
+    super.key,
+    required this.node,
+    required this.nodeMap,
+    this.blobMap,
+    this.imagesDirectory,
+    this.scale = 1.0,
+    this.showBounds = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -4298,7 +4314,14 @@ class FigmaSimpleCanvas extends StatelessWidget {
       minScale: 0.1,
       maxScale: 10.0,
       boundaryMargin: const EdgeInsets.all(double.infinity),
-      child: FigmaNodeWidget(node: node, nodeMap: nodeMap, scale: scale, showBounds: showBounds),
+      child: FigmaNodeWidget(
+        node: node,
+        nodeMap: nodeMap,
+        blobMap: blobMap,
+        imagesDirectory: imagesDirectory,
+        scale: scale,
+        showBounds: showBounds,
+      ),
     );
   }
 }

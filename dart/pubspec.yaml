@@ -18,9 +18,22 @@ dev_dependencies:
   crypto: ^3.0.3
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
   assets:
     - test/fixtures/figma_schema.bin
     - test/fixtures/figma_message.bin
+    - images/
+
+  # Note: For pixel-perfect text rendering, SF Pro fonts need to be loaded.
+  # On macOS, the system fonts are at /System/Library/Fonts/SFNS.ttf
+  # For bundled fonts, download Inter as an SF Pro alternative from Google Fonts
+  # fonts:
+  #   - family: SF Pro
+  #     fonts:
+  #       - asset: fonts/SFPro-Regular.otf
+  #       - asset: fonts/SFPro-Bold.otf
+  #         weight: 700

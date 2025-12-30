@@ -1031,6 +1031,39 @@ class FigmaFrameWidget extends StatelessWidget {
             }
           }
         }
+
+        // Fallback: Try to load image from blobMap if imagesDirectory not available
+        if (imageWidget == null && blobMap != null) {
+          // Get blob index from fill
+          final blobIndex = fill['imagePaintDataIndex'] ?? fill['blobIndex'];
+          if (blobIndex is num) {
+            final blobKey = blobIndex.toString();
+            final blobData = blobMap![blobKey];
+            if (blobData != null && blobData.isNotEmpty) {
+              if (figmaRendererDebug) {
+                print('DEBUG IMAGE: Loading from blob[$blobIndex] size=${blobData.length}');
+              }
+              imageWidget = Image.memory(
+                Uint8List.fromList(blobData),
+                width: props.width * scale,
+                height: props.height * scale,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  if (figmaRendererDebug) {
+                    print('DEBUG IMAGE BLOB ERROR: $error');
+                  }
+                  // Show placeholder for failed images
+                  return Container(
+                    width: props.width * scale,
+                    height: props.height * scale,
+                    color: Colors.grey[400],
+                  );
+                },
+              );
+              break;
+            }
+          }
+        }
       }
     }
 

@@ -67,6 +67,61 @@ class ContextMenuItem {
         onTap = null;
 }
 
+/// Device preset for resize to device
+class DevicePreset {
+  final String name;
+  final String category;
+  final double width;
+  final double height;
+  final String? icon;
+
+  const DevicePreset({
+    required this.name,
+    required this.category,
+    required this.width,
+    required this.height,
+    this.icon,
+  });
+}
+
+/// Default device presets matching Figma
+class DevicePresets {
+  static const List<DevicePreset> ios = [
+    DevicePreset(name: 'iPhone 16 Pro Max', category: 'iOS', width: 440, height: 956),
+    DevicePreset(name: 'iPhone 16 Pro', category: 'iOS', width: 402, height: 874),
+    DevicePreset(name: 'iPhone 16 Plus', category: 'iOS', width: 430, height: 932),
+    DevicePreset(name: 'iPhone 16', category: 'iOS', width: 393, height: 852),
+    DevicePreset(name: 'iPhone 15 Pro Max', category: 'iOS', width: 430, height: 932),
+    DevicePreset(name: 'iPhone 15 Pro', category: 'iOS', width: 393, height: 852),
+    DevicePreset(name: 'iPhone 15', category: 'iOS', width: 393, height: 852),
+    DevicePreset(name: 'iPhone SE', category: 'iOS', width: 375, height: 667),
+    DevicePreset(name: 'iPad Pro 12.9"', category: 'iOS', width: 1024, height: 1366),
+    DevicePreset(name: 'iPad Pro 11"', category: 'iOS', width: 834, height: 1194),
+    DevicePreset(name: 'iPad Air', category: 'iOS', width: 820, height: 1180),
+    DevicePreset(name: 'iPad Mini', category: 'iOS', width: 744, height: 1133),
+  ];
+
+  static const List<DevicePreset> android = [
+    DevicePreset(name: 'Pixel 9 Pro XL', category: 'Android', width: 412, height: 915),
+    DevicePreset(name: 'Pixel 9 Pro', category: 'Android', width: 411, height: 823),
+    DevicePreset(name: 'Pixel 9', category: 'Android', width: 393, height: 785),
+    DevicePreset(name: 'Samsung Galaxy S24 Ultra', category: 'Android', width: 412, height: 915),
+    DevicePreset(name: 'Samsung Galaxy S24+', category: 'Android', width: 412, height: 915),
+    DevicePreset(name: 'Samsung Galaxy S24', category: 'Android', width: 360, height: 780),
+    DevicePreset(name: 'Android Large', category: 'Android', width: 360, height: 800),
+    DevicePreset(name: 'Android Small', category: 'Android', width: 360, height: 640),
+  ];
+
+  static const List<DevicePreset> desktop = [
+    DevicePreset(name: 'Desktop', category: 'Desktop', width: 1440, height: 1024),
+    DevicePreset(name: 'MacBook Pro 16"', category: 'Desktop', width: 1728, height: 1117),
+    DevicePreset(name: 'MacBook Pro 14"', category: 'Desktop', width: 1512, height: 982),
+    DevicePreset(name: 'MacBook Air', category: 'Desktop', width: 1280, height: 832),
+    DevicePreset(name: 'iMac 24"', category: 'Desktop', width: 2048, height: 1152),
+    DevicePreset(name: 'Surface Pro 8', category: 'Desktop', width: 1368, height: 912),
+  ];
+}
+
 /// Selection context for adapting menu items
 class SelectionContext {
   final int selectedCount;
@@ -80,6 +135,9 @@ class SelectionContext {
   final bool isLocked;
   final bool isHidden;
   final List<String> availablePages;
+  final List<String> recentPlugins;
+  final bool hasPrototype;
+  final bool canInspect;
 
   const SelectionContext({
     this.selectedCount = 0,
@@ -93,6 +151,9 @@ class SelectionContext {
     this.isLocked = false,
     this.isHidden = false,
     this.availablePages = const [],
+    this.recentPlugins = const [],
+    this.hasPrototype = false,
+    this.canInspect = true,
   });
 
   bool get hasSelection => selectedCount > 0;
@@ -101,36 +162,82 @@ class SelectionContext {
 
 /// Context menu action callbacks
 class ContextMenuActions {
+  // Copy/Paste actions
   final VoidCallback? onCopy;
   final VoidCallback? onPaste;
   final VoidCallback? onPasteHere;
   final VoidCallback? onPasteToReplace;
   final void Function(String format)? onCopyAs;
   final void Function(String format)? onPasteAs;
+
+  // Ordering actions
   final VoidCallback? onBringToFront;
   final VoidCallback? onSendToBack;
   final VoidCallback? onBringForward;
   final VoidCallback? onSendBackward;
+
+  // Grouping actions
   final VoidCallback? onGroup;
   final VoidCallback? onUngroup;
   final VoidCallback? onFrame;
+
+  // Vector operations
   final VoidCallback? onFlatten;
   final VoidCallback? onOutlineStroke;
   final VoidCallback? onUseAsMask;
   final VoidCallback? onSetAsThumbnail;
+
+  // Layout actions
   final VoidCallback? onRemoveAutoLayout;
+  final VoidCallback? onAddAutoLayout;
+  final VoidCallback? onWrapInContainer;
+
+  // Component actions
   final VoidCallback? onCreateComponent;
   final VoidCallback? onDetachInstance;
   final VoidCallback? onResetInstance;
+  final VoidCallback? onGoToMainComponent;
+  final VoidCallback? onPushChangesToComponent;
+
+  // Visibility/Lock actions
   final VoidCallback? onShowHide;
   final VoidCallback? onLockUnlock;
+
+  // Transform actions
   final VoidCallback? onFlipHorizontal;
   final VoidCallback? onFlipVertical;
+  final VoidCallback? onRotate90CW;
+  final VoidCallback? onRotate90CCW;
+
+  // General actions
   final VoidCallback? onDelete;
   final VoidCallback? onRename;
+  final VoidCallback? onDuplicate;
   final void Function(String pageId)? onMoveToPage;
   final VoidCallback? onSelectParent;
   final VoidCallback? onSelectChildren;
+
+  // Device actions
+  final void Function(DevicePreset device)? onResizeToDevice;
+  final VoidCallback? onPreviewOnDevice;
+
+  // Development actions
+  final VoidCallback? onInspect;
+  final VoidCallback? onExportCode;
+  final void Function(String language)? onCopyAsCode;
+  final VoidCallback? onViewInDevMode;
+  final VoidCallback? onOpenInPlayground;
+
+  // Plugin actions
+  final void Function(String pluginId)? onRunPlugin;
+  final VoidCallback? onRunLastPlugin;
+  final VoidCallback? onManagePlugins;
+  final VoidCallback? onOpenPluginsMenu;
+
+  // Prototype actions
+  final VoidCallback? onAddInteraction;
+  final VoidCallback? onRemoveInteractions;
+  final VoidCallback? onPreviewPrototype;
 
   const ContextMenuActions({
     this.onCopy,
@@ -151,18 +258,39 @@ class ContextMenuActions {
     this.onUseAsMask,
     this.onSetAsThumbnail,
     this.onRemoveAutoLayout,
+    this.onAddAutoLayout,
+    this.onWrapInContainer,
     this.onCreateComponent,
     this.onDetachInstance,
     this.onResetInstance,
+    this.onGoToMainComponent,
+    this.onPushChangesToComponent,
     this.onShowHide,
     this.onLockUnlock,
     this.onFlipHorizontal,
     this.onFlipVertical,
+    this.onRotate90CW,
+    this.onRotate90CCW,
     this.onDelete,
     this.onRename,
+    this.onDuplicate,
     this.onMoveToPage,
     this.onSelectParent,
     this.onSelectChildren,
+    this.onResizeToDevice,
+    this.onPreviewOnDevice,
+    this.onInspect,
+    this.onExportCode,
+    this.onCopyAsCode,
+    this.onViewInDevMode,
+    this.onOpenInPlayground,
+    this.onRunPlugin,
+    this.onRunLastPlugin,
+    this.onManagePlugins,
+    this.onOpenPluginsMenu,
+    this.onAddInteraction,
+    this.onRemoveInteractions,
+    this.onPreviewPrototype,
   });
 }
 
@@ -376,8 +504,135 @@ class ContextMenuBuilder {
         enabled: context.hasSelection && !context.isComponentSelected,
         id: 'create_component',
       ),
+      if (context.isInstanceSelected) ...[
+        ContextMenuItem(
+          label: 'Detach instance',
+          shortcut: '⌥⌘B',
+          onTap: actions.onDetachInstance,
+          id: 'detach_instance',
+        ),
+        ContextMenuItem(
+          label: 'Reset instance',
+          onTap: actions.onResetInstance,
+          id: 'reset_instance',
+        ),
+        ContextMenuItem(
+          label: 'Go to main component',
+          onTap: actions.onGoToMainComponent,
+          id: 'go_to_main_component',
+        ),
+      ],
 
       const ContextMenuItem.divider(),
+
+      // Device section - resize to device dimensions
+      ContextMenuItem.submenu(
+        label: 'Device',
+        submenu: [
+          ContextMenuItem.submenu(
+            label: 'iOS',
+            submenu: DevicePresets.ios.asMap().entries.map((entry) => ContextMenuItem(
+              label: '${entry.value.name} (${entry.value.width.toInt()}×${entry.value.height.toInt()})',
+              onTap: () => actions.onResizeToDevice?.call(entry.value),
+              id: 'device_ios_${entry.key}',
+            )).toList(),
+            id: 'device_ios',
+          ),
+          ContextMenuItem.submenu(
+            label: 'Android',
+            submenu: DevicePresets.android.asMap().entries.map((entry) => ContextMenuItem(
+              label: '${entry.value.name} (${entry.value.width.toInt()}×${entry.value.height.toInt()})',
+              onTap: () => actions.onResizeToDevice?.call(entry.value),
+              id: 'device_android_${entry.key}',
+            )).toList(),
+            id: 'device_android',
+          ),
+          ContextMenuItem.submenu(
+            label: 'Desktop',
+            submenu: DevicePresets.desktop.asMap().entries.map((entry) => ContextMenuItem(
+              label: '${entry.value.name} (${entry.value.width.toInt()}×${entry.value.height.toInt()})',
+              onTap: () => actions.onResizeToDevice?.call(entry.value),
+              id: 'device_desktop_${entry.key}',
+            )).toList(),
+            id: 'device_desktop',
+          ),
+          const ContextMenuItem.divider(),
+          ContextMenuItem(
+            label: 'Preview on device...',
+            onTap: actions.onPreviewOnDevice,
+            enabled: context.hasSelection,
+            id: 'preview_on_device',
+          ),
+        ],
+        enabled: context.isFrameSelected,
+        id: 'device',
+      ),
+
+      // Development section
+      ContextMenuItem.submenu(
+        label: 'Development',
+        submenu: [
+          ContextMenuItem(
+            label: 'Inspect',
+            shortcut: '⌥⌘I',
+            onTap: actions.onInspect,
+            enabled: context.canInspect,
+            id: 'inspect',
+          ),
+          const ContextMenuItem.divider(),
+          ContextMenuItem(
+            label: 'Export code...',
+            onTap: actions.onExportCode,
+            enabled: context.hasSelection,
+            id: 'export_code',
+          ),
+          ContextMenuItem.submenu(
+            label: 'Copy as code',
+            submenu: [
+              ContextMenuItem(
+                label: 'Flutter',
+                onTap: () => actions.onCopyAsCode?.call('flutter'),
+                id: 'copy_as_flutter',
+              ),
+              ContextMenuItem(
+                label: 'SwiftUI',
+                onTap: () => actions.onCopyAsCode?.call('swiftui'),
+                id: 'copy_as_swiftui',
+              ),
+              ContextMenuItem(
+                label: 'React',
+                onTap: () => actions.onCopyAsCode?.call('react'),
+                id: 'copy_as_react',
+              ),
+              ContextMenuItem(
+                label: 'HTML/CSS',
+                onTap: () => actions.onCopyAsCode?.call('html_css'),
+                id: 'copy_as_html_css',
+              ),
+              ContextMenuItem(
+                label: 'Tailwind CSS',
+                onTap: () => actions.onCopyAsCode?.call('tailwind'),
+                id: 'copy_as_tailwind',
+              ),
+            ],
+            enabled: context.hasSelection,
+            id: 'copy_as_code',
+          ),
+          const ContextMenuItem.divider(),
+          ContextMenuItem(
+            label: 'View in Dev Mode',
+            onTap: actions.onViewInDevMode,
+            id: 'view_in_dev_mode',
+          ),
+          ContextMenuItem(
+            label: 'Open in Playground',
+            onTap: actions.onOpenInPlayground,
+            enabled: context.hasSelection,
+            id: 'open_in_playground',
+          ),
+        ],
+        id: 'development',
+      ),
 
       // Plugins/Widgets section
       ContextMenuItem.submenu(
@@ -386,13 +641,21 @@ class ContextMenuBuilder {
           ContextMenuItem(
             label: 'Run last plugin',
             shortcut: '⌥⌘P',
-            onTap: () {},
+            onTap: actions.onRunLastPlugin,
             id: 'run_last_plugin',
           ),
+          if (context.recentPlugins.isNotEmpty) ...[
+            const ContextMenuItem.divider(),
+            ...context.recentPlugins.take(5).map((plugin) => ContextMenuItem(
+              label: plugin,
+              onTap: () => actions.onRunPlugin?.call(plugin),
+              id: 'plugin_$plugin',
+            )),
+          ],
           const ContextMenuItem.divider(),
           ContextMenuItem(
             label: 'Manage plugins...',
-            onTap: () {},
+            onTap: actions.onManagePlugins,
             id: 'manage_plugins',
           ),
         ],
@@ -409,6 +672,36 @@ class ContextMenuBuilder {
         ],
         id: 'widgets',
       ),
+
+      // Prototype section (if applicable)
+      if (context.hasPrototype || context.isFrameSelected) ...[
+        const ContextMenuItem.divider(),
+        ContextMenuItem.submenu(
+          label: 'Prototype',
+          submenu: [
+            ContextMenuItem(
+              label: 'Add interaction',
+              onTap: actions.onAddInteraction,
+              enabled: context.hasSelection,
+              id: 'add_interaction',
+            ),
+            ContextMenuItem(
+              label: 'Remove all interactions',
+              onTap: actions.onRemoveInteractions,
+              enabled: context.hasPrototype,
+              id: 'remove_interactions',
+            ),
+            const ContextMenuItem.divider(),
+            ContextMenuItem(
+              label: 'Preview prototype',
+              shortcut: '⌥⌘↵',
+              onTap: actions.onPreviewPrototype,
+              id: 'preview_prototype',
+            ),
+          ],
+          id: 'prototype',
+        ),
+      ],
 
       const ContextMenuItem.divider(),
 
@@ -471,7 +764,7 @@ class FigmaContextMenu extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -753,37 +1046,100 @@ class ContextMenuShortcuts extends StatelessWidget {
   Widget build(BuildContext context) {
     return Shortcuts(
       shortcuts: {
+        // Copy/Paste shortcuts
         LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyC): const _CopyIntent(),
         LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyV): const _PasteIntent(),
         LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.meta, LogicalKeyboardKey.keyR): const _PasteToReplaceIntent(),
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyD): const _DuplicateIntent(),
+        LogicalKeySet(LogicalKeyboardKey.backspace): const _DeleteIntent(),
+        LogicalKeySet(LogicalKeyboardKey.delete): const _DeleteIntent(),
+
+        // Grouping shortcuts
         LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyG): const _GroupIntent(),
         LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.meta, LogicalKeyboardKey.keyG): const _FrameIntent(),
         LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.backspace): const _UngroupIntent(),
+
+        // Ordering shortcuts
         LogicalKeySet(LogicalKeyboardKey.bracketRight): const _BringToFrontIntent(),
         LogicalKeySet(LogicalKeyboardKey.bracketLeft): const _SendToBackIntent(),
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.bracketRight): const _BringForwardIntent(),
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.bracketLeft): const _SendBackwardIntent(),
+
+        // Visibility/Lock shortcuts
         LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.meta, LogicalKeyboardKey.keyH): const _ShowHideIntent(),
         LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.meta, LogicalKeyboardKey.keyL): const _LockUnlockIntent(),
+
+        // Transform shortcuts
         LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.keyH): const _FlipHorizontalIntent(),
         LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.keyV): const _FlipVerticalIntent(),
+
+        // Component shortcuts
         LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.meta, LogicalKeyboardKey.keyK): const _CreateComponentIntent(),
+        LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.meta, LogicalKeyboardKey.keyB): const _DetachInstanceIntent(),
+
+        // Layout shortcuts
+        LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.keyA): const _AddAutoLayoutIntent(),
         LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyA): const _RemoveAutoLayoutIntent(),
+
+        // Development shortcuts
+        LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.meta, LogicalKeyboardKey.keyI): const _InspectIntent(),
+
+        // Plugin shortcuts
+        LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.meta, LogicalKeyboardKey.keyP): const _RunLastPluginIntent(),
+
+        // Prototype shortcuts
+        LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.meta, LogicalKeyboardKey.enter): const _PreviewPrototypeIntent(),
+
+        // Rename shortcut
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyR): const _RenameIntent(),
       },
       child: Actions(
         actions: {
+          // Copy/Paste actions
           _CopyIntent: CallbackAction<_CopyIntent>(onInvoke: (_) => actions.onCopy?.call()),
           _PasteIntent: CallbackAction<_PasteIntent>(onInvoke: (_) => actions.onPaste?.call()),
           _PasteToReplaceIntent: CallbackAction<_PasteToReplaceIntent>(onInvoke: (_) => actions.onPasteToReplace?.call()),
+          _DuplicateIntent: CallbackAction<_DuplicateIntent>(onInvoke: (_) => actions.onDuplicate?.call()),
+          _DeleteIntent: CallbackAction<_DeleteIntent>(onInvoke: (_) => actions.onDelete?.call()),
+
+          // Grouping actions
           _GroupIntent: CallbackAction<_GroupIntent>(onInvoke: (_) => actions.onGroup?.call()),
           _FrameIntent: CallbackAction<_FrameIntent>(onInvoke: (_) => actions.onFrame?.call()),
           _UngroupIntent: CallbackAction<_UngroupIntent>(onInvoke: (_) => actions.onUngroup?.call()),
+
+          // Ordering actions
           _BringToFrontIntent: CallbackAction<_BringToFrontIntent>(onInvoke: (_) => actions.onBringToFront?.call()),
           _SendToBackIntent: CallbackAction<_SendToBackIntent>(onInvoke: (_) => actions.onSendToBack?.call()),
+          _BringForwardIntent: CallbackAction<_BringForwardIntent>(onInvoke: (_) => actions.onBringForward?.call()),
+          _SendBackwardIntent: CallbackAction<_SendBackwardIntent>(onInvoke: (_) => actions.onSendBackward?.call()),
+
+          // Visibility/Lock actions
           _ShowHideIntent: CallbackAction<_ShowHideIntent>(onInvoke: (_) => actions.onShowHide?.call()),
           _LockUnlockIntent: CallbackAction<_LockUnlockIntent>(onInvoke: (_) => actions.onLockUnlock?.call()),
+
+          // Transform actions
           _FlipHorizontalIntent: CallbackAction<_FlipHorizontalIntent>(onInvoke: (_) => actions.onFlipHorizontal?.call()),
           _FlipVerticalIntent: CallbackAction<_FlipVerticalIntent>(onInvoke: (_) => actions.onFlipVertical?.call()),
+
+          // Component actions
           _CreateComponentIntent: CallbackAction<_CreateComponentIntent>(onInvoke: (_) => actions.onCreateComponent?.call()),
+          _DetachInstanceIntent: CallbackAction<_DetachInstanceIntent>(onInvoke: (_) => actions.onDetachInstance?.call()),
+
+          // Layout actions
+          _AddAutoLayoutIntent: CallbackAction<_AddAutoLayoutIntent>(onInvoke: (_) => actions.onAddAutoLayout?.call()),
           _RemoveAutoLayoutIntent: CallbackAction<_RemoveAutoLayoutIntent>(onInvoke: (_) => actions.onRemoveAutoLayout?.call()),
+
+          // Development actions
+          _InspectIntent: CallbackAction<_InspectIntent>(onInvoke: (_) => actions.onInspect?.call()),
+
+          // Plugin actions
+          _RunLastPluginIntent: CallbackAction<_RunLastPluginIntent>(onInvoke: (_) => actions.onRunLastPlugin?.call()),
+
+          // Prototype actions
+          _PreviewPrototypeIntent: CallbackAction<_PreviewPrototypeIntent>(onInvoke: (_) => actions.onPreviewPrototype?.call()),
+
+          // Rename action
+          _RenameIntent: CallbackAction<_RenameIntent>(onInvoke: (_) => actions.onRename?.call()),
         },
         child: child,
       ),
@@ -792,17 +1148,48 @@ class ContextMenuShortcuts extends StatelessWidget {
 }
 
 // Intent classes for keyboard shortcuts
+// Copy/Paste intents
 class _CopyIntent extends Intent { const _CopyIntent(); }
 class _PasteIntent extends Intent { const _PasteIntent(); }
 class _PasteToReplaceIntent extends Intent { const _PasteToReplaceIntent(); }
+class _DuplicateIntent extends Intent { const _DuplicateIntent(); }
+class _DeleteIntent extends Intent { const _DeleteIntent(); }
+
+// Grouping intents
 class _GroupIntent extends Intent { const _GroupIntent(); }
 class _FrameIntent extends Intent { const _FrameIntent(); }
 class _UngroupIntent extends Intent { const _UngroupIntent(); }
+
+// Ordering intents
 class _BringToFrontIntent extends Intent { const _BringToFrontIntent(); }
 class _SendToBackIntent extends Intent { const _SendToBackIntent(); }
+class _BringForwardIntent extends Intent { const _BringForwardIntent(); }
+class _SendBackwardIntent extends Intent { const _SendBackwardIntent(); }
+
+// Visibility/Lock intents
 class _ShowHideIntent extends Intent { const _ShowHideIntent(); }
 class _LockUnlockIntent extends Intent { const _LockUnlockIntent(); }
+
+// Transform intents
 class _FlipHorizontalIntent extends Intent { const _FlipHorizontalIntent(); }
 class _FlipVerticalIntent extends Intent { const _FlipVerticalIntent(); }
+
+// Component intents
 class _CreateComponentIntent extends Intent { const _CreateComponentIntent(); }
+class _DetachInstanceIntent extends Intent { const _DetachInstanceIntent(); }
+
+// Layout intents
+class _AddAutoLayoutIntent extends Intent { const _AddAutoLayoutIntent(); }
 class _RemoveAutoLayoutIntent extends Intent { const _RemoveAutoLayoutIntent(); }
+
+// Development intents
+class _InspectIntent extends Intent { const _InspectIntent(); }
+
+// Plugin intents
+class _RunLastPluginIntent extends Intent { const _RunLastPluginIntent(); }
+
+// Prototype intents
+class _PreviewPrototypeIntent extends Intent { const _PreviewPrototypeIntent(); }
+
+// General intents
+class _RenameIntent extends Intent { const _RenameIntent(); }

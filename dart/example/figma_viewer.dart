@@ -81,6 +81,8 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
 
       // Set images directory (for rendering images from the Figma file)
       final imagesDirPaths = [
+        'images',  // Current directory images folder
+        '/Users/johndpope/Documents/GitHub/kiwi-flutter/dart/images',
         '/Users/johndpope/Downloads/Apple iOS UI Kit/images',
       ];
       for (final path in imagesDirPaths) {

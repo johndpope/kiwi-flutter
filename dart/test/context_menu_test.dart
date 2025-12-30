@@ -648,4 +648,687 @@ void main() {
       expect(stopwatch.elapsedMilliseconds, lessThan(500));
     });
   });
+
+  group('DevicePresets Tests', () {
+    test('iOS presets are available', () {
+      expect(DevicePresets.ios.isNotEmpty, true);
+      expect(DevicePresets.ios.length, 12);
+    });
+
+    test('Android presets are available', () {
+      expect(DevicePresets.android.isNotEmpty, true);
+      expect(DevicePresets.android.length, 8);
+    });
+
+    test('Desktop presets are available', () {
+      expect(DevicePresets.desktop.isNotEmpty, true);
+      expect(DevicePresets.desktop.length, 6);
+    });
+
+    test('iPhone 16 Pro Max dimensions are correct', () {
+      final device = DevicePresets.ios.firstWhere(
+        (d) => d.name == 'iPhone 16 Pro Max',
+      );
+      expect(device.width, 440);
+      expect(device.height, 956);
+      expect(device.category, 'iOS');
+    });
+
+    test('Pixel 9 Pro XL dimensions are correct', () {
+      final device = DevicePresets.android.firstWhere(
+        (d) => d.name == 'Pixel 9 Pro XL',
+      );
+      expect(device.width, 412);
+      expect(device.height, 915);
+      expect(device.category, 'Android');
+    });
+
+    test('MacBook Pro 16" dimensions are correct', () {
+      final device = DevicePresets.desktop.firstWhere(
+        (d) => d.name == 'MacBook Pro 16"',
+      );
+      expect(device.width, 1728);
+      expect(device.height, 1117);
+      expect(device.category, 'Desktop');
+    });
+  });
+
+  group('Device Submenu Tests', () {
+    test('device submenu is built for frame selection', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          isFrameSelected: true,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final deviceSubmenu = items.firstWhere((i) => i.id == 'device');
+      expect(deviceSubmenu.type, MenuItemType.submenu);
+      expect(deviceSubmenu.enabled, true);
+    });
+
+    test('device submenu is disabled for non-frame selection', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          isFrameSelected: false,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final deviceSubmenu = items.firstWhere((i) => i.id == 'device');
+      expect(deviceSubmenu.enabled, false);
+    });
+
+    test('device submenu contains iOS, Android, Desktop categories', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          isFrameSelected: true,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final deviceSubmenu = items.firstWhere((i) => i.id == 'device');
+      expect(deviceSubmenu.submenu, isNotNull);
+
+      final categoryIds = deviceSubmenu.submenu!
+          .where((i) => i.type == MenuItemType.submenu)
+          .map((i) => i.id)
+          .toList();
+      expect(categoryIds, contains('device_ios'));
+      expect(categoryIds, contains('device_android'));
+      expect(categoryIds, contains('device_desktop'));
+    });
+
+    test('resize to device callback is invoked', () {
+      DevicePreset? receivedDevice;
+
+      final actions = ContextMenuActions(
+        onResizeToDevice: (device) => receivedDevice = device,
+      );
+
+      actions.onResizeToDevice?.call(DevicePresets.ios.first);
+      expect(receivedDevice, isNotNull);
+      expect(receivedDevice!.name, 'iPhone 16 Pro Max');
+    });
+  });
+
+  group('Development Submenu Tests', () {
+    test('development submenu is built', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(selectedCount: 1),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final devSubmenu = items.firstWhere((i) => i.id == 'development');
+      expect(devSubmenu.type, MenuItemType.submenu);
+    });
+
+    test('development submenu contains inspect option', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          canInspect: true,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final devSubmenu = items.firstWhere((i) => i.id == 'development');
+      final inspectItem = devSubmenu.submenu!.firstWhere((i) => i.id == 'inspect');
+      expect(inspectItem.label, 'Inspect');
+      expect(inspectItem.shortcut, '⌥⌘I');
+      expect(inspectItem.enabled, true);
+    });
+
+    test('development submenu contains copy as code options', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(selectedCount: 1),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final devSubmenu = items.firstWhere((i) => i.id == 'development');
+      final copyAsCode = devSubmenu.submenu!.firstWhere((i) => i.id == 'copy_as_code');
+      expect(copyAsCode.type, MenuItemType.submenu);
+
+      final codeFormats = copyAsCode.submenu!.map((i) => i.id).toList();
+      expect(codeFormats, contains('copy_as_flutter'));
+      expect(codeFormats, contains('copy_as_swiftui'));
+      expect(codeFormats, contains('copy_as_react'));
+      expect(codeFormats, contains('copy_as_html_css'));
+      expect(codeFormats, contains('copy_as_tailwind'));
+    });
+
+    test('copy as code callback receives language', () {
+      String? receivedLanguage;
+
+      final actions = ContextMenuActions(
+        onCopyAsCode: (language) => receivedLanguage = language,
+      );
+
+      actions.onCopyAsCode?.call('flutter');
+      expect(receivedLanguage, 'flutter');
+
+      actions.onCopyAsCode?.call('swiftui');
+      expect(receivedLanguage, 'swiftui');
+    });
+
+    test('inspect callback is invoked', () {
+      bool inspectCalled = false;
+
+      final actions = ContextMenuActions(
+        onInspect: () => inspectCalled = true,
+      );
+
+      actions.onInspect?.call();
+      expect(inspectCalled, true);
+    });
+  });
+
+  group('Enhanced Plugins Submenu Tests', () {
+    test('plugins submenu shows recent plugins', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          recentPlugins: ['Auto Layout', 'Icons8', 'Unsplash'],
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final pluginsSubmenu = items.firstWhere((i) => i.id == 'plugins');
+
+      // Count plugin items (excluding run last plugin, dividers, and manage)
+      final pluginItems = pluginsSubmenu.submenu!.where((i) =>
+        i.type == MenuItemType.action &&
+        i.id != 'run_last_plugin' &&
+        i.id != 'manage_plugins'
+      ).toList();
+
+      expect(pluginItems.length, 3);
+      expect(pluginItems[0].label, 'Auto Layout');
+      expect(pluginItems[1].label, 'Icons8');
+      expect(pluginItems[2].label, 'Unsplash');
+    });
+
+    test('plugins submenu limits to 5 recent plugins', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          recentPlugins: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'],
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final pluginsSubmenu = items.firstWhere((i) => i.id == 'plugins');
+
+      final pluginItems = pluginsSubmenu.submenu!.where((i) =>
+        i.type == MenuItemType.action &&
+        i.id != 'run_last_plugin' &&
+        i.id != 'manage_plugins'
+      ).toList();
+
+      expect(pluginItems.length, 5);
+    });
+
+    test('run plugin callback receives plugin id', () {
+      String? receivedPluginId;
+
+      final actions = ContextMenuActions(
+        onRunPlugin: (pluginId) => receivedPluginId = pluginId,
+      );
+
+      actions.onRunPlugin?.call('auto_layout');
+      expect(receivedPluginId, 'auto_layout');
+    });
+
+    test('run last plugin callback is invoked', () {
+      bool runLastCalled = false;
+
+      final actions = ContextMenuActions(
+        onRunLastPlugin: () => runLastCalled = true,
+      );
+
+      actions.onRunLastPlugin?.call();
+      expect(runLastCalled, true);
+    });
+  });
+
+  group('Prototype Submenu Tests', () {
+    test('prototype submenu appears for frame selection', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          isFrameSelected: true,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final prototypeSubmenu = items.where((i) => i.id == 'prototype').toList();
+      expect(prototypeSubmenu.length, 1);
+    });
+
+    test('prototype submenu appears when has prototype', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          hasPrototype: true,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final prototypeSubmenu = items.where((i) => i.id == 'prototype').toList();
+      expect(prototypeSubmenu.length, 1);
+    });
+
+    test('prototype submenu contains add/remove interaction options', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          isFrameSelected: true,
+          hasPrototype: true,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final prototypeSubmenu = items.firstWhere((i) => i.id == 'prototype');
+
+      final addInteraction = prototypeSubmenu.submenu!.firstWhere(
+        (i) => i.id == 'add_interaction',
+      );
+      expect(addInteraction.label, 'Add interaction');
+
+      final removeInteractions = prototypeSubmenu.submenu!.firstWhere(
+        (i) => i.id == 'remove_interactions',
+      );
+      expect(removeInteractions.label, 'Remove all interactions');
+      expect(removeInteractions.enabled, true);
+    });
+
+    test('remove interactions is disabled when no prototype', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          isFrameSelected: true,
+          hasPrototype: false,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final prototypeSubmenu = items.firstWhere((i) => i.id == 'prototype');
+      final removeInteractions = prototypeSubmenu.submenu!.firstWhere(
+        (i) => i.id == 'remove_interactions',
+      );
+      expect(removeInteractions.enabled, false);
+    });
+
+    test('prototype callbacks are invoked', () {
+      bool addCalled = false;
+      bool removeCalled = false;
+      bool previewCalled = false;
+
+      final actions = ContextMenuActions(
+        onAddInteraction: () => addCalled = true,
+        onRemoveInteractions: () => removeCalled = true,
+        onPreviewPrototype: () => previewCalled = true,
+      );
+
+      actions.onAddInteraction?.call();
+      actions.onRemoveInteractions?.call();
+      actions.onPreviewPrototype?.call();
+
+      expect(addCalled, true);
+      expect(removeCalled, true);
+      expect(previewCalled, true);
+    });
+  });
+
+  group('Instance Actions Tests', () {
+    test('instance actions appear when instance is selected', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          isInstanceSelected: true,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final instanceItems = items.where((i) =>
+        i.id == 'detach_instance' ||
+        i.id == 'reset_instance' ||
+        i.id == 'go_to_main_component'
+      ).toList();
+
+      expect(instanceItems.length, 3);
+    });
+
+    test('instance actions do not appear when instance is not selected', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          isInstanceSelected: false,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final instanceItems = items.where((i) =>
+        i.id == 'detach_instance' ||
+        i.id == 'reset_instance' ||
+        i.id == 'go_to_main_component'
+      ).toList();
+
+      expect(instanceItems.length, 0);
+    });
+
+    test('detach instance has correct shortcut', () {
+      final builder = ContextMenuBuilder(
+        context: const SelectionContext(
+          selectedCount: 1,
+          isInstanceSelected: true,
+        ),
+        actions: const ContextMenuActions(),
+      );
+
+      final items = builder.build();
+      final detachItem = items.firstWhere((i) => i.id == 'detach_instance');
+      expect(detachItem.shortcut, '⌥⌘B');
+    });
+
+    test('instance callbacks are invoked', () {
+      bool detachCalled = false;
+      bool resetCalled = false;
+      bool goToMainCalled = false;
+
+      final actions = ContextMenuActions(
+        onDetachInstance: () => detachCalled = true,
+        onResetInstance: () => resetCalled = true,
+        onGoToMainComponent: () => goToMainCalled = true,
+      );
+
+      actions.onDetachInstance?.call();
+      actions.onResetInstance?.call();
+      actions.onGoToMainComponent?.call();
+
+      expect(detachCalled, true);
+      expect(resetCalled, true);
+      expect(goToMainCalled, true);
+    });
+  });
+
+  group('New Keyboard Shortcuts Tests', () {
+    testWidgets('⌘D triggers duplicate', (tester) async {
+      bool duplicateCalled = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ContextMenuShortcuts(
+            actions: ContextMenuActions(onDuplicate: () => duplicateCalled = true),
+            child: const Focus(autofocus: true, child: SizedBox()),
+          ),
+        ),
+      ));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.pump();
+
+      expect(duplicateCalled, true);
+    });
+
+    testWidgets('Backspace triggers delete', (tester) async {
+      bool deleteCalled = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ContextMenuShortcuts(
+            actions: ContextMenuActions(onDelete: () => deleteCalled = true),
+            child: const Focus(autofocus: true, child: SizedBox()),
+          ),
+        ),
+      ));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
+
+      expect(deleteCalled, true);
+    });
+
+    testWidgets('⌥⌘I triggers inspect', (tester) async {
+      bool inspectCalled = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ContextMenuShortcuts(
+            actions: ContextMenuActions(onInspect: () => inspectCalled = true),
+            child: const Focus(autofocus: true, child: SizedBox()),
+          ),
+        ),
+      ));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.alt);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.alt);
+      await tester.pump();
+
+      expect(inspectCalled, true);
+    });
+
+    testWidgets('⌥⌘B triggers detach instance', (tester) async {
+      bool detachCalled = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ContextMenuShortcuts(
+            actions: ContextMenuActions(onDetachInstance: () => detachCalled = true),
+            child: const Focus(autofocus: true, child: SizedBox()),
+          ),
+        ),
+      ));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.alt);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.alt);
+      await tester.pump();
+
+      expect(detachCalled, true);
+    });
+
+    testWidgets('⇧A triggers add auto layout', (tester) async {
+      bool addAutoLayoutCalled = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ContextMenuShortcuts(
+            actions: ContextMenuActions(onAddAutoLayout: () => addAutoLayoutCalled = true),
+            child: const Focus(autofocus: true, child: SizedBox()),
+          ),
+        ),
+      ));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+      await tester.pump();
+
+      expect(addAutoLayoutCalled, true);
+    });
+
+    testWidgets('⌥⌘P triggers run last plugin', (tester) async {
+      bool runLastPluginCalled = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ContextMenuShortcuts(
+            actions: ContextMenuActions(onRunLastPlugin: () => runLastPluginCalled = true),
+            child: const Focus(autofocus: true, child: SizedBox()),
+          ),
+        ),
+      ));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.alt);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.alt);
+      await tester.pump();
+
+      expect(runLastPluginCalled, true);
+    });
+
+    testWidgets('⌘R triggers rename', (tester) async {
+      bool renameCalled = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ContextMenuShortcuts(
+            actions: ContextMenuActions(onRename: () => renameCalled = true),
+            child: const Focus(autofocus: true, child: SizedBox()),
+          ),
+        ),
+      ));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.pump();
+
+      expect(renameCalled, true);
+    });
+
+    testWidgets('⌘] triggers bring forward', (tester) async {
+      bool bringForwardCalled = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ContextMenuShortcuts(
+            actions: ContextMenuActions(onBringForward: () => bringForwardCalled = true),
+            child: const Focus(autofocus: true, child: SizedBox()),
+          ),
+        ),
+      ));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.bracketRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.pump();
+
+      expect(bringForwardCalled, true);
+    });
+
+    testWidgets('⌘[ triggers send backward', (tester) async {
+      bool sendBackwardCalled = false;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ContextMenuShortcuts(
+            actions: ContextMenuActions(onSendBackward: () => sendBackwardCalled = true),
+            child: const Focus(autofocus: true, child: SizedBox()),
+          ),
+        ),
+      ));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.bracketLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      await tester.pump();
+
+      expect(sendBackwardCalled, true);
+    });
+  });
+
+  group('Extended Actions Callbacks Tests', () {
+    test('all new action callbacks can be invoked', () {
+      bool addAutoLayoutCalled = false;
+      bool wrapInContainerCalled = false;
+      bool goToMainComponentCalled = false;
+      bool pushChangesToComponentCalled = false;
+      bool rotate90CWCalled = false;
+      bool rotate90CCWCalled = false;
+      bool previewOnDeviceCalled = false;
+      bool exportCodeCalled = false;
+      bool viewInDevModeCalled = false;
+      bool openInPlaygroundCalled = false;
+      bool openPluginsMenuCalled = false;
+
+      final actions = ContextMenuActions(
+        onAddAutoLayout: () => addAutoLayoutCalled = true,
+        onWrapInContainer: () => wrapInContainerCalled = true,
+        onGoToMainComponent: () => goToMainComponentCalled = true,
+        onPushChangesToComponent: () => pushChangesToComponentCalled = true,
+        onRotate90CW: () => rotate90CWCalled = true,
+        onRotate90CCW: () => rotate90CCWCalled = true,
+        onPreviewOnDevice: () => previewOnDeviceCalled = true,
+        onExportCode: () => exportCodeCalled = true,
+        onViewInDevMode: () => viewInDevModeCalled = true,
+        onOpenInPlayground: () => openInPlaygroundCalled = true,
+        onOpenPluginsMenu: () => openPluginsMenuCalled = true,
+      );
+
+      actions.onAddAutoLayout?.call();
+      actions.onWrapInContainer?.call();
+      actions.onGoToMainComponent?.call();
+      actions.onPushChangesToComponent?.call();
+      actions.onRotate90CW?.call();
+      actions.onRotate90CCW?.call();
+      actions.onPreviewOnDevice?.call();
+      actions.onExportCode?.call();
+      actions.onViewInDevMode?.call();
+      actions.onOpenInPlayground?.call();
+      actions.onOpenPluginsMenu?.call();
+
+      expect(addAutoLayoutCalled, true);
+      expect(wrapInContainerCalled, true);
+      expect(goToMainComponentCalled, true);
+      expect(pushChangesToComponentCalled, true);
+      expect(rotate90CWCalled, true);
+      expect(rotate90CCWCalled, true);
+      expect(previewOnDeviceCalled, true);
+      expect(exportCodeCalled, true);
+      expect(viewInDevModeCalled, true);
+      expect(openInPlaygroundCalled, true);
+      expect(openPluginsMenuCalled, true);
+    });
+  });
+
+  group('SelectionContext Extended Properties Tests', () {
+    test('new selection context properties are tracked', () {
+      const context = SelectionContext(
+        selectedCount: 1,
+        recentPlugins: ['Plugin1', 'Plugin2'],
+        hasPrototype: true,
+        canInspect: false,
+      );
+
+      expect(context.recentPlugins.length, 2);
+      expect(context.hasPrototype, true);
+      expect(context.canInspect, false);
+    });
+
+    test('default values for new properties', () {
+      const context = SelectionContext();
+
+      expect(context.recentPlugins, isEmpty);
+      expect(context.hasPrototype, false);
+      expect(context.canInspect, true);
+    });
+  });
 }
