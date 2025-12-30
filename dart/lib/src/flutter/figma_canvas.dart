@@ -6,10 +6,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'node_renderer.dart';
 import 'state/state.dart';
 import 'editing/editing.dart';
 import 'ui/design_panel/design_panel.dart';
+import 'selection_overlay.dart';
 
 // Figma's exact colors
 class FigmaColors {
@@ -249,6 +251,10 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   set _scale(double v) => _scaleNotifier.value = v;
   bool _showLeftPanel = true;
   bool _showRightPanel = true;
+  double get _leftPanelWidth => _showLeftPanel ? 240.0 : 0.0;
+  double _rightPanelWidth = 320.0; // Resizable panel width
+  static const double _minRightPanelWidth = 280.0;
+  static const double _maxRightPanelWidth = 500.0;
   int _rightPanelTab = 0; // 0=Design, 1=Prototype, 2=Inspect
   int _leftPanelTab = 0; // 0=Layers, 1=Assets
 
@@ -271,6 +277,10 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
   // Current tool
   String _currentTool = 'select';
+
+  // Pointer tracking for tap detection (to distinguish from pan gestures)
+  Offset? _pointerDownPos;
+  DateTime? _pointerDownTime;
 
   // Snap engine for alignment
   late SnapEngine _snapEngine;
@@ -2701,6 +2711,81 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
             ),
           ),
 
+          // Selection/hover overlay - draws on top of canvas with transform
+          // Clipped to canvas area (excludes side panels)
+          Positioned(
+            left: _leftPanelWidth,
+            top: 0,
+            right: _showRightPanel ? _rightPanelWidth : 0,
+            bottom: 0,
+            child: ClipRect(
+              child: Stack(
+                children: [
+                  // Tap detection layer using Listener (doesn't compete with pan gestures)
+                  Positioned.fill(
+                    child: Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerDown: (event) {
+                        _pointerDownPos = event.localPosition;
+                        _pointerDownTime = DateTime.now();
+                      },
+                      onPointerUp: (event) {
+                        // Detect tap: minimal movement and quick release
+                        if (_pointerDownPos != null && _pointerDownTime != null) {
+                          final distance = (event.localPosition - _pointerDownPos!).distance;
+                          final duration = DateTime.now().difference(_pointerDownTime!);
+                          // Tap if moved < 10px and < 300ms
+                          if (distance < 10 && duration.inMilliseconds < 300) {
+                            // Add left panel offset for correct screen position
+                            final screenPos = Offset(
+                              event.localPosition.dx + _leftPanelWidth,
+                              event.localPosition.dy,
+                            );
+                            _handleCanvasTap(screenPos);
+                          }
+                        }
+                        _pointerDownPos = null;
+                        _pointerDownTime = null;
+                      },
+                      onPointerCancel: (_) {
+                        _pointerDownPos = null;
+                        _pointerDownTime = null;
+                      },
+                      child: MouseRegion(
+                        opaque: false,
+                        onHover: (event) => _handleCanvasHover(event.localPosition),
+                        onExit: (_) => _documentState.selection.clearHover(),
+                      ),
+                    ),
+                  ),
+                  // Selection paint layer (pure visuals, ignores pointers)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ValueListenableBuilder<Matrix4>(
+                        valueListenable: _transformController,
+                        builder: (context, transform, _) {
+                          return ListenableBuilder(
+                            listenable: _documentState.selection,
+                            builder: (context, _) {
+                              return CustomPaint(
+                                painter: _CanvasSelectionPainter(
+                                  selection: _documentState.selection,
+                                  nodeMap: widget.document.nodeMap,
+                                  transform: transform,
+                                  canvasOffset: Offset(_leftPanelWidth, 0),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // Pixel grid overlay
           if (_showPixelGrid)
             Positioned.fill(
@@ -2817,6 +2902,140 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     );
   }
 
+  // ============ HOVER AND SELECTION HANDLERS ============
+
+  /// Convert screen position to canvas position using current transform
+  Offset _screenToCanvas(Offset screenPos) {
+    final matrix = _transformController.value;
+    final inverted = Matrix4.inverted(matrix);
+    final vec = inverted.transform3(Vector3(screenPos.dx, screenPos.dy, 0));
+    return Offset(vec.x, vec.y);
+  }
+
+  /// Handle hover on canvas - find node under cursor
+  /// Note: screenPos is relative to the canvas overlay area (excluding left panel)
+  void _handleCanvasHover(Offset localPos) {
+    // Add left panel offset since localPos is relative to the clipped overlay
+    final screenPos = Offset(localPos.dx + _leftPanelWidth, localPos.dy);
+    final canvasPos = _screenToCanvas(screenPos);
+    final hitNodeId = _hitTestNode(canvasPos);
+    _documentState.selection.setHoveredNode(hitNodeId);
+  }
+
+  /// Handle tap on canvas - select/deselect nodes
+  void _handleCanvasTap(Offset screenPos) {
+    final canvasPos = _screenToCanvas(screenPos);
+    final hitNodeId = _hitTestNode(canvasPos);
+
+    if (hitNodeId != null) {
+      // Check for Ctrl/Cmd for multi-selection
+      final isMultiSelect = HardwareKeyboard.instance.isControlPressed ||
+                            HardwareKeyboard.instance.isMetaPressed;
+
+      if (isMultiSelect) {
+        _documentState.selection.toggle(hitNodeId);
+      } else {
+        _documentState.selection.select(hitNodeId);
+      }
+
+      // Also update the debug overlay controller for the right panel
+      final node = widget.document.nodeMap[hitNodeId];
+      if (node != null) {
+        DebugOverlayController.instance.selectNode(node);
+      }
+    } else {
+      // Clicked on empty canvas - deselect all
+      _documentState.selection.deselectAll();
+      DebugOverlayController.instance.clearSelection();
+    }
+  }
+
+  /// Hit test to find the topmost node at a canvas position
+  String? _hitTestNode(Offset canvasPos) {
+    String? hitNodeId;
+
+    // Get children of current page
+    final page = _currentPage;
+    if (page == null) return null;
+
+    final pageId = page['_guidKey'] as String?;
+    if (pageId == null) return null;
+
+    // Recursively search through the node tree
+    hitNodeId = _hitTestNodeRecursive(pageId, canvasPos);
+
+    return hitNodeId;
+  }
+
+  /// Recursively hit test through node hierarchy
+  String? _hitTestNodeRecursive(String nodeId, Offset canvasPos) {
+    final node = widget.document.nodeMap[nodeId];
+    if (node == null) return null;
+
+    // Skip hidden nodes
+    if (_hiddenNodeIds.contains(nodeId)) return null;
+
+    String? hitNodeId;
+
+    // Check children first (reverse order for topmost hit)
+    final children = node['children'] as List?;
+    if (children != null) {
+      for (int i = children.length - 1; i >= 0; i--) {
+        final childId = children[i] as String;
+        final childHit = _hitTestNodeRecursive(childId, canvasPos);
+        if (childHit != null) {
+          hitNodeId = childHit;
+          break;
+        }
+      }
+    }
+
+    // If no child was hit, check this node
+    if (hitNodeId == null) {
+      final bounds = _getNodeBounds(node);
+      if (bounds != null && bounds.contains(canvasPos)) {
+        final type = node['type']?.toString();
+        // Don't hit test pages/canvas - only frames and shapes
+        if (type != 'DOCUMENT' && type != 'CANVAS') {
+          hitNodeId = nodeId;
+        }
+      }
+    }
+
+    return hitNodeId;
+  }
+
+  /// Get bounds of a node for hit testing
+  Rect? _getNodeBounds(Map<String, dynamic> node) {
+    // Try transform + size first
+    final transform = node['transform'] as Map?;
+    final size = node['size'] as Map?;
+
+    if (transform != null && size != null) {
+      final x = (transform['m02'] as num?)?.toDouble() ?? 0;
+      final y = (transform['m12'] as num?)?.toDouble() ?? 0;
+      final w = (size['x'] as num?)?.toDouble() ?? 0;
+      final h = (size['y'] as num?)?.toDouble() ?? 0;
+      if (w > 0 && h > 0) {
+        return Rect.fromLTWH(x, y, w, h);
+      }
+    }
+
+    // Try bounding box
+    final bbox = node['boundingBox'] as Map?;
+    if (bbox != null) {
+      final x = (bbox['x'] as num?)?.toDouble() ?? 0;
+      final y = (bbox['y'] as num?)?.toDouble() ?? 0;
+      final w = (bbox['width'] as num?)?.toDouble() ?? 0;
+      final h = (bbox['height'] as num?)?.toDouble() ?? 0;
+      if (w > 0 && h > 0) {
+        return Rect.fromLTWH(x, y, w, h);
+      }
+    }
+
+    return null;
+  }
+
   Widget _buildCanvasContent() {
     final page = _currentPage;
     if (page == null) {
@@ -2907,22 +3126,56 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
   // ============ NEW RIGHT PANEL (FigmaDesignPanel) ============
   Widget _buildNewRightPanel() {
-    return ListenableBuilder(
-      listenable: DebugOverlayController.instance,
-      builder: (context, _) {
-        final node = DebugOverlayController.instance.selectedNode;
-        return FigmaDesignPanel(
-          node: node,
-          zoomLevel: _scale,
-          onPropertyChanged: (path, value) {
-            // Handle property changes
-            print('Property changed: $path = $value');
-          },
-          onZoomChanged: (zoom) {
-            setState(() => _scale = zoom);
-          },
-        );
-      },
+    return Row(
+      children: [
+        // Resize handle
+        MouseRegion(
+          cursor: SystemMouseCursors.resizeColumn,
+          child: GestureDetector(
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                _rightPanelWidth = (_rightPanelWidth - details.delta.dx)
+                    .clamp(_minRightPanelWidth, _maxRightPanelWidth);
+              });
+            },
+            child: Container(
+              width: 4,
+              color: Colors.transparent,
+              child: Center(
+                child: Container(
+                  width: 2,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: FigmaColors.border,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Panel content
+        Expanded(
+          child: ListenableBuilder(
+            listenable: DebugOverlayController.instance,
+            builder: (context, _) {
+              final node = DebugOverlayController.instance.selectedNode;
+              return FigmaDesignPanel(
+                node: node,
+                zoomLevel: _scale,
+                width: _rightPanelWidth - 4, // Account for resize handle
+                onPropertyChanged: (path, value) {
+                  // Handle property changes
+                  print('Property changed: $path = $value');
+                },
+                onZoomChanged: (zoom) {
+                  setState(() => _scale = zoom);
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -5100,4 +5353,271 @@ class _RulersPainter extends CustomPainter {
       scale != oldDelegate.scale ||
       transform != oldDelegate.transform ||
       leftPanelWidth != oldDelegate.leftPanelWidth;
+}
+
+/// Custom painter for selection and hover highlighting on canvas
+class _CanvasSelectionPainter extends CustomPainter {
+  final Selection selection;
+  final Map<String, Map<String, dynamic>> nodeMap;
+  final Matrix4 transform;
+  final Offset canvasOffset;
+
+  _CanvasSelectionPainter({
+    required this.selection,
+    required this.nodeMap,
+    required this.transform,
+    this.canvasOffset = Offset.zero,
+  });
+
+  /// Get bounds of a node
+  Rect? _getNodeBounds(Map<String, dynamic> node) {
+    // Try transform + size first
+    final transformData = node['transform'] as Map?;
+    final size = node['size'] as Map?;
+
+    if (transformData != null && size != null) {
+      final x = (transformData['m02'] as num?)?.toDouble() ?? 0;
+      final y = (transformData['m12'] as num?)?.toDouble() ?? 0;
+      final w = (size['x'] as num?)?.toDouble() ?? 0;
+      final h = (size['y'] as num?)?.toDouble() ?? 0;
+      if (w > 0 && h > 0) {
+        return Rect.fromLTWH(x, y, w, h);
+      }
+    }
+
+    // Try bounding box
+    final bbox = node['boundingBox'] as Map?;
+    if (bbox != null) {
+      final x = (bbox['x'] as num?)?.toDouble() ?? 0;
+      final y = (bbox['y'] as num?)?.toDouble() ?? 0;
+      final w = (bbox['width'] as num?)?.toDouble() ?? 0;
+      final h = (bbox['height'] as num?)?.toDouble() ?? 0;
+      if (w > 0 && h > 0) {
+        return Rect.fromLTWH(x, y, w, h);
+      }
+    }
+
+    return null;
+  }
+
+  /// Transform a rect from canvas to screen coordinates
+  Rect _transformRect(Rect canvasRect) {
+    // Apply the transform to the corners
+    final topLeft = transform.transform3(Vector3(canvasRect.left, canvasRect.top, 0));
+    final bottomRight = transform.transform3(Vector3(canvasRect.right, canvasRect.bottom, 0));
+    return Rect.fromLTRB(topLeft.x, topLeft.y, bottomRight.x, bottomRight.y);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Hover paint (for nodes not selected)
+    final hoverPaint = Paint()
+      ..color = FigmaColors.accent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    // Selection paint
+    final selectionPaint = Paint()
+      ..color = FigmaColors.accent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    final selectionFillPaint = Paint()
+      ..color = FigmaColors.accent.withValues(alpha: 0.05)
+      ..style = PaintingStyle.fill;
+
+    // Draw hover highlight (only if not selected)
+    final hoveredId = selection.hoveredNodeId;
+    if (hoveredId != null && !selection.isSelected(hoveredId)) {
+      final node = nodeMap[hoveredId];
+      if (node != null) {
+        final canvasBounds = _getNodeBounds(node);
+        if (canvasBounds != null) {
+          final screenBounds = _transformRect(canvasBounds);
+          canvas.drawRect(screenBounds, hoverPaint);
+        }
+      }
+    }
+
+    // Draw selection highlights
+    for (final nodeId in selection.selectedNodeIds) {
+      final node = nodeMap[nodeId];
+      if (node != null) {
+        final canvasBounds = _getNodeBounds(node);
+        if (canvasBounds != null) {
+          final screenBounds = _transformRect(canvasBounds);
+          // Draw fill
+          canvas.drawRect(screenBounds, selectionFillPaint);
+          // Draw border
+          canvas.drawRect(screenBounds, selectionPaint);
+          // Draw resize handles
+          _drawResizeHandles(canvas, screenBounds);
+          // Draw auto layout gap indicators (pink lines)
+          _drawAutoLayoutGaps(canvas, node);
+        }
+      }
+    }
+
+    // Draw marquee rectangle if active
+    final marqueeRect = selection.marqueeRect;
+    if (marqueeRect != null) {
+      final marqueePaint = Paint()
+        ..color = FigmaColors.accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      final marqueeFillPaint = Paint()
+        ..color = FigmaColors.accent.withValues(alpha: 0.1)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawRect(marqueeRect, marqueeFillPaint);
+      canvas.drawRect(marqueeRect, marqueePaint);
+    }
+  }
+
+  void _drawResizeHandles(Canvas canvas, Rect bounds) {
+    const handleSize = 8.0;
+
+    final handleFillPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final handleBorderPaint = Paint()
+      ..color = FigmaColors.accent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    // Corner handles
+    final corners = [
+      bounds.topLeft,
+      bounds.topRight,
+      bounds.bottomLeft,
+      bounds.bottomRight,
+    ];
+
+    // Edge center handles
+    final edges = [
+      Offset(bounds.center.dx, bounds.top), // top center
+      Offset(bounds.center.dx, bounds.bottom), // bottom center
+      Offset(bounds.left, bounds.center.dy), // left center
+      Offset(bounds.right, bounds.center.dy), // right center
+    ];
+
+    for (final corner in corners) {
+      final rect = Rect.fromCenter(center: corner, width: handleSize, height: handleSize);
+      canvas.drawRect(rect, handleFillPaint);
+      canvas.drawRect(rect, handleBorderPaint);
+    }
+
+    for (final edge in edges) {
+      final rect = Rect.fromCenter(center: edge, width: handleSize, height: handleSize);
+      canvas.drawRect(rect, handleFillPaint);
+      canvas.drawRect(rect, handleBorderPaint);
+    }
+  }
+
+  /// Draw pink/magenta gap indicator lines for auto layout frames
+  void _drawAutoLayoutGaps(Canvas canvas, Map<String, dynamic> node) {
+    // Check if node has auto layout
+    final layoutMode = node['stackMode'] ?? node['layoutMode'];
+    if (layoutMode == null || layoutMode == 'NONE' || layoutMode == 0) {
+      return; // No auto layout
+    }
+
+    final itemSpacing = (node['itemSpacing'] as num?)?.toDouble() ??
+        (node['stackSpacing'] as num?)?.toDouble() ??
+        0;
+    if (itemSpacing <= 0) return; // No gap to show
+
+    // Get children
+    final children = node['children'] as List?;
+    if (children == null || children.length < 2) return;
+
+    // Determine direction
+    final isVertical = layoutMode == 'VERTICAL' || layoutMode == 1;
+    final isHorizontal = layoutMode == 'HORIZONTAL' || layoutMode == 2;
+
+    if (!isVertical && !isHorizontal) return;
+
+    // Pink/magenta color for gap indicators (Figma uses this)
+    final gapPaint = Paint()
+      ..color = const Color(0xFFFF00FF) // Magenta/pink
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final gapFillPaint = Paint()
+      ..color = const Color(0x33FF00FF) // Semi-transparent pink
+      ..style = PaintingStyle.fill;
+
+    // Get bounds of each child and draw gap indicators between them
+    for (int i = 0; i < children.length - 1; i++) {
+      final childId = children[i] as String;
+      final nextChildId = children[i + 1] as String;
+
+      final childNode = nodeMap[childId];
+      final nextChildNode = nodeMap[nextChildId];
+
+      if (childNode == null || nextChildNode == null) continue;
+
+      final childBounds = _getNodeBounds(childNode);
+      final nextChildBounds = _getNodeBounds(nextChildNode);
+
+      if (childBounds == null || nextChildBounds == null) continue;
+
+      // Transform bounds to screen coordinates
+      final screenChildBounds = _transformRect(childBounds);
+      final screenNextChildBounds = _transformRect(nextChildBounds);
+
+      Rect gapRect;
+      if (isVertical) {
+        // Gap is between bottom of child and top of next child
+        gapRect = Rect.fromLTRB(
+          screenChildBounds.left,
+          screenChildBounds.bottom,
+          screenChildBounds.right,
+          screenNextChildBounds.top,
+        );
+      } else {
+        // Gap is between right of child and left of next child
+        gapRect = Rect.fromLTRB(
+          screenChildBounds.right,
+          screenChildBounds.top,
+          screenNextChildBounds.left,
+          screenChildBounds.bottom,
+        );
+      }
+
+      // Only draw if gap has positive size
+      if (gapRect.width > 0 && gapRect.height > 0) {
+        canvas.drawRect(gapRect, gapFillPaint);
+        canvas.drawRect(gapRect, gapPaint);
+
+        // Draw gap value text
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: '${itemSpacing.toInt()}',
+            style: const TextStyle(
+              color: Color(0xFFFF00FF),
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        final textOffset = Offset(
+          gapRect.center.dx - textPainter.width / 2,
+          gapRect.center.dy - textPainter.height / 2,
+        );
+        textPainter.paint(canvas, textOffset);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CanvasSelectionPainter oldDelegate) {
+    return selection.hoveredNodeId != oldDelegate.selection.hoveredNodeId ||
+           selection.selectedNodeIds != oldDelegate.selection.selectedNodeIds ||
+           selection.marqueeRect != oldDelegate.selection.marqueeRect ||
+           transform != oldDelegate.transform;
+  }
 }

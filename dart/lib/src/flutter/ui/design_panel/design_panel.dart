@@ -1,11 +1,17 @@
 /// Figma Design Panel
 ///
 /// Complete Design/Prototype panel matching Figma's right-hand panel.
+/// Includes:
+/// - Auto Layout section with Flow, Resizing, Alignment, Gap, Padding
+/// - Resizable panel with drag handle
+/// - Appearance section with Opacity and Corner radius
+/// - Collapsible sections: Fill, Stroke, Effects, Selection colors, Layout guide, Export
 
 import 'package:flutter/material.dart';
 import 'design_panel_colors.dart';
 import 'sections/tab_switcher.dart';
 import 'sections/opacity_radius_row.dart';
+import 'sections/auto_layout_section.dart';
 import 'sections/fill_section.dart';
 import 'sections/stroke_section.dart';
 import 'sections/effects_section.dart';
@@ -60,6 +66,7 @@ class _FigmaDesignPanelState extends State<FigmaDesignPanel> {
   DesignPanelTab _activeTab = DesignPanelTab.design;
 
   // Section expansion states
+  bool _autoLayoutExpanded = true;
   bool _fillExpanded = true;
   bool _strokeExpanded = true;
   bool _effectsExpanded = true;
@@ -122,8 +129,53 @@ class _FigmaDesignPanelState extends State<FigmaDesignPanel> {
     final layoutGuides = _extractLayoutGuides(node);
     final exports = _extractExports(node);
 
+    // Auto layout properties
+    final hasAutoLayout = _hasAutoLayout(node);
+    final layoutMode = _extractLayoutMode(node);
+    final autoLayoutConfig = _extractAutoLayoutConfig(node);
+
     return ListView(
       children: [
+        // Auto Layout section
+        AutoLayoutSection(
+          hasAutoLayout: hasAutoLayout,
+          layoutMode: layoutMode,
+          width: autoLayoutConfig['width'] ?? 100.0,
+          height: autoLayoutConfig['height'] ?? 100.0,
+          widthSizing: autoLayoutConfig['widthSizing'] ?? AutoLayoutSizing.hug,
+          heightSizing: autoLayoutConfig['heightSizing'] ?? AutoLayoutSizing.hug,
+          mainAxisAlign: autoLayoutConfig['mainAxisAlign'] ?? 'MIN',
+          crossAxisAlign: autoLayoutConfig['crossAxisAlign'] ?? 'MIN',
+          gap: autoLayoutConfig['gap'] ?? 0.0,
+          paddingTop: autoLayoutConfig['paddingTop'] ?? 0.0,
+          paddingRight: autoLayoutConfig['paddingRight'] ?? 0.0,
+          paddingBottom: autoLayoutConfig['paddingBottom'] ?? 0.0,
+          paddingLeft: autoLayoutConfig['paddingLeft'] ?? 0.0,
+          clipContent: autoLayoutConfig['clipContent'] ?? true,
+          expanded: _autoLayoutExpanded,
+          onToggle: () => setState(() => _autoLayoutExpanded = !_autoLayoutExpanded),
+          onAddAutoLayout: () => _addAutoLayout(),
+          onRemoveAutoLayout: () => _removeAutoLayout(),
+          onLayoutModeChanged: (v) => _onPropertyChanged('layoutMode', v),
+          onWidthChanged: (v) => _onPropertyChanged('width', v),
+          onHeightChanged: (v) => _onPropertyChanged('height', v),
+          onWidthSizingChanged: (v) => _onPropertyChanged('primaryAxisSizingMode', _sizingToString(v)),
+          onHeightSizingChanged: (v) => _onPropertyChanged('counterAxisSizingMode', _sizingToString(v)),
+          onMainAxisAlignChanged: (v) => _onPropertyChanged('primaryAxisAlignItems', v),
+          onCrossAxisAlignChanged: (v) => _onPropertyChanged('counterAxisAlignItems', v),
+          onGapChanged: (v) => _onPropertyChanged('itemSpacing', v),
+          onPaddingChanged: (t, r, b, l) {
+            _onPropertyChanged('paddingTop', t);
+            _onPropertyChanged('paddingRight', r);
+            _onPropertyChanged('paddingBottom', b);
+            _onPropertyChanged('paddingLeft', l);
+          },
+          onClipContentChanged: (v) => _onPropertyChanged('clipsContent', v),
+        ),
+
+        // Appearance header
+        _buildAppearanceHeader(),
+
         // Opacity and corner radius row
         OpacityRadiusRow(
           opacity: opacity,
@@ -490,5 +542,147 @@ class _FigmaDesignPanelState extends State<FigmaDesignPanel> {
 
   void _removeExport(int index) {
     _onPropertyChanged('exportSettings.remove', index);
+  }
+
+  // ============ Auto Layout Helpers ============
+
+  bool _hasAutoLayout(Map<String, dynamic> node) {
+    final layoutMode = node['stackMode'] ?? node['layoutMode'];
+    return layoutMode != null && layoutMode != 'NONE' && layoutMode != 0;
+  }
+
+  String _extractLayoutMode(Map<String, dynamic> node) {
+    final mode = node['stackMode'] ?? node['layoutMode'];
+    if (mode == 'VERTICAL' || mode == 1) return 'VERTICAL';
+    if (mode == 'HORIZONTAL' || mode == 2) return 'HORIZONTAL';
+    if (mode == 'GRID' || mode == 3) return 'GRID';
+    final wrap = node['layoutWrap'] == 'WRAP' || node['layoutWrap'] == true;
+    if (wrap) return 'WRAP';
+    return 'NONE';
+  }
+
+  Map<String, dynamic> _extractAutoLayoutConfig(Map<String, dynamic> node) {
+    // Extract size
+    final size = node['size'] as Map<String, dynamic>?;
+    final width = (size?['x'] as num?)?.toDouble() ??
+        (node['width'] as num?)?.toDouble() ?? 100.0;
+    final height = (size?['y'] as num?)?.toDouble() ??
+        (node['height'] as num?)?.toDouble() ?? 100.0;
+
+    // Extract sizing modes
+    final widthSizing = _parseSizing(
+        node['stackPrimarySizing'] ?? node['primaryAxisSizingMode']);
+    final heightSizing = _parseSizing(
+        node['stackCounterSizing'] ?? node['counterAxisSizingMode']);
+
+    // Extract alignment
+    final mainAxisAlign = (node['stackPrimaryAlignItems'] ??
+        node['primaryAxisAlignItems'] ?? 'MIN') as String;
+    final crossAxisAlign = (node['stackCounterAlignItems'] ??
+        node['counterAxisAlignItems'] ?? 'MIN') as String;
+
+    // Extract spacing and padding
+    final gap = (node['itemSpacing'] as num?)?.toDouble() ??
+        (node['stackSpacing'] as num?)?.toDouble() ?? 0.0;
+    final paddingTop = (node['paddingTop'] as num?)?.toDouble() ??
+        (node['stackPaddingTop'] as num?)?.toDouble() ?? 0.0;
+    final paddingRight = (node['paddingRight'] as num?)?.toDouble() ??
+        (node['stackPaddingRight'] as num?)?.toDouble() ?? 0.0;
+    final paddingBottom = (node['paddingBottom'] as num?)?.toDouble() ??
+        (node['stackPaddingBottom'] as num?)?.toDouble() ?? 0.0;
+    final paddingLeft = (node['paddingLeft'] as num?)?.toDouble() ??
+        (node['stackPaddingLeft'] as num?)?.toDouble() ?? 0.0;
+
+    final clipContent = node['clipsContent'] as bool? ?? true;
+
+    return {
+      'width': width,
+      'height': height,
+      'widthSizing': widthSizing,
+      'heightSizing': heightSizing,
+      'mainAxisAlign': mainAxisAlign,
+      'crossAxisAlign': crossAxisAlign,
+      'gap': gap,
+      'paddingTop': paddingTop,
+      'paddingRight': paddingRight,
+      'paddingBottom': paddingBottom,
+      'paddingLeft': paddingLeft,
+      'clipContent': clipContent,
+    };
+  }
+
+  AutoLayoutSizing _parseSizing(dynamic value) {
+    if (value == 'HUG' || value == 'AUTO' || value == 0) {
+      return AutoLayoutSizing.hug;
+    } else if (value == 'FILL' || value == 1) {
+      return AutoLayoutSizing.fill;
+    }
+    return AutoLayoutSizing.fixed;
+  }
+
+  String _sizingToString(AutoLayoutSizing sizing) {
+    switch (sizing) {
+      case AutoLayoutSizing.hug:
+        return 'AUTO';
+      case AutoLayoutSizing.fill:
+        return 'FILL';
+      case AutoLayoutSizing.fixed:
+        return 'FIXED';
+    }
+  }
+
+  void _addAutoLayout() {
+    _onPropertyChanged('layoutMode', 'HORIZONTAL');
+    _onPropertyChanged('itemSpacing', 10.0);
+    _onPropertyChanged('paddingTop', 0.0);
+    _onPropertyChanged('paddingRight', 0.0);
+    _onPropertyChanged('paddingBottom', 0.0);
+    _onPropertyChanged('paddingLeft', 0.0);
+  }
+
+  void _removeAutoLayout() {
+    _onPropertyChanged('layoutMode', 'NONE');
+  }
+
+  Widget _buildAppearanceHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: DesignPanelSpacing.panelPadding,
+        vertical: DesignPanelSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Appearance',
+              style: DesignPanelTypography.sectionTitleStyle,
+            ),
+          ),
+          // Blend mode button
+          _buildSmallIconButton(Icons.layers_outlined, () {}),
+          const SizedBox(width: 4),
+          // Visibility button
+          _buildSmallIconButton(Icons.visibility_outlined, () {}),
+          const SizedBox(width: 4),
+          // Effects button
+          _buildSmallIconButton(Icons.auto_awesome_outlined, () {}),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmallIconButton(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: DesignPanelColors.bg1,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(icon, size: 14, color: DesignPanelColors.text2),
+      ),
+    );
   }
 }

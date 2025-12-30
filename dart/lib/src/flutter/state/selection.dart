@@ -20,6 +20,9 @@ class Selection extends ChangeNotifier {
   /// The primary (most recently selected) node ID
   String? _primaryNodeId;
 
+  /// Currently hovered node ID (for hover highlighting)
+  String? _hoveredNodeId;
+
   /// Whether we're in group editing mode (entered a group/frame)
   String? _enteredGroupId;
 
@@ -30,10 +33,12 @@ class Selection extends ChangeNotifier {
   Set<String> get selectedNodeIds => Set.unmodifiable(_selectedNodeIds);
   Rect? get marqueeRect => _marqueeRect;
   String? get primaryNodeId => _primaryNodeId;
+  String? get hoveredNodeId => _hoveredNodeId;
   String? get enteredGroupId => _enteredGroupId;
   bool get hasSelection => _selectedNodeIds.isNotEmpty;
   bool get isMultiSelect => _selectedNodeIds.length > 1;
   int get count => _selectedNodeIds.length;
+  bool get hasHover => _hoveredNodeId != null;
 
   /// Select a single node, optionally adding to existing selection
   void select(String nodeId, {bool additive = false}) {
@@ -82,6 +87,27 @@ class Selection extends ChangeNotifier {
   /// Check if a node is selected
   bool isSelected(String nodeId) {
     return _selectedNodeIds.contains(nodeId);
+  }
+
+  /// Check if a node is hovered
+  bool isHovered(String nodeId) {
+    return _hoveredNodeId == nodeId;
+  }
+
+  /// Set hovered node (for hover highlighting)
+  void setHoveredNode(String? nodeId) {
+    if (_hoveredNodeId != nodeId) {
+      _hoveredNodeId = nodeId;
+      notifyListeners();
+    }
+  }
+
+  /// Clear hover state
+  void clearHover() {
+    if (_hoveredNodeId != null) {
+      _hoveredNodeId = null;
+      notifyListeners();
+    }
   }
 
   /// Start marquee selection
