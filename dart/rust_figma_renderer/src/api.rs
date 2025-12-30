@@ -6,6 +6,8 @@ use crate::{FigmaError, Result};
 use crate::kiwi::FigFile;
 use crate::nodes::FigmaNode;
 use crate::render::RenderTree;
+use crate::spatial::SpatialIndex;
+use crate::tiles::{TileGrid, TileCoord, Viewport, TILE_SIZE};
 
 use flutter_rust_bridge::frb;
 use serde::Serialize;
@@ -16,6 +18,8 @@ use std::sync::RwLock;
 pub struct FigmaDocument {
     file: FigFile,
     render_tree: RwLock<Option<RenderTree>>,
+    spatial_index: RwLock<Option<SpatialIndex>>,
+    tile_grid: RwLock<TileGrid>,
 }
 
 /// Node information returned to Flutter
@@ -144,6 +148,8 @@ pub fn load_figma_file(data: Vec<u8>) -> Result<FigmaDocument> {
     Ok(FigmaDocument {
         file,
         render_tree: RwLock::new(None),
+        spatial_index: RwLock::new(None),
+        tile_grid: RwLock::new(TileGrid::new()),
     })
 }
 
@@ -267,6 +273,291 @@ pub fn decode_effects(data: Vec<u8>) -> Result<Vec<EffectInfo>> {
 #[frb]
 pub fn decode_vector(data: Vec<u8>) -> Result<PathData> {
     crate::kiwi::decode_vector_data(&data)
+}
+
+// =============================================================================
+// Tile-based Rendering API
+// =============================================================================
+
+/// Viewport information for tile culling (exposed to Flutter)
+#[frb]
+#[derive(Debug, Clone, Copy)]
+pub struct ViewportInfo {
+    /// World-space X coordinate of viewport top-left
+    pub x: f64,
+    /// World-space Y coordinate of viewport top-left
+    pub y: f64,
+    /// Viewport width in world coordinates
+    pub width: f64,
+    /// Viewport height in world coordinates
+    pub height: f64,
+    /// Zoom scale (1.0 = 100%, 0.5 = 50%)
+    pub scale: f64,
+}
+
+impl ViewportInfo {
+    /// Convert to internal Viewport
+    fn to_viewport(&self) -> Viewport {
+        Viewport::new(self.x, self.y, self.width, self.height, self.scale)
+    }
+}
+
+/// Tile coordinate for Flutter (exposed to Flutter)
+#[frb]
+#[derive(Debug, Clone, Copy)]
+pub struct TileCoordInfo {
+    pub x: i32,
+    pub y: i32,
+    pub zoom_level: u8,
+}
+
+impl From<TileCoord> for TileCoordInfo {
+    fn from(c: TileCoord) -> Self {
+        Self { x: c.x, y: c.y, zoom_level: c.zoom_level }
+    }
+}
+
+impl From<TileCoordInfo> for TileCoord {
+    fn from(c: TileCoordInfo) -> Self {
+        TileCoord::new(c.x, c.y, c.zoom_level)
+    }
+}
+
+/// Result of rendering a single tile
+#[frb]
+#[derive(Debug, Clone)]
+pub struct TileRenderResult {
+    pub coord: TileCoordInfo,
+    pub bounds: RectInfo,
+    pub commands: Vec<DrawCommand>,
+    pub node_count: usize,
+    pub from_cache: bool,
+}
+
+/// Cache statistics
+#[frb]
+#[derive(Debug, Clone)]
+pub struct TileCacheStatsInfo {
+    pub cached_tiles: usize,
+    pub max_tiles: usize,
+    pub dirty_tiles: usize,
+}
+
+/// Initialize spatial index for a document (call once after loading)
+#[frb]
+pub fn init_spatial_index(doc: &FigmaDocument, root_id: String) -> Result<usize> {
+    let index = SpatialIndex::build_with_absolute_coords(&doc.file.nodes, &root_id);
+    let count = index.len();
+
+    let mut spatial_lock = doc.spatial_index.write()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+    *spatial_lock = Some(index);
+
+    Ok(count)
+}
+
+/// Get visible tile coordinates for a viewport
+#[frb]
+pub fn get_visible_tiles(doc: &FigmaDocument, viewport: ViewportInfo) -> Vec<TileCoordInfo> {
+    let grid = doc.tile_grid.read().unwrap();
+    let vp = viewport.to_viewport();
+
+    grid.get_visible_tiles(&vp)
+        .into_iter()
+        .map(|c| c.into())
+        .collect()
+}
+
+/// Render tiles visible in viewport
+#[frb]
+pub fn render_tiles(
+    doc: &FigmaDocument,
+    root_id: String,
+    viewport: ViewportInfo,
+) -> Result<Vec<TileRenderResult>> {
+    // Ensure spatial index is built
+    {
+        let spatial_lock = doc.spatial_index.read()
+            .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+        if spatial_lock.is_none() {
+            drop(spatial_lock);
+            init_spatial_index(doc, root_id.clone())?;
+        }
+    }
+
+    let spatial_lock = doc.spatial_index.read()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+    let spatial_index = spatial_lock.as_ref()
+        .ok_or_else(|| FigmaError::DecodeError("Spatial index not initialized".into()))?;
+
+    let mut grid = doc.tile_grid.write()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+    let vp = viewport.to_viewport();
+    let visible_coords = grid.get_visible_tiles(&vp);
+
+    let mut results = Vec::with_capacity(visible_coords.len());
+
+    for coord in visible_coords {
+        let tile = grid.get_or_create_tile(coord, &doc.file.nodes, spatial_index);
+
+        results.push(TileRenderResult {
+            coord: tile.coord.into(),
+            bounds: tile.bounds.clone(),
+            commands: tile.commands.clone(),
+            node_count: tile.node_ids.len(),
+            from_cache: !tile.dirty,
+        });
+    }
+
+    Ok(results)
+}
+
+/// Render a single tile by coordinates
+#[frb]
+pub fn render_single_tile(
+    doc: &FigmaDocument,
+    root_id: String,
+    coord: TileCoordInfo,
+) -> Result<TileRenderResult> {
+    // Ensure spatial index is built
+    {
+        let spatial_lock = doc.spatial_index.read()
+            .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+        if spatial_lock.is_none() {
+            drop(spatial_lock);
+            init_spatial_index(doc, root_id.clone())?;
+        }
+    }
+
+    let spatial_lock = doc.spatial_index.read()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+    let spatial_index = spatial_lock.as_ref()
+        .ok_or_else(|| FigmaError::DecodeError("Spatial index not initialized".into()))?;
+
+    let mut grid = doc.tile_grid.write()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+    let tile_coord: TileCoord = coord.into();
+    let tile = grid.get_or_create_tile(tile_coord, &doc.file.nodes, spatial_index);
+
+    Ok(TileRenderResult {
+        coord: tile.coord.into(),
+        bounds: tile.bounds.clone(),
+        commands: tile.commands.clone(),
+        node_count: tile.node_ids.len(),
+        from_cache: !tile.dirty,
+    })
+}
+
+/// Invalidate tiles for changed nodes
+#[frb]
+pub fn invalidate_tiles(
+    doc: &FigmaDocument,
+    changed_node_ids: Vec<String>,
+) -> Result<Vec<TileCoordInfo>> {
+    let spatial_lock = doc.spatial_index.read()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+    let spatial_index = match spatial_lock.as_ref() {
+        Some(idx) => idx,
+        None => return Ok(vec![]), // No index means nothing to invalidate
+    };
+
+    let mut grid = doc.tile_grid.write()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+    let dirty = grid.invalidate_for_nodes(&changed_node_ids, spatial_index);
+
+    Ok(dirty.into_iter().map(|c| c.into()).collect())
+}
+
+/// Clear all cached tiles
+#[frb]
+pub fn clear_tile_cache(doc: &FigmaDocument) -> Result<()> {
+    let mut grid = doc.tile_grid.write()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+    grid.clear();
+    Ok(())
+}
+
+/// Get tile cache statistics
+#[frb]
+pub fn get_tile_cache_stats(doc: &FigmaDocument) -> Result<TileCacheStatsInfo> {
+    let grid = doc.tile_grid.read()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+    let stats = grid.stats();
+    Ok(TileCacheStatsInfo {
+        cached_tiles: stats.cached_tiles,
+        max_tiles: stats.max_tiles,
+        dirty_tiles: stats.dirty_tiles,
+    })
+}
+
+/// Get the fixed tile size constant
+#[frb]
+pub fn get_tile_size() -> f64 {
+    TILE_SIZE
+}
+
+/// Query nodes at a point (for hit testing)
+#[frb]
+pub fn query_nodes_at_point(
+    doc: &FigmaDocument,
+    x: f64,
+    y: f64,
+) -> Result<Vec<String>> {
+    let spatial_lock = doc.spatial_index.read()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+    match spatial_lock.as_ref() {
+        Some(index) => Ok(index.query_point(x, y)),
+        None => Ok(vec![]),
+    }
+}
+
+/// Query nodes in a rectangular region
+#[frb]
+pub fn query_nodes_in_rect(
+    doc: &FigmaDocument,
+    min_x: f64,
+    min_y: f64,
+    max_x: f64,
+    max_y: f64,
+) -> Result<Vec<String>> {
+    let spatial_lock = doc.spatial_index.read()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+    match spatial_lock.as_ref() {
+        Some(index) => Ok(index.query_rect(min_x, min_y, max_x, max_y)),
+        None => Ok(vec![]),
+    }
+}
+
+/// Get overall document bounds from spatial index
+#[frb]
+pub fn get_document_bounds(doc: &FigmaDocument) -> Result<Option<RectInfo>> {
+    let spatial_lock = doc.spatial_index.read()
+        .map_err(|_| FigmaError::DecodeError("Lock poisoned".into()))?;
+
+    match spatial_lock.as_ref() {
+        Some(index) => {
+            match index.overall_bounds() {
+                Some(bounds) => Ok(Some(RectInfo {
+                    x: bounds.min_x,
+                    y: bounds.min_y,
+                    width: bounds.width(),
+                    height: bounds.height(),
+                    corner_radii: [0.0; 4],
+                })),
+                None => Ok(None),
+            }
+        },
+        None => Ok(None),
+    }
 }
 
 // =============================================================================

@@ -16,6 +16,8 @@ pub mod effects;
 pub mod layout;
 pub mod vector;
 pub mod render;
+pub mod spatial;
+pub mod tiles;
 pub mod api;
 
 // Re-export main API for flutter_rust_bridge
