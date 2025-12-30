@@ -78,3 +78,6 @@ export 'src/flutter/menu_bar/menu_bar_exports.dart';
 
 // Plugins (plugin system, manifest parsing, plugin management)
 export 'src/flutter/plugins/plugin_exports.dart';
+
+// Tiles (tile-based rendering for large documents)
+export 'src/flutter/tiles/tiles.dart';

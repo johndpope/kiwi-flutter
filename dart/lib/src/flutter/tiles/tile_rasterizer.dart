@@ -376,7 +376,7 @@ class DrawCommandData {
 class PaintData {
   final PaintType type;
   final Color? color;
-  final List<GradientStop>? gradientStops;
+  final List<TileGradientStop>? gradientStops;
   final Offset? gradientStart;
   final Offset? gradientEnd;
   final double opacity;
@@ -461,10 +461,10 @@ class PaintData {
   }
 }
 
-/// Gradient stop
-class GradientStop {
+/// Gradient stop for tile rendering
+class TileGradientStop {
   final double offset;
   final Color color;
 
-  GradientStop(this.offset, this.color);
+  TileGradientStop(this.offset, this.color);
 }

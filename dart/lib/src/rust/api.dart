@@ -7,8 +7,8 @@ import 'frb_generated.dart';
 import 'lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `render_node_recursive`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `render_node_recursive`, `to_viewport`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
 
 /// Load a Figma file from bytes
 Future<FigmaDocument> loadFigmaFile({required List<int> data}) =>
@@ -58,7 +58,69 @@ Future<List<EffectInfo>> decodeEffects({required List<int> data}) =>
 Future<PathData> decodeVector({required List<int> data}) =>
     RustLib.instance.api.crateApiDecodeVector(data: data);
 
-// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<FigmaDocument>>
+/// Initialize spatial index for a document (call once after loading)
+Future<BigInt> initSpatialIndex(
+        {required FigmaDocument doc, required String rootId}) =>
+    RustLib.instance.api.crateApiInitSpatialIndex(doc: doc, rootId: rootId);
+
+/// Get visible tile coordinates for a viewport
+Future<List<TileCoordInfo>> getVisibleTiles(
+        {required FigmaDocument doc, required ViewportInfo viewport}) =>
+    RustLib.instance.api.crateApiGetVisibleTiles(doc: doc, viewport: viewport);
+
+/// Render tiles visible in viewport
+Future<List<TileRenderResult>> renderTiles(
+        {required FigmaDocument doc,
+        required String rootId,
+        required ViewportInfo viewport}) =>
+    RustLib.instance.api
+        .crateApiRenderTiles(doc: doc, rootId: rootId, viewport: viewport);
+
+/// Render a single tile by coordinates
+Future<TileRenderResult> renderSingleTile(
+        {required FigmaDocument doc,
+        required String rootId,
+        required TileCoordInfo coord}) =>
+    RustLib.instance.api
+        .crateApiRenderSingleTile(doc: doc, rootId: rootId, coord: coord);
+
+/// Invalidate tiles for changed nodes
+Future<List<TileCoordInfo>> invalidateTiles(
+        {required FigmaDocument doc, required List<String> changedNodeIds}) =>
+    RustLib.instance.api
+        .crateApiInvalidateTiles(doc: doc, changedNodeIds: changedNodeIds);
+
+/// Clear all cached tiles
+Future<void> clearTileCache({required FigmaDocument doc}) =>
+    RustLib.instance.api.crateApiClearTileCache(doc: doc);
+
+/// Get tile cache statistics
+Future<TileCacheStatsInfo> getTileCacheStats({required FigmaDocument doc}) =>
+    RustLib.instance.api.crateApiGetTileCacheStats(doc: doc);
+
+/// Get the fixed tile size constant
+Future<double> getTileSize() => RustLib.instance.api.crateApiGetTileSize();
+
+/// Query nodes at a point (for hit testing)
+Future<List<String>> queryNodesAtPoint(
+        {required FigmaDocument doc, required double x, required double y}) =>
+    RustLib.instance.api.crateApiQueryNodesAtPoint(doc: doc, x: x, y: y);
+
+/// Query nodes in a rectangular region
+Future<List<String>> queryNodesInRect(
+        {required FigmaDocument doc,
+        required double minX,
+        required double minY,
+        required double maxX,
+        required double maxY}) =>
+    RustLib.instance.api.crateApiQueryNodesInRect(
+        doc: doc, minX: minX, minY: minY, maxX: maxX, maxY: maxY);
+
+/// Get overall document bounds from spatial index
+Future<RectInfo?> getDocumentBounds({required FigmaDocument doc}) =>
+    RustLib.instance.api.crateApiGetDocumentBounds(doc: doc);
+
+// Rust type: RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<FigmaDocument>>
 abstract class FigmaDocument implements RustOpaqueInterface {}
 
 /// Color represented as RGBA (0-255)
@@ -425,6 +487,93 @@ class RectInfo {
           cornerRadii == other.cornerRadii;
 }
 
+/// Cache statistics
+class TileCacheStatsInfo {
+  final BigInt cachedTiles;
+  final BigInt maxTiles;
+  final BigInt dirtyTiles;
+
+  const TileCacheStatsInfo({
+    required this.cachedTiles,
+    required this.maxTiles,
+    required this.dirtyTiles,
+  });
+
+  @override
+  int get hashCode =>
+      cachedTiles.hashCode ^ maxTiles.hashCode ^ dirtyTiles.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TileCacheStatsInfo &&
+          runtimeType == other.runtimeType &&
+          cachedTiles == other.cachedTiles &&
+          maxTiles == other.maxTiles &&
+          dirtyTiles == other.dirtyTiles;
+}
+
+/// Tile coordinate for Flutter (exposed to Flutter)
+class TileCoordInfo {
+  final int x;
+  final int y;
+  final int zoomLevel;
+
+  const TileCoordInfo({
+    required this.x,
+    required this.y,
+    required this.zoomLevel,
+  });
+
+  @override
+  int get hashCode => x.hashCode ^ y.hashCode ^ zoomLevel.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TileCoordInfo &&
+          runtimeType == other.runtimeType &&
+          x == other.x &&
+          y == other.y &&
+          zoomLevel == other.zoomLevel;
+}
+
+/// Result of rendering a single tile
+class TileRenderResult {
+  final TileCoordInfo coord;
+  final RectInfo bounds;
+  final List<DrawCommand> commands;
+  final BigInt nodeCount;
+  final bool fromCache;
+
+  const TileRenderResult({
+    required this.coord,
+    required this.bounds,
+    required this.commands,
+    required this.nodeCount,
+    required this.fromCache,
+  });
+
+  @override
+  int get hashCode =>
+      coord.hashCode ^
+      bounds.hashCode ^
+      commands.hashCode ^
+      nodeCount.hashCode ^
+      fromCache.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TileRenderResult &&
+          runtimeType == other.runtimeType &&
+          coord == other.coord &&
+          bounds == other.bounds &&
+          commands == other.commands &&
+          nodeCount == other.nodeCount &&
+          fromCache == other.fromCache;
+}
+
 /// 2D affine transform matrix [a, b, c, d, tx, ty]
 class TransformInfo {
   final double m00;
@@ -466,4 +615,49 @@ class TransformInfo {
           m10 == other.m10 &&
           m11 == other.m11 &&
           m12 == other.m12;
+}
+
+/// Viewport information for tile culling (exposed to Flutter)
+class ViewportInfo {
+  /// World-space X coordinate of viewport top-left
+  final double x;
+
+  /// World-space Y coordinate of viewport top-left
+  final double y;
+
+  /// Viewport width in world coordinates
+  final double width;
+
+  /// Viewport height in world coordinates
+  final double height;
+
+  /// Zoom scale (1.0 = 100%, 0.5 = 50%)
+  final double scale;
+
+  const ViewportInfo({
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+    required this.scale,
+  });
+
+  @override
+  int get hashCode =>
+      x.hashCode ^
+      y.hashCode ^
+      width.hashCode ^
+      height.hashCode ^
+      scale.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ViewportInfo &&
+          runtimeType == other.runtimeType &&
+          x == other.x &&
+          y == other.y &&
+          width == other.width &&
+          height == other.height &&
+          scale == other.scale;
 }
