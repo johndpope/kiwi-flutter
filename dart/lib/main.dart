@@ -397,29 +397,45 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
       final guidKey = entry.key;
       final node = entry.value;
       final name = node['name']?.toString() ?? 'Variable';
-      final resolvedType = node['variableResolvedDataType']?.toString();
 
-      // Determine variable type
-      VariableType type;
-      switch (resolvedType) {
-        case 'COLOR':
-          type = VariableType.color;
-          break;
-        case 'FLOAT':
-          type = VariableType.number;
-          break;
-        case 'BOOLEAN':
-          type = VariableType.boolean;
-          break;
-        default:
-          type = VariableType.string;
+      // Determine variable type - get from first mode entry's dataType or resolvedDataType
+      VariableType type = VariableType.string; // default
+      final typeDataValues = node['variableDataValues'];
+      if (typeDataValues is Map && typeDataValues['entries'] is List) {
+        final entries = typeDataValues['entries'] as List;
+        if (entries.isNotEmpty && entries.first is Map) {
+          final firstEntry = entries.first as Map;
+          final variableData = firstEntry['variableData'];
+          if (variableData is Map) {
+            final dataType = (variableData['resolvedDataType'] ?? variableData['dataType'])?.toString().toUpperCase();
+            switch (dataType) {
+              case 'COLOR':
+                type = VariableType.color;
+                break;
+              case 'FLOAT':
+                type = VariableType.number;
+                break;
+              case 'BOOLEAN':
+                type = VariableType.boolean;
+                break;
+              case 'STRING':
+              default:
+                type = VariableType.string;
+            }
+          }
+        }
       }
 
-      // Find parent collection
-      final variableCollectionID = node['variableCollectionID'];
-      String collectionId = '';
-      if (variableCollectionID is Map) {
-        collectionId = '${variableCollectionID['sessionID']}:${variableCollectionID['localID']}';
+      // Find parent collection - handle nested guid structure: {guid: {sessionID, localID}}
+      var collectionId = '';
+      final variableSetID = node['variableSetID'] ?? node['variableCollectionID'];
+      if (variableSetID is Map) {
+        final guid = variableSetID['guid'];
+        if (guid is Map) {
+          collectionId = '${guid['sessionID']}:${guid['localID']}';
+        } else {
+          collectionId = '${variableSetID['sessionID']}:${variableSetID['localID']}';
+        }
       }
 
       // Parse values by mode from variableDataValues
@@ -440,10 +456,11 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
           final variableData = modeEntry['variableData'];
           if (variableData is! Map) continue;
 
-          final dataType = variableData['dataType']?.toString();
+          final dataType = variableData['dataType']?.toString().toUpperCase();
           final valueData = variableData['value'];
 
-          if (dataType == 'COLOR' && valueData is Map) {
+          // Handle both string and enum int values for dataType
+          if ((dataType == 'COLOR' || dataType == '1') && valueData is Map) {
             final colorValue = valueData['colorValue'];
             if (colorValue is Map) {
               final r = (colorValue['r'] as num?)?.toDouble() ?? 0;
@@ -459,7 +476,7 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
                 ),
               );
             }
-          } else if (dataType == 'ALIAS' && valueData is Map) {
+          } else if ((dataType == 'ALIAS' || dataType == '5') && valueData is Map) {
             final alias = valueData['alias'];
             if (alias is Map && alias['guid'] is Map) {
               final aliasGuid = alias['guid'] as Map;
@@ -501,14 +518,15 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
 
     debugPrint('📊 Parsed ${collections.length} collections and ${variables.length} variables');
 
-    // Only include COLOR variables for now
-    final colorVariables = Map.fromEntries(
-      variables.entries.where((e) => e.value.type == VariableType.color)
-    );
-    debugPrint('  🎨 ${colorVariables.length} color variables');
+    // Count by type
+    final colorCount = variables.values.where((v) => v.type == VariableType.color).length;
+    final numberCount = variables.values.where((v) => v.type == VariableType.number).length;
+    final stringCount = variables.values.where((v) => v.type == VariableType.string).length;
+    final boolCount = variables.values.where((v) => v.type == VariableType.boolean).length;
+    debugPrint('  🎨 $colorCount color, 📐 $numberCount number, 📝 $stringCount string, ✓ $boolCount boolean');
 
     final resolver = VariableResolver(
-      variables: colorVariables,
+      variables: variables,  // Include all variable types
       collections: collections,
     );
 

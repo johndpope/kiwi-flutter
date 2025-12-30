@@ -4,18 +4,20 @@ version: 0.1.0
 homepage: https://github.com/evanw/kiwi
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
-  flutter: '>=3.0.0'
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
 
 dependencies:
   flutter:
     sdk: flutter
+  flutter_rust_bridge: ^2.0.0
 
 dev_dependencies:
   test: ^1.24.0
   build_runner: ^2.4.0
   build_web_compilers: ^4.0.0
   crypto: ^3.0.3
+  ffigen: ^8.0.0
   flutter_test:
     sdk: flutter
   integration_test:

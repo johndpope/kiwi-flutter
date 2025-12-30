@@ -1,0 +1,13 @@
+# flutter_rust_bridge configuration
+# Run: flutter_rust_bridge_codegen generate
+
+rust_input: crate::api
+rust_root: ./
+dart_output: ../lib/src/rust/
+c_output: ../ios/Runner/bridge_generated.h
+
+# Enable WASM support for Flutter web
+web: true
+
+# Full dependency mode for better type inference
+full_dep: true

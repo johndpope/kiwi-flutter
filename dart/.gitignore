@@ -3,6 +3,7 @@
 .packages
 build/
 *.iml
+pubspec.lock
 
 # IDE
 .idea/
@@ -11,3 +12,23 @@ build/
 
 # macOS
 .DS_Store
+
+# Rust build artifacts
+rust_figma_renderer/target/
+rust_figma_renderer/Cargo.lock
+
+# Generated Rust-Flutter bridge files (keep api.dart but ignore generated internals)
+lib/src/rust/frb_generated.dart
+lib/src/rust/frb_generated.io.dart
+lib/src/rust/frb_generated.web.dart
+lib/src/rust/lib.dart
+
+# Flutter platform builds
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/ephemeral/
+ios/
+android/
+linux/
+windows/
+web/
+rust_figma_renderer/src/frb_generated.rs

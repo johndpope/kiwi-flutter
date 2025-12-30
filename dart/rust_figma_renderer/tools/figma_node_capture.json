@@ -1,0 +1,6582 @@
+{
+  "timestamp": "2025-12-30T11:44:52.463Z",
+  "selectedNodes": [
+    {
+      "id": "349:44491",
+      "name": "🖼️ Thumbnail",
+      "type": "FRAME",
+      "width": 5200,
+      "height": 2600,
+      "x": -9.094947017729282e-13,
+      "y": 0,
+      "relativeTransform": [
+        [
+          1,
+          0,
+          -9.094947017729282e-13
+        ],
+        [
+          0,
+          1,
+          0
+        ]
+      ],
+      "absoluteTransform": [
+        [
+          1,
+          0,
+          -9.094947017729282e-13
+        ],
+        [
+          0,
+          1,
+          0
+        ]
+      ],
+      "absoluteBoundingBox": {
+        "x": -9.094947017729282e-13,
+        "y": 0,
+        "width": 5200,
+        "height": 2600
+      },
+      "fills": [
+        {
+          "type": "GRADIENT_LINEAR",
+          "visible": true,
+          "opacity": 1,
+          "blendMode": "NORMAL",
+          "gradientStops": [
+            {
+              "position": 0,
+              "color": {
+                "r": 0.10980392247438431,
+                "g": 0.10980392247438431,
+                "b": 0.11764705926179886,
+                "a": 1
+              }
+            },
+            {
+              "position": 1,
+              "color": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 1
+              }
+            }
+          ],
+          "gradientTransform": [
+            [
+              6.123234262925839e-17,
+              1,
+              0
+            ],
+            [
+              -1,
+              6.123234262925839e-17,
+              1
+            ]
+          ]
+        }
+      ],
+      "strokes": [],
+      "strokeWeight": 1,
+      "strokeAlign": "INSIDE",
+      "strokeCap": "NONE",
+      "strokeJoin": "MITER",
+      "strokeMiterLimit": 4,
+      "dashPattern": [],
+      "effects": [],
+      "cornerRadius": 0,
+      "cornerRadii": {
+        "topLeft": 0,
+        "topRight": 0,
+        "bottomRight": 0,
+        "bottomLeft": 0
+      },
+      "layoutMode": "NONE",
+      "primaryAxisSizingMode": "AUTO",
+      "counterAxisSizingMode": "FIXED",
+      "primaryAxisAlignItems": "MIN",
+      "counterAxisAlignItems": "MIN",
+      "paddingLeft": 0,
+      "paddingRight": 0,
+      "paddingTop": 0,
+      "paddingBottom": 0,
+      "itemSpacing": 0,
+      "constraints": {
+        "horizontal": "MIN",
+        "vertical": "MIN"
+      },
+      "blendMode": "PASS_THROUGH",
+      "opacity": 1,
+      "visible": true,
+      "locked": false,
+      "childCount": 3,
+      "children": [
+        {
+          "id": "349:53190",
+          "name": "Row",
+          "type": "FRAME",
+          "width": 5200,
+          "height": 1092,
+          "x": 0,
+          "y": 1758,
+          "relativeTransform": [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              1758
+            ]
+          ],
+          "absoluteTransform": [
+            [
+              1,
+              0,
+              -9.094947017729282e-13
+            ],
+            [
+              0,
+              1,
+              1758
+            ]
+          ],
+          "absoluteBoundingBox": {
+            "x": -9.094947017729282e-13,
+            "y": 1758,
+            "width": 5200,
+            "height": 1092
+          },
+          "fills": [],
+          "strokes": [],
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "cornerRadii": {
+            "topLeft": 0,
+            "topRight": 0,
+            "bottomRight": 0,
+            "bottomLeft": 0
+          },
+          "layoutMode": "HORIZONTAL",
+          "primaryAxisSizingMode": "FIXED",
+          "counterAxisSizingMode": "AUTO",
+          "primaryAxisAlignItems": "SPACE_BETWEEN",
+          "counterAxisAlignItems": "MIN",
+          "paddingLeft": 80,
+          "paddingRight": 80,
+          "paddingTop": 80,
+          "paddingBottom": 80,
+          "itemSpacing": 80,
+          "constraints": {
+            "horizontal": "MIN",
+            "vertical": "MAX"
+          },
+          "blendMode": "PASS_THROUGH",
+          "opacity": 1,
+          "visible": true,
+          "locked": false,
+          "childCount": 9,
+          "children": [
+            {
+              "id": "349:56995",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 80,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  80
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  80
+                ],
+                [
+                  0,
+                  1,
+                  1838
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 80,
+                "y": 1838,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:56996",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      80
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 80,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:56996;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:56997",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      80
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 80,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:56998",
+                      "name": "📱 Health › Welcome",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:57743",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 656.25,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  656.25
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  656.25
+                ],
+                [
+                  0,
+                  1,
+                  1838
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 656.25,
+                "y": 1838,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:57744",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      656.25
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 656.25,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:57744;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:57745",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      656.25
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 656.25,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:57746",
+                      "name": "📱 Fitness › Summary",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:56799",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 1232.5,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  1232.5
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  1232.5
+                ],
+                [
+                  0,
+                  1,
+                  1838
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 1232.5,
+                "y": 1838,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:56800",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      1232.5
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 1232.5,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:56800;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:56801",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      1232.5
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 1232.5,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:56802",
+                      "name": "📱 Podcasts › Listen Now",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:53225",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 1808.75,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  1808.75
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  1808.75
+                ],
+                [
+                  0,
+                  1,
+                  1838
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 1808.75,
+                "y": 1838,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:53226",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      1808.75
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 1808.75,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:53226;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:53227",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      1808.75
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 1808.75,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 2,
+                  "children": [
+                    {
+                      "id": "349:53228",
+                      "name": "📱 Health › Browse",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    },
+                    {
+                      "id": "349:53229",
+                      "name": "📱 Podcasts › Player, Playing",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:56515",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 2385,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  2385
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  2385
+                ],
+                [
+                  0,
+                  1,
+                  1838
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 2385,
+                "y": 1838,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:56516",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      2385
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 2385,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:56516;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:56517",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      2385
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 2385,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:56518",
+                      "name": "📱 Home Screen",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:56214",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 2961.25,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  2961.25
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  2961.25
+                ],
+                [
+                  0,
+                  1,
+                  1838
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 2961.25,
+                "y": 1838,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:56215",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      2961.25
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 2961.25,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:56215;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:56216",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      2961.25
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 2961.25,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:56217",
+                      "name": "📱 Home › Home",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:53216",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 3537.5,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  3537.5
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  3537.5
+                ],
+                [
+                  0,
+                  1,
+                  1838
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 3537.5,
+                "y": 1838,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:53217",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      3537.5
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 3537.5,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:53217;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:53218",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      3537.5
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 3537.5,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:53219",
+                      "name": "📱 Photos › All Photos",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:55508",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 4113.75,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  4113.75
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  4113.75
+                ],
+                [
+                  0,
+                  1,
+                  1838
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 4113.75,
+                "y": 1838,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:55509",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      4113.75
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 4113.75,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:55509;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:55510",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      4113.75
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 4113.75,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 55,
+                  "cornerRadii": {
+                    "topLeft": 55,
+                    "topRight": 55,
+                    "bottomRight": 55,
+                    "bottomLeft": 55
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 2,
+                  "children": [
+                    {
+                      "id": "349:55511",
+                      "name": "📱 Photos › All Photos",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    },
+                    {
+                      "id": "349:55512",
+                      "name": "📱 Calculator › Type Number",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:57151",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 4690,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  4690
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  4690
+                ],
+                [
+                  0,
+                  1,
+                  1838
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 4690,
+                "y": 1838,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:57152",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      4690
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 4690,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:57152;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:57153",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      4690
+                    ],
+                    [
+                      0,
+                      1,
+                      1838
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 4690,
+                    "y": 1838,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 2,
+                  "children": [
+                    {
+                      "id": "349:57154",
+                      "name": "📱 Health › Browse",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    },
+                    {
+                      "id": "349:57155",
+                      "name": "📱 Calendar › Event Details, Video Call",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "349:44616",
+          "name": "Title and Subtitle",
+          "type": "FRAME",
+          "width": 4865,
+          "height": 537,
+          "x": 168,
+          "y": 1032,
+          "relativeTransform": [
+            [
+              1,
+              0,
+              168
+            ],
+            [
+              0,
+              1,
+              1032
+            ]
+          ],
+          "absoluteTransform": [
+            [
+              1,
+              0,
+              168
+            ],
+            [
+              0,
+              1,
+              1032
+            ]
+          ],
+          "absoluteBoundingBox": {
+            "x": 168,
+            "y": 1032,
+            "width": 4865,
+            "height": 537
+          },
+          "fills": [],
+          "strokes": [],
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "cornerRadii": {
+            "topLeft": 0,
+            "topRight": 0,
+            "bottomRight": 0,
+            "bottomLeft": 0
+          },
+          "layoutMode": "HORIZONTAL",
+          "primaryAxisSizingMode": "AUTO",
+          "counterAxisSizingMode": "AUTO",
+          "primaryAxisAlignItems": "CENTER",
+          "counterAxisAlignItems": "CENTER",
+          "paddingLeft": 0,
+          "paddingRight": 0,
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "itemSpacing": 574,
+          "constraints": {
+            "horizontal": "CENTER",
+            "vertical": "CENTER"
+          },
+          "blendMode": "PASS_THROUGH",
+          "opacity": 0.4000000059604645,
+          "visible": true,
+          "locked": false,
+          "childCount": 3,
+          "children": [
+            {
+              "id": "349:59821",
+              "name": "Components & Screens",
+              "type": "TEXT",
+              "width": 1500,
+              "height": 430,
+              "x": 0,
+              "y": 53.5,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  53.5
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  168
+                ],
+                [
+                  0,
+                  1,
+                  1085.5
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 168,
+                "y": 1085.5,
+                "width": 1500,
+                "height": 430
+              },
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "visible": true,
+                  "opacity": 1,
+                  "blendMode": "NORMAL",
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                  }
+                }
+              ],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "OUTSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "characters": "Components\n& Screens",
+              "fontSize": 180,
+              "fontName": {
+                "family": "SF Pro",
+                "style": "Regular"
+              },
+              "textAlignHorizontal": "RIGHT",
+              "textAlignVertical": "TOP",
+              "textAutoResize": "HEIGHT",
+              "letterSpacing": {
+                "unit": "PIXELS",
+                "value": 0.4000000059604645
+              },
+              "lineHeight": {
+                "unit": "AUTO"
+              },
+              "textDecoration": "NONE",
+              "textCase": "ORIGINAL",
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false
+            },
+            {
+              "id": "500:49650",
+              "name": "Text",
+              "type": "FRAME",
+              "width": 717,
+              "height": 537,
+              "x": 2074,
+              "y": 0,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  2074
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  2242
+                ],
+                [
+                  0,
+                  1,
+                  1032
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 2242,
+                "y": 1032,
+                "width": 717,
+                "height": 537
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "HORIZONTAL",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "AUTO",
+              "primaryAxisAlignItems": "CENTER",
+              "counterAxisAlignItems": "CENTER",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 1,
+              "children": [
+                {
+                  "id": "349:44617",
+                  "name": "iOS",
+                  "type": "TEXT",
+                  "width": 717,
+                  "height": 537,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      2242
+                    ],
+                    [
+                      0,
+                      1,
+                      1032
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 2242,
+                    "y": 1032,
+                    "width": 717,
+                    "height": 537
+                  },
+                  "fills": [
+                    {
+                      "type": "SOLID",
+                      "visible": true,
+                      "opacity": 1,
+                      "blendMode": "NORMAL",
+                      "color": {
+                        "r": 1,
+                        "g": 1,
+                        "b": 1,
+                        "a": 1
+                      }
+                    }
+                  ],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "OUTSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "characters": "iOS",
+                  "fontSize": 450,
+                  "fontName": {
+                    "family": "SF Pro",
+                    "style": "Semibold"
+                  },
+                  "textAlignHorizontal": "LEFT",
+                  "textAlignVertical": "TOP",
+                  "textAutoResize": "WIDTH_AND_HEIGHT",
+                  "letterSpacing": {
+                    "unit": "PIXELS",
+                    "value": 0.4000000059604645
+                  },
+                  "lineHeight": {
+                    "unit": "AUTO"
+                  },
+                  "textDecoration": "NONE",
+                  "textCase": "ORIGINAL",
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false
+                }
+              ]
+            },
+            {
+              "id": "349:44618",
+              "name": "Figma Variables",
+              "type": "TEXT",
+              "width": 1500,
+              "height": 430,
+              "x": 3365,
+              "y": 53.5,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  3365
+                ],
+                [
+                  0,
+                  1,
+                  53.5
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  3533
+                ],
+                [
+                  0,
+                  1,
+                  1085.5
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 3533,
+                "y": 1085.5,
+                "width": 1500,
+                "height": 430
+              },
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "visible": true,
+                  "opacity": 1,
+                  "blendMode": "NORMAL",
+                  "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                  }
+                }
+              ],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "OUTSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "characters": "Figma\nVariables",
+              "fontSize": 180,
+              "fontName": {
+                "family": "SF Pro",
+                "style": "Regular"
+              },
+              "textAlignHorizontal": "LEFT",
+              "textAlignVertical": "TOP",
+              "textAutoResize": "HEIGHT",
+              "letterSpacing": {
+                "unit": "PIXELS",
+                "value": 0.4000000059604645
+              },
+              "lineHeight": {
+                "unit": "AUTO"
+              },
+              "textDecoration": "NONE",
+              "textCase": "ORIGINAL",
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false
+            }
+          ]
+        },
+        {
+          "id": "349:50792",
+          "name": "Row",
+          "type": "FRAME",
+          "width": 5200,
+          "height": 1092,
+          "x": 0,
+          "y": -250,
+          "relativeTransform": [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              -250
+            ]
+          ],
+          "absoluteTransform": [
+            [
+              1,
+              0,
+              -9.094947017729282e-13
+            ],
+            [
+              0,
+              1,
+              -250
+            ]
+          ],
+          "absoluteBoundingBox": {
+            "x": -9.094947017729282e-13,
+            "y": -250,
+            "width": 5200,
+            "height": 1092
+          },
+          "fills": [],
+          "strokes": [],
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "cornerRadii": {
+            "topLeft": 0,
+            "topRight": 0,
+            "bottomRight": 0,
+            "bottomLeft": 0
+          },
+          "layoutMode": "HORIZONTAL",
+          "primaryAxisSizingMode": "FIXED",
+          "counterAxisSizingMode": "AUTO",
+          "primaryAxisAlignItems": "SPACE_BETWEEN",
+          "counterAxisAlignItems": "MIN",
+          "paddingLeft": 80,
+          "paddingRight": 80,
+          "paddingTop": 80,
+          "paddingBottom": 80,
+          "itemSpacing": 80,
+          "constraints": {
+            "horizontal": "MIN",
+            "vertical": "MIN"
+          },
+          "blendMode": "PASS_THROUGH",
+          "opacity": 1,
+          "visible": true,
+          "locked": false,
+          "childCount": 9,
+          "children": [
+            {
+              "id": "349:51274",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 80,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  80
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  80
+                ],
+                [
+                  0,
+                  1,
+                  -170
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 80,
+                "y": -170,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:51275",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      80
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 80,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:51275;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:51276",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      80
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 80,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:51277",
+                      "name": "📱 Settings › Home",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:50801",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 656.25,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  656.25
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  656.25
+                ],
+                [
+                  0,
+                  1,
+                  -170
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 656.25,
+                "y": -170,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:50802",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      656.25
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 656.25,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:50802;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:50803",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      656.25
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 656.25,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 55,
+                  "cornerRadii": {
+                    "topLeft": 55,
+                    "topRight": 55,
+                    "bottomRight": 55,
+                    "bottomLeft": 55
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 2,
+                  "children": [
+                    {
+                      "id": "349:50804",
+                      "name": "📱 Photos › All Photos",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    },
+                    {
+                      "id": "349:50805",
+                      "name": "📱 Contacts › Add Contact, Phone",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:50793",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 1232.5,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  1232.5
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  1232.5
+                ],
+                [
+                  0,
+                  1,
+                  -170
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 1232.5,
+                "y": -170,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:50794",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      1232.5
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 1232.5,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:50794;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:50795",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      1232.5
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 1232.5,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:50796",
+                      "name": "📱 Calendar › Location Permission",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:50797",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 1808.75,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  1808.75
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  1808.75
+                ],
+                [
+                  0,
+                  1,
+                  -170
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 1808.75,
+                "y": -170,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:50798",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      1808.75
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 1808.75,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:50798;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:50799",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      1808.75
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 1808.75,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:50800",
+                      "name": "📱 News › Welcome",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:57652",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 2385,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  2385
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  2385
+                ],
+                [
+                  0,
+                  1,
+                  -170
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 2385,
+                "y": -170,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:57653",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      2385
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 2385,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:57653;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:57654",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      2385
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 2385,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:57655",
+                      "name": "📱 Podcasts › Player, Playing #2",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:58814",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 2961.25,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  2961.25
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  2961.25
+                ],
+                [
+                  0,
+                  1,
+                  -170
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 2961.25,
+                "y": -170,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:58815",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      2961.25
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 2961.25,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:58815;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:58816",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      2961.25
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 2961.25,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:58817",
+                      "name": "📱 Podcasts › Listen Now",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:57948",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 3537.5,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  3537.5
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  3537.5
+                ],
+                [
+                  0,
+                  1,
+                  -170
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 3537.5,
+                "y": -170,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:57949",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      3537.5
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 3537.5,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:57949;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:57950",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      3537.5
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 3537.5,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 2,
+                  "children": [
+                    {
+                      "id": "349:57951",
+                      "name": "📱 Health › Welcome",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    },
+                    {
+                      "id": "349:57952",
+                      "name": "📱 Calendar › Today, With Events",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:56154",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 4113.75,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  4113.75
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  4113.75
+                ],
+                [
+                  0,
+                  1,
+                  -170
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 4113.75,
+                "y": -170,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:56155",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      4113.75
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 4113.75,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:56155;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:56156",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      4113.75
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 4113.75,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:56157",
+                      "name": "📱 Safari › View Page",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "349:52088",
+              "name": "Device",
+              "type": "FRAME",
+              "width": 430,
+              "height": 932,
+              "x": 4690,
+              "y": 80,
+              "relativeTransform": [
+                [
+                  1,
+                  0,
+                  4690
+                ],
+                [
+                  0,
+                  1,
+                  80
+                ]
+              ],
+              "absoluteTransform": [
+                [
+                  1,
+                  0,
+                  4690
+                ],
+                [
+                  0,
+                  1,
+                  -170
+                ]
+              ],
+              "absoluteBoundingBox": {
+                "x": 4690,
+                "y": -170,
+                "width": 430,
+                "height": 932
+              },
+              "fills": [],
+              "strokes": [],
+              "strokeWeight": 1,
+              "strokeAlign": "INSIDE",
+              "strokeCap": "NONE",
+              "strokeJoin": "MITER",
+              "strokeMiterLimit": 4,
+              "dashPattern": [],
+              "effects": [],
+              "cornerRadius": 0,
+              "cornerRadii": {
+                "topLeft": 0,
+                "topRight": 0,
+                "bottomRight": 0,
+                "bottomLeft": 0
+              },
+              "layoutMode": "NONE",
+              "primaryAxisSizingMode": "AUTO",
+              "counterAxisSizingMode": "FIXED",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "constraints": {
+                "horizontal": "MIN",
+                "vertical": "MIN"
+              },
+              "blendMode": "PASS_THROUGH",
+              "opacity": 1,
+              "visible": true,
+              "locked": false,
+              "childCount": 2,
+              "children": [
+                {
+                  "id": "349:52089",
+                  "name": "🧰 Bezel",
+                  "type": "INSTANCE",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      4690
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 4690,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 0,
+                  "cornerRadii": {
+                    "topLeft": 0,
+                    "topRight": 0,
+                    "bottomRight": 0,
+                    "bottomLeft": 0
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "CENTER",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "I349:52089;6:709",
+                      "name": "Bezel",
+                      "type": "RECTANGLE",
+                      "truncated": true
+                    }
+                  ]
+                },
+                {
+                  "id": "349:52090",
+                  "name": "Crop Screen",
+                  "type": "FRAME",
+                  "width": 430,
+                  "height": 932,
+                  "x": 0,
+                  "y": 0,
+                  "relativeTransform": [
+                    [
+                      1,
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      1,
+                      0
+                    ]
+                  ],
+                  "absoluteTransform": [
+                    [
+                      1,
+                      0,
+                      4690
+                    ],
+                    [
+                      0,
+                      1,
+                      -170
+                    ]
+                  ],
+                  "absoluteBoundingBox": {
+                    "x": 4690,
+                    "y": -170,
+                    "width": 430,
+                    "height": 932
+                  },
+                  "fills": [],
+                  "strokes": [],
+                  "strokeWeight": 1,
+                  "strokeAlign": "INSIDE",
+                  "strokeCap": "NONE",
+                  "strokeJoin": "MITER",
+                  "strokeMiterLimit": 4,
+                  "dashPattern": [],
+                  "effects": [],
+                  "cornerRadius": 54,
+                  "cornerRadii": {
+                    "topLeft": 54,
+                    "topRight": 54,
+                    "bottomRight": 54,
+                    "bottomLeft": 54
+                  },
+                  "layoutMode": "NONE",
+                  "primaryAxisSizingMode": "AUTO",
+                  "counterAxisSizingMode": "FIXED",
+                  "primaryAxisAlignItems": "MIN",
+                  "counterAxisAlignItems": "MIN",
+                  "paddingLeft": 0,
+                  "paddingRight": 0,
+                  "paddingTop": 0,
+                  "paddingBottom": 0,
+                  "itemSpacing": 0,
+                  "constraints": {
+                    "horizontal": "MIN",
+                    "vertical": "MIN"
+                  },
+                  "blendMode": "PASS_THROUGH",
+                  "opacity": 1,
+                  "visible": true,
+                  "locked": false,
+                  "childCount": 1,
+                  "children": [
+                    {
+                      "id": "349:52091",
+                      "name": "📱 Home › Home Settings",
+                      "type": "INSTANCE",
+                      "truncated": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "pageNodeSamples": {
+    "samples": [
+      {
+        "id": "349:44491",
+        "name": "🖼️ Thumbnail",
+        "type": "FRAME",
+        "hasFills": true,
+        "hasEffects": false,
+        "hasStrokes": false
+      },
+      {
+        "id": "349:53190",
+        "name": "Row",
+        "type": "FRAME",
+        "hasFills": false,
+        "hasEffects": false,
+        "hasStrokes": false
+      },
+      {
+        "id": "349:56995",
+        "name": "Device",
+        "type": "FRAME",
+        "hasFills": false,
+        "hasEffects": false,
+        "hasStrokes": false
+      },
+      {
+        "id": "349:56996",
+        "name": "🧰 Bezel",
+        "type": "INSTANCE",
+        "hasFills": false,
+        "hasEffects": false,
+        "hasStrokes": false
+      },
+      {
+        "id": "I349:56996;6:709",
+        "name": "Bezel",
+        "type": "RECTANGLE",
+        "hasFills": true,
+        "hasEffects": false,
+        "hasStrokes": false
+      },
+      {
+        "id": "349:56997",
+        "name": "Crop Screen",
+        "type": "FRAME",
+        "hasFills": false,
+        "hasEffects": false,
+        "hasStrokes": false
+      },
+      {
+        "id": "349:56998",
+        "name": "📱 Health › Welcome",
+        "type": "INSTANCE",
+        "hasFills": true,
+        "hasEffects": false,
+        "hasStrokes": false
+      },
+      {
+        "id": "I349:56998;3006:1325",
+        "name": "Bottom",
+        "type": "FRAME",
+        "hasFills": false,
+        "hasEffects": false,
+        "hasStrokes": false
+      },
+      {
+        "id": "I349:56998;3006:1326",
+        "name": "Button Container",
+        "type": "FRAME",
+        "hasFills": false,
+        "hasEffects": false,
+        "hasStrokes": false
+      },
+      {
+        "id": "I349:56998;3006:1327",
+        "name": "🧰 Button",
+        "type": "INSTANCE",
+        "hasFills": false,
+        "hasEffects": false,
+        "hasStrokes": false
+      }
+    ],
+    "typeDistribution": {
+      "FRAME": 1902,
+      "INSTANCE": 786,
+      "RECTANGLE": 463,
+      "TEXT": 928,
+      "VECTOR": 432,
+      "BOOLEAN_OPERATION": 16,
+      "ELLIPSE": 40,
+      "GROUP": 1
+    }
+  },
+  "navigation": {
+    "navigatedTo": "A.01    🎨    Colors",
+    "childCount": 2
+  },
+  "colorsData": {
+    "pageName": "A.01    🎨    Colors",
+    "colors": [
+      {
+        "nodeName": ".Feedback",
+        "nodeType": "INSTANCE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "💬 Feedback",
+        "nodeType": "TEXT",
+        "type": "SOLID",
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Ask for new components, screens or changes",
+        "nodeType": "TEXT",
+        "type": "SOLID",
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "https://ios-ui-kit.canny.io/contribute",
+        "nodeType": "TEXT",
+        "type": "SOLID",
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "📘 Colors",
+        "nodeType": "FRAME",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Title",
+        "nodeType": "FRAME",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Icon",
+        "nodeType": "FRAME",
+        "type": "GRADIENT_LINEAR",
+        "stops": [
+          {
+            "position": 0,
+            "r": 1,
+            "g": 0.8901960849761963,
+            "b": 0.27843138575553894,
+            "a": 1
+          },
+          {
+            "position": 1,
+            "r": 1,
+            "g": 0.7882353067398071,
+            "b": 0.14901961386203766,
+            "a": 1
+          }
+        ]
+      },
+      {
+        "nodeName": "􀀀",
+        "nodeType": "TEXT",
+        "type": "GRADIENT_LINEAR",
+        "stops": [
+          {
+            "position": 0,
+            "r": 0.800000011920929,
+            "g": 0.5686274766921997,
+            "b": 0,
+            "a": 1
+          },
+          {
+            "position": 1,
+            "r": 0.800000011920929,
+            "g": 0.501960813999176,
+            "b": 0,
+            "a": 1
+          }
+        ]
+      },
+      {
+        "nodeName": "Title",
+        "nodeType": "TEXT",
+        "type": "SOLID",
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Link",
+        "nodeType": "TEXT",
+        "type": "SOLID",
+        "r": 0.5568627715110779,
+        "g": 0.5568627715110779,
+        "b": 0.5764706134796143,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Colors",
+        "nodeType": "TEXT",
+        "type": "SOLID",
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Name",
+        "nodeType": "TEXT",
+        "type": "SOLID",
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Color Circle",
+        "nodeType": "FRAME",
+        "type": "SOLID",
+        "r": 1,
+        "g": 0.21960784494876862,
+        "b": 0.16862745583057404,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      },
+      {
+        "nodeName": "Cell",
+        "nodeType": "RECTANGLE",
+        "type": "SOLID",
+        "r": 0.9019607901573181,
+        "g": 0.9019607901573181,
+        "b": 0.9215686321258545,
+        "a": 1,
+        "opacity": 1
+      }
+    ]
+  },
+  "typographyData": {
+    "pageName": "A.03    📝    Typography",
+    "textNodes": [
+      {
+        "name": "💬 Feedback",
+        "characters": "💬 Feedback",
+        "fontSize": 34,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Bold"
+        },
+        "fontWeight": 700,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": 0.4000000059604645
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 41
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "Ask for new components, screens or changes",
+        "characters": "Ask for new components, screens or changes",
+        "fontSize": 22,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.25999999046325684
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 28
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "https://ios-ui-kit.canny.io/contribute",
+        "characters": "https://ios-ui-kit.canny.io/contribute",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Regular"
+        },
+        "fontWeight": 400,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "􀀀",
+        "characters": "􀅐",
+        "fontSize": 34,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Regular"
+        },
+        "fontWeight": 400,
+        "textAlignHorizontal": "CENTER",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": 0.4000000059604645
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 41
+        },
+        "fills": [
+          {
+            "type": "GRADIENT_LINEAR"
+          }
+        ]
+      },
+      {
+        "name": "Title",
+        "characters": "Typography",
+        "fontSize": 34,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Bold"
+        },
+        "fontWeight": 700,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": 0.4000000059604645
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 41
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "Link",
+        "characters": "developer.apple.com/design/human-interface-guideli",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro Text",
+          "style": "Regular"
+        },
+        "fontWeight": 400,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0.5568627715110779,
+              "g": 0.5568627715110779,
+              "b": 0.5764706134796143
+            }
+          }
+        ]
+      },
+      {
+        "name": "Regular",
+        "characters": "Regular",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "SemiBold",
+        "characters": "SemiBold",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "Bold",
+        "characters": "Bold",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "Underlined",
+        "characters": "Underlined",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "Uppercase",
+        "characters": "Uppercase",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "Uppercase SB",
+        "characters": "Uppercase SB",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "􀑹",
+        "characters": "􀑹",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "Leading (points)",
+        "characters": "Leading (points)",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "􀄾",
+        "characters": "􀄾",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "Tracking (points)",
+        "characters": "Tracking (points)",
+        "fontSize": 17,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": -0.4300000071525574
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 22
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "XX",
+        "characters": "8",
+        "fontSize": 8,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Regular"
+        },
+        "fontWeight": 400,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": 0.20999999344348907
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 10
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "XX",
+        "characters": "8",
+        "fontSize": 8,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Semibold"
+        },
+        "fontWeight": 590,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": 0.20999999344348907
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 10
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "XX",
+        "characters": "8",
+        "fontSize": 8,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Bold"
+        },
+        "fontWeight": 700,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": 0.20999999344348907
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 10
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "XX",
+        "characters": "8",
+        "fontSize": 8,
+        "fontName": {
+          "family": "SF Pro",
+          "style": "Regular"
+        },
+        "fontWeight": 400,
+        "textAlignHorizontal": "LEFT",
+        "textAlignVertical": "TOP",
+        "letterSpacing": {
+          "unit": "PIXELS",
+          "value": 0.20999999344348907
+        },
+        "lineHeight": {
+          "unit": "PIXELS",
+          "value": 10
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 0,
+              "g": 0,
+              "b": 0
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "effectsData": [
+    {
+      "nodeName": "Logo",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.10000000149011612
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Nara Park",
+      "nodeType": "TEXT",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.6000000238418579
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Home Bar - Change Opacity",
+      "nodeType": "RECTANGLE",
+      "effectType": "BACKGROUND_BLUR",
+      "visible": true,
+      "radius": 80
+    },
+    {
+      "nodeName": "Background",
+      "nodeType": "RECTANGLE",
+      "effectType": "BACKGROUND_BLUR",
+      "visible": true,
+      "radius": 50
+    },
+    {
+      "nodeName": "Home Bar - Change Opacity",
+      "nodeType": "RECTANGLE",
+      "effectType": "BACKGROUND_BLUR",
+      "visible": true,
+      "radius": 80
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Nara Park",
+      "nodeType": "TEXT",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.6000000238418579
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Book",
+      "nodeType": "FRAME",
+      "effectType": "DROP_SHADOW",
+      "visible": true,
+      "radius": 20,
+      "offset": {
+        "x": 0,
+        "y": 4
+      },
+      "spread": 0,
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0.25
+      },
+      "blendMode": "NORMAL"
+    },
+    {
+      "nodeName": "Home Bar - Change Opacity",
+      "nodeType": "RECTANGLE",
+      "effectType": "BACKGROUND_BLUR",
+      "visible": true,
+      "radius": 80
+    },
+    {
+      "nodeName": "Background",
+      "nodeType": "RECTANGLE",
+      "effectType": "BACKGROUND_BLUR",
+      "visible": true,
+      "radius": 50
+    }
+  ]
+}

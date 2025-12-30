@@ -11,7 +11,7 @@ import 'node_renderer.dart';
 import 'state/state.dart';
 import 'editing/editing.dart';
 import 'ui/design_panel/design_panel.dart';
-import 'selection_overlay.dart';
+// REMOVED: selection_overlay.dart - redundant, functionality now in _CanvasSelectionPainter below
 
 // Figma's exact colors
 class FigmaColors {
@@ -281,6 +281,9 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   // Pointer tracking for tap detection (to distinguish from pan gestures)
   Offset? _pointerDownPos;
   DateTime? _pointerDownTime;
+
+  // Cursor state based on hover
+  MouseCursor _currentCursor = SystemMouseCursors.basic;
 
   // Snap engine for alignment
   late SnapEngine _snapEngine;
@@ -2748,8 +2751,16 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
                       },
                       child: MouseRegion(
                         opaque: false,
+                        cursor: _currentCursor,
                         onHover: (event) => _handleCanvasHover(event.localPosition),
-                        onExit: (_) => _documentState.selection.clearHover(),
+                        onExit: (_) {
+                          // Clear hover in both systems and reset cursor
+                          _documentState.selection.clearHover();
+                          DebugOverlayController.instance.setHovered(null);
+                          if (_currentCursor != SystemMouseCursors.basic) {
+                            setState(() => _currentCursor = SystemMouseCursors.basic);
+                          }
+                        },
                         child: const SizedBox.expand(),
                       ),
                     ),
@@ -2909,11 +2920,24 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
   /// Handle hover on canvas - find node under cursor
   /// Note: localPos is relative to the canvas overlay area which matches the InteractiveViewer
+  /// Syncs hover state between Selection and DebugOverlayController for layer tree highlighting
   void _handleCanvasHover(Offset localPos) {
     // localPos is already in the correct coordinate space (relative to canvas area)
     final canvasPos = _screenToCanvas(localPos);
     final hitNodeId = _hitTestNode(canvasPos);
+
+    // Update cursor based on whether a node is under the pointer
+    final newCursor = hitNodeId != null
+        ? SystemMouseCursors.click
+        : (_currentTool == 'hand' ? SystemMouseCursors.grab : SystemMouseCursors.basic);
+
+    if (newCursor != _currentCursor) {
+      setState(() => _currentCursor = newCursor);
+    }
+
+    // Update both systems to keep them in sync
     _documentState.selection.setHoveredNode(hitNodeId);
+    DebugOverlayController.instance.setHovered(hitNodeId);
   }
 
   /// Handle tap on canvas - select/deselect nodes
@@ -2962,6 +2986,7 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   }
 
   /// Recursively hit test through node hierarchy
+  /// Uses absolute coordinates by walking up parent hierarchy for accurate hit detection
   String? _hitTestNodeRecursive(String nodeId, Offset canvasPos) {
     final node = widget.document.nodeMap[nodeId];
     if (node == null) return null;
@@ -2971,7 +2996,7 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
     String? hitNodeId;
 
-    // Check children first (reverse order for topmost hit)
+    // Check children first (reverse order for topmost hit - last child is on top)
     final children = node['children'] as List?;
     if (children != null) {
       for (int i = children.length - 1; i >= 0; i--) {
@@ -2985,11 +3010,10 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
       }
     }
 
-    // If no child was hit, check this node
+    // If no child was hit, check this node using ABSOLUTE bounds
     if (hitNodeId == null) {
-      // Use direct node bounds - Figma stores absolute canvas coordinates
-      final props = FigmaNodeProperties.fromMap(node);
-      final bounds = Rect.fromLTWH(props.x, props.y, props.width, props.height);
+      // Use absolute bounds - walks up parent hierarchy to get true canvas position
+      final bounds = _getAbsoluteNodeBounds(node, widget.document.nodeMap);
       if (bounds.width > 0 && bounds.height > 0 && bounds.contains(canvasPos)) {
         final type = node['type']?.toString();
         // Don't hit test pages/canvas - only frames and shapes
@@ -5336,18 +5360,49 @@ class _CanvasSelectionPainter extends CustomPainter {
     required this.transform,
   });
 
-  /// Get bounds of a node in canvas coordinates
-  /// Note: Figma stores absolute canvas coordinates in the transform, not relative to parent
+  /// Get ABSOLUTE bounds of a node in canvas coordinates
+  /// Walks up parent hierarchy to get true canvas position
   Rect? _getNodeBounds(Map<String, dynamic> node) {
-    // Get position and size directly - Figma stores absolute canvas coordinates
     final props = FigmaNodeProperties.fromMap(node);
 
-    final double x = props.x;
-    final double y = props.y;
+    // Start with local coordinates
+    double x = props.x;
+    double y = props.y;
     final double width = props.width;
     final double height = props.height;
 
     if (width <= 0 || height <= 0) return null;
+
+    // Walk up the parent hierarchy to accumulate transforms for absolute position
+    Map<String, dynamic>? current = node;
+    while (current != null) {
+      final parentIndex = current['parentIndex'];
+      if (parentIndex is Map) {
+        final parentGuid = parentIndex['guid'];
+        if (parentGuid != null) {
+          final parentKey = '${parentGuid['sessionID'] ?? 0}:${parentGuid['localID'] ?? 0}';
+          final parentNode = nodeMap[parentKey];
+          if (parentNode != null) {
+            final parentType = parentNode['type'] as String?;
+            // Stop at CANVAS level - that's the page root
+            if (parentType == 'CANVAS') {
+              break;
+            }
+            // Add parent's position to our coordinates
+            final parentProps = FigmaNodeProperties.fromMap(parentNode);
+            x += parentProps.x;
+            y += parentProps.y;
+            current = parentNode;
+          } else {
+            break;
+          }
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
 
     return Rect.fromLTWH(x, y, width, height);
   }

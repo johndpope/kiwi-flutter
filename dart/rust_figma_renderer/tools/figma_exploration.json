@@ -1,0 +1,205 @@
+{
+  "timestamp": "2025-12-30T11:43:15.833Z",
+  "canvasContext": {
+    "methods": [],
+    "statics": [],
+    "name": "sb"
+  },
+  "mutableCanvasContext": {
+    "methods": [
+      "fillRoundedRect",
+      "strokeRoundedRect",
+      "fillRect",
+      "strokeRect",
+      "fillCircle",
+      "fillTextWithBox",
+      "strokeCircle",
+      "fillAndStrokeCircle",
+      "fillText",
+      "fillTextWithFontWeight",
+      "fillTextWithBoxAndTextOffset",
+      "renderFillAndStrokeRoundedRect",
+      "renderContentFillIcon",
+      "renderTemplateFillIcon",
+      "renderTemplateInfoIcon",
+      "renderDashedLines",
+      "renderWrappingIndicator",
+      "measureText",
+      "truncateName",
+      "strokeRoundedRectWithDash"
+    ],
+    "name": "sT"
+  },
+  "figmaApi": {
+    "methods": [],
+    "properties": [],
+    "currentPage": {
+      "name": "C.04    🖼️    Thumbnail",
+      "id": "20:944",
+      "type": "PAGE",
+      "childCount": 1
+    },
+    "root": {
+      "name": "Apple iOS UI Kit (Community)",
+      "type": "DOCUMENT",
+      "pageCount": 18
+    }
+  },
+  "docStructure": {
+    "pages": [
+      {
+        "id": "37:44575",
+        "name": "Welcome",
+        "childCount": 5
+      },
+      {
+        "id": "37:44574",
+        "name": "—————    Components    —————",
+        "childCount": 0
+      },
+      {
+        "id": "6:89",
+        "name": "A.01    🎨    Colors",
+        "childCount": 2
+      },
+      {
+        "id": "320:53120",
+        "name": "A.02    🧱    Materials",
+        "childCount": 2
+      },
+      {
+        "id": "205:47526",
+        "name": "A.03    📝    Typography",
+        "childCount": 2
+      },
+      {
+        "id": "0:1",
+        "name": "A.04    💻    System Experiences",
+        "childCount": 3
+      },
+      {
+        "id": "34:22259",
+        "name": "A.05    🛣️    Navigation",
+        "childCount": 4
+      },
+      {
+        "id": "11:466",
+        "name": "A.06    🗓️    Selection and Inputs",
+        "childCount": 5
+      },
+      {
+        "id": "70:31249",
+        "name": "A.07    🎛️    Menus and Actions",
+        "childCount": 5
+      },
+      {
+        "id": "32:16155",
+        "name": "A.08    📋    Layout and Organization",
+        "childCount": 8
+      },
+      {
+        "id": "71:29572",
+        "name": "A.09    🪟    Presentation",
+        "childCount": 1
+      },
+      {
+        "id": "6:655",
+        "name": "A.10    📱    Bezels",
+        "childCount": 2
+      },
+      {
+        "id": "338:52397",
+        "name": "A.11    📐    Sizes",
+        "childCount": 2
+      },
+      {
+        "id": "37:44573",
+        "name": "—————    Internal    —————",
+        "childCount": 0
+      },
+      {
+        "id": "6:95",
+        "name": "C.01    🔧    Internal",
+        "childCount": 14
+      },
+      {
+        "id": "60:20265",
+        "name": "C.02    🙂    Icons",
+        "childCount": 1
+      },
+      {
+        "id": "27:4900",
+        "name": "C.03    🖌️    App Logos",
+        "childCount": 1
+      },
+      {
+        "id": "20:944",
+        "name": "C.04    🖼️    Thumbnail",
+        "childCount": 1
+      }
+    ]
+  },
+  "selection": {
+    "count": 1,
+    "nodes": [
+      {
+        "id": "349:44491",
+        "name": "🖼️ Thumbnail",
+        "type": "FRAME",
+        "width": 5200,
+        "height": 2600,
+        "x": -9.094947017729282e-13,
+        "y": 0,
+        "fills": [
+          {
+            "type": "GRADIENT_LINEAR",
+            "visible": true,
+            "opacity": 1
+          }
+        ],
+        "effects": [],
+        "strokes": 0,
+        "strokeWeight": 1,
+        "cornerRadius": 0
+      }
+    ]
+  },
+  "wasmSearch": [
+    {
+      "key": "ObservableValue_Array_PublishableModuleForWeb_",
+      "type": "function"
+    },
+    {
+      "key": "MutableObservableValue_Array_PublishableModuleForWeb_",
+      "type": "function"
+    },
+    {
+      "key": "WasmTileStackTile",
+      "type": "function"
+    },
+    {
+      "key": "WasmTileStackTile",
+      "type": "function"
+    },
+    {
+      "key": "WasmTileStackTile",
+      "type": "function"
+    },
+    {
+      "key": "MutableWasmTileStackTile",
+      "type": "function"
+    },
+    {
+      "key": "MutableWasmTileStackTile",
+      "type": "function"
+    },
+    {
+      "key": "MutableWasmTileStackTile",
+      "type": "function"
+    }
+  ],
+  "moduleCheck": {
+    "exists": false
+  },
+  "nodeMethods": null
+}

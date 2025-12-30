@@ -1,3 +1,21 @@
+// ===========================================================================
+// DEPRECATED - MARKED FOR DELETION
+// ===========================================================================
+// This file is REDUNDANT and should be removed.
+//
+// The functionality provided here has been superseded by:
+//   - _CanvasSelectionPainter in figma_canvas.dart (selection/hover rendering)
+//   - _handleCanvasHover/_handleCanvasTap in figma_canvas.dart (hit testing)
+//   - Selection class in state/selection.dart (selection state)
+//
+// This file duplicates hit testing and selection painting logic that is now
+// properly integrated into FigmaCanvasView. The SelectionOverlay and
+// SelectableNode widgets are NOT used anywhere in the codebase.
+//
+// TODO: Delete this file after confirming no external dependencies.
+// ===========================================================================
+
+/// @deprecated Use _CanvasSelectionPainter in figma_canvas.dart instead
 /// Selection and hover overlay for Figma-style canvas interactions
 ///
 /// Provides:
