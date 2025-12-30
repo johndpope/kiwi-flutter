@@ -789,6 +789,7 @@ class FigmaNodeWidget extends StatelessWidget {
     // Wrap with debug overlay for inspection
     return DebugNodeWrapper(
       node: node,
+      nodeMap: nodeMap,
       scale: scale,
       child: child,
     );
@@ -3032,6 +3033,10 @@ class DebugOverlayController extends ChangeNotifier {
   String? _enteredGroupId; // The group we've "entered" via double-click
   final List<String> _groupStack = []; // Stack of entered groups for nested navigation
 
+  // For text editing
+  Map<String, dynamic>? _editingTextNode;
+  Rect? _editingTextBounds;
+
   bool get enabled => _enabled;
   Map<String, dynamic>? get selectedNode => _selectedNode;
   FigmaNodeProperties? get selectedProps => _selectedProps;
@@ -3040,6 +3045,11 @@ class DebugOverlayController extends ChangeNotifier {
   bool get isInsideGroup => _enteredGroupId != null;
   bool get canGoBack => _historyIndex > 0;
   bool get canGoForward => _historyIndex < _nodeHistory.length - 1;
+
+  // Text editing state
+  bool get isEditingText => _editingTextNode != null;
+  Map<String, dynamic>? get editingTextNode => _editingTextNode;
+  Rect? get editingTextBounds => _editingTextBounds;
 
   void toggle() {
     _enabled = !_enabled;
@@ -3226,18 +3236,92 @@ class DebugOverlayController extends ChangeNotifier {
     if (nodeId == _enteredGroupId) return true;
     return _groupStack.contains(nodeId);
   }
+
+  /// Start editing a text node
+  void startTextEditing(Map<String, dynamic> node, Rect bounds) {
+    final type = node['type'] as String?;
+    if (type != 'TEXT') return;
+
+    _editingTextNode = node;
+    _editingTextBounds = bounds;
+    notifyListeners();
+  }
+
+  /// Stop text editing
+  void stopTextEditing() {
+    if (_editingTextNode == null) return;
+
+    _editingTextNode = null;
+    _editingTextBounds = null;
+    notifyListeners();
+  }
+
+  /// Update text content of the editing node
+  void updateTextContent(String newText) {
+    if (_editingTextNode == null) return;
+
+    final textData = (_editingTextNode!['textData'] as Map<String, dynamic>?) ?? {};
+    textData['characters'] = newText;
+    _editingTextNode!['textData'] = textData;
+
+    // Update selected props if this is the selected node
+    if (_selectedNode?['_guidKey'] == _editingTextNode?['_guidKey']) {
+      _selectedProps = FigmaNodeProperties.fromMap(_editingTextNode!);
+    }
+
+    notifyListeners();
+  }
+
+  /// Update text color of the selected node
+  void updateTextColor(Color color) {
+    if (_selectedNode == null) return;
+    final type = _selectedNode!['type'] as String?;
+    if (type != 'TEXT') return;
+
+    // Update fillPaints with the new color
+    final fillPaints = _selectedNode!['fillPaints'] as List? ?? [];
+    final newFill = {
+      'type': 'SOLID',
+      'visible': true,
+      'opacity': 1.0,
+      'blendMode': 'NORMAL',
+      'color': {
+        'r': color.red / 255.0,
+        'g': color.green / 255.0,
+        'b': color.blue / 255.0,
+        'a': color.opacity,
+      },
+    };
+
+    if (fillPaints.isEmpty) {
+      _selectedNode!['fillPaints'] = [newFill];
+    } else {
+      // Update the first fill
+      fillPaints[0] = newFill;
+    }
+
+    _selectedProps = FigmaNodeProperties.fromMap(_selectedNode!);
+    notifyListeners();
+  }
+
+  /// Check if a specific node is being edited
+  bool isEditingNode(String nodeId) {
+    return _editingTextNode?['_guidKey'] == nodeId;
+  }
 }
 
 /// Widget that wraps nodes with debug tap handling and editing
 class DebugNodeWrapper extends StatefulWidget {
   final Widget child;
   final Map<String, dynamic> node;
+  final Map<String, Map<String, dynamic>>? nodeMap;
   final double scale;
 
   const DebugNodeWrapper({
     super.key,
     required this.child,
     required this.node,
+    this.nodeMap,
     this.scale = 1.0,
   });
 
@@ -3248,6 +3332,35 @@ class DebugNodeWrapper extends StatefulWidget {
 class _DebugNodeWrapperState extends State<DebugNodeWrapper> {
   Offset? _dragStart;
   Offset? _originalPosition;
+
+  /// Check if this node is a valid selection target based on current group context
+  bool _isValidSelectionTarget(DebugOverlayController controller) {
+    final nodeMap = widget.nodeMap;
+    if (nodeMap == null) return true; // Fallback: allow selection if no nodeMap
+
+    // If we're inside a group, only allow selecting direct children of that group
+    if (controller.isInsideGroup) {
+      return controller.isDirectChildOfEnteredGroup(widget.node, nodeMap);
+    }
+
+    // At top level: only allow selecting top-level frames (direct children of the page/canvas)
+    // A node is top-level if its parent is a CANVAS (page) type
+    final parentIndex = widget.node['parentIndex'];
+    if (parentIndex is Map) {
+      final parentGuid = parentIndex['guid'];
+      if (parentGuid != null) {
+        final parentKey = '${parentGuid['sessionID'] ?? 0}:${parentGuid['localID'] ?? 0}';
+        final parentNode = nodeMap[parentKey];
+        if (parentNode != null) {
+          final parentType = parentNode['type'];
+          // Only select if parent is a CANVAS (page) - this makes it a top-level frame
+          return parentType == 'CANVAS';
+        }
+      }
+    }
+
+    return false; // Node has no valid parent, not selectable at top level
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3267,17 +3380,33 @@ class _DebugNodeWrapperState extends State<DebugNodeWrapper> {
         // Check if this node has children (is a group/frame that can be entered)
         final hasChildren = (widget.node['children'] as List?)?.isNotEmpty ?? false;
 
+        // Check if this is a TEXT node
+        final isTextNode = widget.node['type'] == 'TEXT';
+
+        // Check if this node is a valid selection target
+        final isValidTarget = _isValidSelectionTarget(controller);
+
+        // Also check if this is the currently entered group (should be selectable for exiting)
+        final isEnteredGroup = controller.enteredGroupId == nodeId;
+
         return MouseRegion(
-          onEnter: (_) => controller.setHovered(nodeId),
-          onExit: (_) => controller.setHovered(null),
-          cursor: isSelected ? SystemMouseCursors.move : SystemMouseCursors.basic,
+          onEnter: isValidTarget || isEnteredGroup ? (_) => controller.setHovered(nodeId) : null,
+          onExit: isValidTarget || isEnteredGroup ? (_) => controller.setHovered(null) : null,
+          cursor: isSelected ? SystemMouseCursors.move : (isTextNode && isValidTarget ? SystemMouseCursors.text : SystemMouseCursors.basic),
           child: GestureDetector(
-            onTap: () {
+            onTap: isValidTarget || isEnteredGroup ? () {
               controller.selectNode(widget.node);
-            },
-            // Double-click to enter group/frame
-            onDoubleTap: hasChildren ? () {
-              controller.enterGroup(widget.node);
+            } : null,
+            // Double-click: TEXT nodes enter text edit mode, groups enter the group
+            onDoubleTap: (isValidTarget || isSelected) ? () {
+              if (isTextNode) {
+                // Start text editing for TEXT nodes
+                final bounds = Rect.fromLTWH(props.x, props.y, props.width, props.height);
+                controller.startTextEditing(widget.node, bounds);
+              } else if (hasChildren) {
+                // Enter group for containers with children
+                controller.enterGroup(widget.node);
+              }
             } : null,
             // Only enable drag when selected, otherwise let pan/zoom through
             onPanStart: isSelected ? (details) {
@@ -3296,8 +3425,11 @@ class _DebugNodeWrapperState extends State<DebugNodeWrapper> {
               _dragStart = null;
               _originalPosition = null;
             } : null,
-            // Use deferToChild so pan/zoom can work on empty areas
-            behavior: HitTestBehavior.deferToChild,
+            // Use opaque hit testing for valid targets to capture the tap,
+            // otherwise defer to child to let clicks through
+            behavior: isValidTarget || isEnteredGroup || isSelected
+                ? HitTestBehavior.opaque
+                : HitTestBehavior.deferToChild,
             child: Stack(
               clipBehavior: Clip.none,
               children: [

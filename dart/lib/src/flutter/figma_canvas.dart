@@ -260,6 +260,9 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   // Snap engine for alignment
   late SnapEngine _snapEngine;
 
+  // Main menu overlay
+  OverlayEntry? _mainMenuOverlay;
+
   @override
   void initState() {
     super.initState();
@@ -294,11 +297,62 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     _scaleNotifier.dispose();
     _canvasFocusNode.dispose();
     _assetSearchController.dispose();
+    _hideMainMenu();
     super.dispose();
+  }
+
+  // ============ MAIN MENU ============
+  void _hideMainMenu() {
+    _mainMenuOverlay?.remove();
+    _mainMenuOverlay = null;
+  }
+
+  void _showMainMenu(BuildContext buttonContext) {
+    _hideMainMenu();
+
+    final RenderBox renderBox = buttonContext.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+
+    _mainMenuOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Dismiss area
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _hideMainMenu,
+            ),
+          ),
+          // Main menu dropdown
+          Positioned(
+            left: position.dx,
+            top: position.dy + 40,
+            child: _FigmaMainMenu(
+              onDismiss: _hideMainMenu,
+              onBackToFiles: () {
+                _hideMainMenu();
+                // TODO: Navigate back to files
+              },
+              onAction: (action) {
+                _hideMainMenu();
+                debugPrint('Menu action: $action');
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(buttonContext).insert(_mainMenuOverlay!);
   }
 
   /// Handle keyboard shortcut actions
   void _handleShortcut(ShortcutAction action) {
+    // Skip all shortcuts when text editing is active - let the text field handle them
+    if (DebugOverlayController.instance.isEditingText) {
+      return;
+    }
+
     switch (action) {
       case ShortcutAction.undo:
         if (_documentState.canUndo) {
@@ -597,7 +651,12 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
       child: Row(
         children: [
           // Menu button
-          _ToolbarButton(icon: Icons.menu, onTap: () {}),
+          Builder(
+            builder: (context) => _ToolbarButton(
+              icon: Icons.menu,
+              onTap: () => _showMainMenu(context),
+            ),
+          ),
           Container(width: 1, height: 24, color: FigmaColors.border),
 
           // Move tool (V)
@@ -2231,16 +2290,17 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   }
 
   void _centerOnNode(Map<String, dynamic> node) {
-    final props = FigmaNodeProperties.fromMap(node);
+    // Get ABSOLUTE bounds by walking up parent hierarchy
+    final absoluteBounds = _getAbsoluteNodeBounds(node, widget.document.nodeMap);
 
     // Get the canvas area dimensions
     final screenSize = MediaQuery.of(context).size;
     final canvasWidth = screenSize.width - (_showLeftPanel ? 240 : 0) - (_showRightPanel ? 300 : 0);
     final canvasHeight = screenSize.height - 88; // toolbar + bottom bar
 
-    // Calculate center of the node
-    final nodeCenterX = props.x + props.width / 2;
-    final nodeCenterY = props.y + props.height / 2;
+    // Calculate center of the node using absolute coordinates
+    final nodeCenterX = absoluteBounds.left + absoluteBounds.width / 2;
+    final nodeCenterY = absoluteBounds.top + absoluteBounds.height / 2;
 
     // Calculate offset to center the node in the canvas
     final offsetX = canvasWidth / 2 - nodeCenterX * _scale + (_showLeftPanel ? 240 : 0);
@@ -2320,6 +2380,63 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
             right: 0,
             bottom: 0,
             child: _buildBottomBar(),
+          ),
+
+          // Text editor overlay
+          ListenableBuilder(
+            listenable: DebugOverlayController.instance,
+            builder: (context, _) {
+              final controller = DebugOverlayController.instance;
+              if (!controller.isEditingText) return const SizedBox.shrink();
+
+              final node = controller.editingTextNode!;
+
+              // Calculate ABSOLUTE canvas position by walking up parent hierarchy
+              final absoluteBounds = _getAbsoluteNodeBounds(node, widget.document.nodeMap);
+
+              // Transform bounds to screen coordinates
+              final matrix = _transformController.value;
+              final scale = matrix.getMaxScaleOnAxis();
+              final translation = matrix.getTranslation();
+
+              final screenBounds = Rect.fromLTWH(
+                absoluteBounds.left * scale + translation.x,
+                absoluteBounds.top * scale + translation.y,
+                absoluteBounds.width * scale,
+                absoluteBounds.height * scale,
+              );
+
+              return Positioned(
+                left: screenBounds.left,
+                top: screenBounds.top,
+                width: screenBounds.width,
+                height: screenBounds.height.clamp(24.0, 500.0), // Min height for editing
+                child: _InlineTextEditField(
+                  node: node,
+                  scale: scale,
+                  onComplete: (newText) {
+                    // Update the node text
+                    final textData = (node['textData'] as Map<String, dynamic>?) ?? {};
+                    textData['characters'] = newText;
+                    node['textData'] = textData;
+
+                    // Update in document
+                    final nodeId = node['_guidKey']?.toString();
+                    if (nodeId != null && widget.document.nodeMap.containsKey(nodeId)) {
+                      widget.document.nodeMap[nodeId] = node;
+                    }
+                    controller.stopTextEditing();
+                    // Force canvas rebuild to show updated text
+                    setState(() {
+                      _cachedCanvasContent = null;
+                    });
+                  },
+                  onCancel: () {
+                    controller.stopTextEditing();
+                  },
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -2701,6 +2818,195 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
       ],
     );
   }
+
+  /// Calculate the ABSOLUTE canvas position of a node by walking up the parent hierarchy
+  Rect _getAbsoluteNodeBounds(Map<String, dynamic> node, Map<String, Map<String, dynamic>> nodeMap) {
+    final props = FigmaNodeProperties.fromMap(node);
+
+    // Start with local coordinates
+    double x = props.x;
+    double y = props.y;
+    double width = props.width;
+    double height = props.height;
+
+    // Walk up the parent hierarchy to accumulate transforms
+    Map<String, dynamic>? current = node;
+    while (current != null) {
+      final parentIndex = current['parentIndex'];
+      if (parentIndex is Map) {
+        final parentGuid = parentIndex['guid'];
+        if (parentGuid != null) {
+          final parentKey = '${parentGuid['sessionID'] ?? 0}:${parentGuid['localID'] ?? 0}';
+          final parentNode = nodeMap[parentKey];
+          if (parentNode != null) {
+            final parentType = parentNode['type'] as String?;
+            // Stop at CANVAS level - that's the page root
+            if (parentType == 'CANVAS') {
+              break;
+            }
+            // Add parent's position to our coordinates
+            final parentProps = FigmaNodeProperties.fromMap(parentNode);
+            x += parentProps.x;
+            y += parentProps.y;
+            current = parentNode;
+          } else {
+            break;
+          }
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    return Rect.fromLTWH(x, y, width, height);
+  }
+}
+
+// ============ INLINE TEXT EDIT FIELD ============
+
+class _InlineTextEditField extends StatefulWidget {
+  final Map<String, dynamic> node;
+  final double scale;
+  final void Function(String) onComplete;
+  final VoidCallback onCancel;
+
+  const _InlineTextEditField({
+    required this.node,
+    required this.scale,
+    required this.onComplete,
+    required this.onCancel,
+  });
+
+  @override
+  State<_InlineTextEditField> createState() => _InlineTextEditFieldState();
+}
+
+class _InlineTextEditFieldState extends State<_InlineTextEditField> {
+  late TextEditingController _controller;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    final textData = widget.node['textData'] as Map<String, dynamic>? ?? {};
+    final initialText = textData['characters'] as String? ?? '';
+    _controller = TextEditingController(text: initialText);
+    _focusNode = FocusNode();
+
+    // Auto-focus and select all text
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+      _controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _controller.text.length,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Extract text styling from node
+    final textData = widget.node['textData'] as Map<String, dynamic>? ?? {};
+    final styleOverrideTable = textData['styleOverrideTable'] as List? ?? [];
+
+    // Get the default font size from the node
+    double fontSize = 14.0;
+    Color textColor = Colors.black;
+
+    // Try to get font size from style override table
+    if (styleOverrideTable.isNotEmpty) {
+      final firstStyle = styleOverrideTable.first as Map<String, dynamic>?;
+      if (firstStyle != null) {
+        final fontSizeVal = firstStyle['fontSize'];
+        if (fontSizeVal is num) {
+          fontSize = fontSizeVal.toDouble();
+        }
+
+        // Get text color from fills
+        final fills = firstStyle['fillPaints'] as List?;
+        if (fills != null && fills.isNotEmpty) {
+          final fill = fills.first as Map<String, dynamic>?;
+          if (fill != null) {
+            final color = fill['color'] as Map<String, dynamic>?;
+            if (color != null) {
+              final r = (color['r'] as num?)?.toDouble() ?? 0;
+              final g = (color['g'] as num?)?.toDouble() ?? 0;
+              final b = (color['b'] as num?)?.toDouble() ?? 0;
+              final a = (color['a'] as num?)?.toDouble() ?? 1;
+              textColor = Color.fromRGBO(
+                (r * 255).round(),
+                (g * 255).round(),
+                (b * 255).round(),
+                a,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // Scale the font size with canvas zoom
+    final scaledFontSize = fontSize * widget.scale;
+
+    // Use Shortcuts with empty map to prevent parent shortcuts from capturing keys
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{},
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          // Override all intents to do nothing - let the text field handle keys
+        },
+        child: Focus(
+          onKeyEvent: (node, event) {
+            // Handle escape to cancel
+            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+              widget.onCancel();
+              return KeyEventResult.handled;
+            }
+            // Let all other keys pass through to TextField
+            return KeyEventResult.ignored;
+          },
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: const Color(0xFF0D99FF), width: 2),
+              ),
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                autofocus: true,
+                style: TextStyle(
+                  fontSize: scaledFontSize.clamp(10.0, 100.0),
+                  color: textColor,
+                  height: 1.2,
+                ),
+                cursorColor: const Color(0xFF0D99FF),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
+                maxLines: null,
+                onSubmitted: (value) {
+                  widget.onComplete(value);
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ============ HELPER WIDGETS ============
@@ -3025,7 +3331,7 @@ class _FlatLayerItem {
   });
 }
 
-class _LayerItemRow extends StatelessWidget {
+class _LayerItemRow extends StatefulWidget {
   final _FlatLayerItem item;
   final bool isFocused;
   final VoidCallback onTap;
@@ -3038,66 +3344,135 @@ class _LayerItemRow extends StatelessWidget {
     this.onToggleExpand,
   });
 
+  @override
+  State<_LayerItemRow> createState() => _LayerItemRowState();
+}
+
+class _LayerItemRowState extends State<_LayerItemRow> {
+  bool _isHovered = false;
+
   IconData _getIcon(String type) {
     switch (type) {
-      case 'FRAME': return Icons.crop_square;
+      case 'FRAME': return Icons.crop_free; // Frame icon
       case 'GROUP': return Icons.folder_outlined;
-      case 'COMPONENT':
-      case 'COMPONENT_SET': return Icons.widgets_outlined;
+      case 'COMPONENT': return Icons.widgets_outlined;
+      case 'COMPONENT_SET': return Icons.dashboard_outlined;
       case 'INSTANCE': return Icons.diamond_outlined;
       case 'TEXT': return Icons.text_fields;
       case 'RECTANGLE':
       case 'ROUNDED_RECTANGLE': return Icons.rectangle_outlined;
       case 'ELLIPSE': return Icons.circle_outlined;
-      case 'VECTOR':
-      case 'LINE': return Icons.show_chart;
+      case 'VECTOR': return Icons.gesture;
+      case 'LINE': return Icons.remove;
       case 'SECTION': return Icons.view_agenda_outlined;
+      case 'BOOLEAN_OPERATION': return Icons.layers;
       default: return Icons.layers_outlined;
+    }
+  }
+
+  Color _getIconColor(String type) {
+    switch (type) {
+      case 'FRAME': return const Color(0xFF6B7AFF); // Blue for frames
+      case 'GROUP': return const Color(0xFFAA7AFF); // Purple for groups
+      case 'COMPONENT':
+      case 'COMPONENT_SET': return const Color(0xFF9747FF); // Purple for components
+      case 'INSTANCE': return const Color(0xFF9747FF); // Purple for instances
+      case 'TEXT': return const Color(0xFFB3B3B3); // Gray for text
+      case 'VECTOR':
+      case 'BOOLEAN_OPERATION': return const Color(0xFF18A0FB); // Blue for vectors
+      case 'SECTION': return const Color(0xFFFF7262); // Red/orange for sections
+      default: return const Color(0xFFB3B3B3); // Default gray
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final name = item.node['name'] as String? ?? 'Unnamed';
-    final type = item.node['type'] as String? ?? 'UNKNOWN';
-    final nodeKey = item.node['_guidKey']?.toString();
+    final name = widget.item.node['name'] as String? ?? 'Unnamed';
+    final type = widget.item.node['type'] as String? ?? 'UNKNOWN';
+    final nodeKey = widget.item.node['_guidKey']?.toString();
+    final isVisible = widget.item.node['visible'] as bool? ?? true;
+    final isLocked = widget.item.node['locked'] as bool? ?? false;
 
     return ListenableBuilder(
       listenable: DebugOverlayController.instance,
       builder: (context, _) {
         final isSelected = DebugOverlayController.instance.selectedNode?['_guidKey'] == nodeKey;
 
-        return GestureDetector(
-          onTap: onTap,
-          onDoubleTap: onToggleExpand,
-          child: Container(
-            height: 28,
-            padding: EdgeInsets.only(left: 4 + item.depth * 12.0, right: 4),
-            decoration: BoxDecoration(
-              color: isSelected ? FigmaColors.accent : (isFocused ? FigmaColors.bg3 : Colors.transparent),
-              border: isFocused && !isSelected ? Border.all(color: FigmaColors.accent, width: 1) : null,
-            ),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: onToggleExpand,
-                  child: SizedBox(
-                    width: 16,
-                    child: item.hasChildren
-                        ? Icon(item.isExpanded ? Icons.expand_more : Icons.chevron_right, size: 12, color: FigmaColors.text3)
-                        : null,
+        return MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            onDoubleTap: widget.onToggleExpand,
+            child: Container(
+              height: 28,
+              padding: EdgeInsets.only(left: 4 + widget.item.depth * 12.0, right: 4),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF0D99FF).withValues(alpha: 0.2) // Figma selection blue with transparency
+                    : (_isHovered ? FigmaColors.bg3 : Colors.transparent),
+                border: widget.isFocused && !isSelected
+                    ? Border.all(color: FigmaColors.accent, width: 1)
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  // Expand/collapse arrow
+                  GestureDetector(
+                    onTap: widget.onToggleExpand,
+                    child: SizedBox(
+                      width: 16,
+                      child: widget.item.hasChildren
+                          ? Icon(
+                              widget.item.isExpanded ? Icons.keyboard_arrow_down : Icons.chevron_right,
+                              size: 14,
+                              color: FigmaColors.text3,
+                            )
+                          : null,
+                    ),
                   ),
-                ),
-                Icon(_getIcon(type), size: 12, color: isSelected ? FigmaColors.text1 : FigmaColors.text3),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    name,
-                    style: TextStyle(color: isSelected ? FigmaColors.text1 : FigmaColors.text2, fontSize: 11),
-                    overflow: TextOverflow.ellipsis,
+                  // Type icon with color
+                  Icon(
+                    _getIcon(type),
+                    size: 14,
+                    color: isSelected ? FigmaColors.text1 : _getIconColor(type),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  // Name
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: TextStyle(
+                        color: isVisible
+                            ? (isSelected ? FigmaColors.text1 : FigmaColors.text2)
+                            : FigmaColors.text3.withValues(alpha: 0.5),
+                        fontSize: 11,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // Lock icon (show when locked or hovered)
+                  if (isLocked || _isHovered)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        isLocked ? Icons.lock : Icons.lock_open_outlined,
+                        size: 12,
+                        color: isLocked ? FigmaColors.text2 : FigmaColors.text3.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  // Visibility icon (show when hidden or hovered)
+                  if (!isVisible || _isHovered)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        isVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        size: 12,
+                        color: isVisible ? FigmaColors.text3.withValues(alpha: 0.5) : FigmaColors.text3,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -3410,6 +3785,667 @@ class FigmaSimpleCanvas extends StatelessWidget {
       maxScale: 10.0,
       boundaryMargin: const EdgeInsets.all(double.infinity),
       child: FigmaNodeWidget(node: node, nodeMap: nodeMap, scale: scale, showBounds: showBounds),
+    );
+  }
+}
+
+/// Figma Main Menu (hamburger menu dropdown)
+class _FigmaMainMenu extends StatefulWidget {
+  final VoidCallback onDismiss;
+  final VoidCallback? onBackToFiles;
+  final void Function(String)? onAction;
+
+  const _FigmaMainMenu({
+    required this.onDismiss,
+    this.onBackToFiles,
+    this.onAction,
+  });
+
+  @override
+  State<_FigmaMainMenu> createState() => _FigmaMainMenuState();
+}
+
+class _FigmaMainMenuState extends State<_FigmaMainMenu> {
+  String? _hoveredSubmenu;
+  OverlayEntry? _submenuOverlay;
+
+  @override
+  void dispose() {
+    _hideSubmenu();
+    super.dispose();
+  }
+
+  void _hideSubmenu() {
+    _submenuOverlay?.remove();
+    _submenuOverlay = null;
+  }
+
+  void _showSubmenu(BuildContext context, String submenuId, List<_MainMenuItem> items) {
+    _hideSubmenu();
+
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _submenuOverlay = OverlayEntry(
+      builder: (ctx) => Positioned(
+        left: position.dx + size.width - 4,
+        top: position.dy - 6,
+        child: _MainMenuSubmenu(
+          items: items,
+          onDismiss: widget.onDismiss,
+          onAction: widget.onAction,
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_submenuOverlay!);
+    setState(() => _hoveredSubmenu = submenuId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 240,
+        decoration: BoxDecoration(
+          color: const Color(0xFF2C2C2C),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              offset: const Offset(0, 8),
+              blurRadius: 24,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Back to files button
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: _MainMenuButton(
+                label: 'Back to files',
+                isPrimary: true,
+                onTap: widget.onBackToFiles,
+              ),
+            ),
+            // Actions row
+            _MainMenuActionItem(
+              icon: Icons.search,
+              label: 'Actions...',
+              shortcut: '⌘K',
+              onTap: () => widget.onAction?.call('actions'),
+            ),
+            const _MainMenuDivider(),
+            // Main menu items with submenus
+            _MainMenuSubmenuItem(
+              label: 'File',
+              isHovered: _hoveredSubmenu == 'file',
+              onHover: (ctx) => _showSubmenu(ctx, 'file', _fileMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'file') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            _MainMenuSubmenuItem(
+              label: 'Edit',
+              isHovered: _hoveredSubmenu == 'edit',
+              onHover: (ctx) => _showSubmenu(ctx, 'edit', _editMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'edit') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            _MainMenuSubmenuItem(
+              label: 'View',
+              isHovered: _hoveredSubmenu == 'view',
+              onHover: (ctx) => _showSubmenu(ctx, 'view', _viewMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'view') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            _MainMenuSubmenuItem(
+              label: 'Object',
+              isHovered: _hoveredSubmenu == 'object',
+              onHover: (ctx) => _showSubmenu(ctx, 'object', _objectMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'object') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            _MainMenuSubmenuItem(
+              label: 'Text',
+              isHovered: _hoveredSubmenu == 'text',
+              onHover: (ctx) => _showSubmenu(ctx, 'text', _textMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'text') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            _MainMenuSubmenuItem(
+              label: 'Arrange',
+              isHovered: _hoveredSubmenu == 'arrange',
+              onHover: (ctx) => _showSubmenu(ctx, 'arrange', _arrangeMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'arrange') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            _MainMenuSubmenuItem(
+              label: 'Vector',
+              isHovered: _hoveredSubmenu == 'vector',
+              onHover: (ctx) => _showSubmenu(ctx, 'vector', _vectorMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'vector') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            const _MainMenuDivider(),
+            _MainMenuSubmenuItem(
+              label: 'Plugins',
+              isHovered: _hoveredSubmenu == 'plugins',
+              onHover: (ctx) => _showSubmenu(ctx, 'plugins', _pluginsMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'plugins') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            _MainMenuSubmenuItem(
+              label: 'Widgets',
+              isHovered: _hoveredSubmenu == 'widgets',
+              onHover: (ctx) => _showSubmenu(ctx, 'widgets', _widgetsMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'widgets') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            _MainMenuSubmenuItem(
+              label: 'Preferences',
+              isHovered: _hoveredSubmenu == 'preferences',
+              onHover: (ctx) => _showSubmenu(ctx, 'preferences', _preferencesMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'preferences') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            _MainMenuActionItem(
+              label: 'Libraries',
+              onTap: () => widget.onAction?.call('libraries'),
+            ),
+            const _MainMenuDivider(),
+            _MainMenuActionItem(
+              label: 'Open in desktop app',
+              onTap: () => widget.onAction?.call('open_desktop'),
+            ),
+            _MainMenuSubmenuItem(
+              label: 'Help and account',
+              isHovered: _hoveredSubmenu == 'help',
+              onHover: (ctx) => _showSubmenu(ctx, 'help', _helpMenuItems),
+              onLeave: () {
+                if (_hoveredSubmenu == 'help') {
+                  _hideSubmenu();
+                  setState(() => _hoveredSubmenu = null);
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Menu item definitions
+  static const _fileMenuItems = [
+    _MainMenuItem('New design file', shortcut: '⌘N'),
+    _MainMenuItem('New FigJam file'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Place image...', shortcut: '⇧⌘K'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Save local copy...', shortcut: '⌘S'),
+    _MainMenuItem('Save to version history...', shortcut: '⌥⌘S'),
+    _MainMenuItem('Export...', shortcut: '⇧⌘E'),
+  ];
+
+  static const _editMenuItems = [
+    _MainMenuItem('Undo', shortcut: '⌘Z'),
+    _MainMenuItem('Redo', shortcut: '⇧⌘Z'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Copy', shortcut: '⌘C'),
+    _MainMenuItem('Cut', shortcut: '⌘X'),
+    _MainMenuItem('Paste', shortcut: '⌘V'),
+    _MainMenuItem('Paste over selection', shortcut: '⇧⌘V'),
+    _MainMenuItem('Duplicate', shortcut: '⌘D'),
+    _MainMenuItem('Delete', shortcut: '⌫'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Select all', shortcut: '⌘A'),
+    _MainMenuItem('Select inverse', shortcut: '⇧⌘A'),
+    _MainMenuItem('Select none', shortcut: '⎋'),
+  ];
+
+  static const _viewMenuItems = [
+    _MainMenuItem('Pixel grid', shortcut: '⌘\''),
+    _MainMenuItem('Layout grids', shortcut: '⌃G'),
+    _MainMenuItem('Rulers', shortcut: '⇧R'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Zoom in', shortcut: '⌘+'),
+    _MainMenuItem('Zoom out', shortcut: '⌘-'),
+    _MainMenuItem('Zoom to 100%', shortcut: '⌘0'),
+    _MainMenuItem('Zoom to fit', shortcut: '⇧1'),
+    _MainMenuItem('Zoom to selection', shortcut: '⇧2'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Panels'),
+    _MainMenuItem('Outlines', shortcut: '⌘Y'),
+  ];
+
+  static const _objectMenuItems = [
+    _MainMenuItem('Group selection', shortcut: '⌘G'),
+    _MainMenuItem('Ungroup selection', shortcut: '⇧⌘G'),
+    _MainMenuItem('Frame selection', shortcut: '⌥⌘G'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Add auto layout', shortcut: '⇧A'),
+    _MainMenuItem('Remove auto layout'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Create component', shortcut: '⌥⌘K'),
+    _MainMenuItem('Create multiple components', shortcut: '⌥⌘B'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Lock/Unlock', shortcut: '⌘⇧L'),
+    _MainMenuItem('Hide/Show', shortcut: '⌘⇧H'),
+  ];
+
+  static const _textMenuItems = [
+    _MainMenuItem('Bold', shortcut: '⌘B'),
+    _MainMenuItem('Italic', shortcut: '⌘I'),
+    _MainMenuItem('Underline', shortcut: '⌘U'),
+    _MainMenuItem('Strikethrough', shortcut: '⇧⌘X'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Align left', shortcut: '⌥⌘L'),
+    _MainMenuItem('Align center', shortcut: '⌥⌘T'),
+    _MainMenuItem('Align right', shortcut: '⌥⌘R'),
+    _MainMenuItem('Justify', shortcut: '⌥⌘J'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('UPPERCASE'),
+    _MainMenuItem('lowercase'),
+    _MainMenuItem('Title Case'),
+  ];
+
+  static const _arrangeMenuItems = [
+    _MainMenuItem('Bring to front', shortcut: '⌘]'),
+    _MainMenuItem('Bring forward', shortcut: '⌘⌥]'),
+    _MainMenuItem('Send backward', shortcut: '⌘⌥['),
+    _MainMenuItem('Send to back', shortcut: '⌘['),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Align left', shortcut: '⌥A'),
+    _MainMenuItem('Align horizontal centers', shortcut: '⌥H'),
+    _MainMenuItem('Align right', shortcut: '⌥D'),
+    _MainMenuItem('Align top', shortcut: '⌥W'),
+    _MainMenuItem('Align vertical centers', shortcut: '⌥V'),
+    _MainMenuItem('Align bottom', shortcut: '⌥S'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Distribute horizontal spacing'),
+    _MainMenuItem('Distribute vertical spacing'),
+  ];
+
+  static const _vectorMenuItems = [
+    _MainMenuItem('Flatten', shortcut: '⌘E'),
+    _MainMenuItem('Outline stroke', shortcut: '⌘⇧O'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Union selection'),
+    _MainMenuItem('Subtract selection'),
+    _MainMenuItem('Intersect selection'),
+    _MainMenuItem('Exclude selection'),
+  ];
+
+  static const _pluginsMenuItems = [
+    _MainMenuItem('Manage plugins...'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Run last plugin', shortcut: '⌥⌘P'),
+    _MainMenuItem('Browse plugins in Community'),
+  ];
+
+  static const _widgetsMenuItems = [
+    _MainMenuItem('Manage widgets...'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Browse widgets in Community'),
+  ];
+
+  static const _preferencesMenuItems = [
+    _MainMenuItem('Snap to geometry'),
+    _MainMenuItem('Snap to objects'),
+    _MainMenuItem('Snap to pixel grid'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Highlight layers on hover'),
+    _MainMenuItem('Rename duplicated layers'),
+    _MainMenuItem('Show dimensions on objects'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Keyboard shortcuts...'),
+    _MainMenuItem('Account settings...'),
+  ];
+
+  static const _helpMenuItems = [
+    _MainMenuItem('Help page'),
+    _MainMenuItem('Keyboard shortcuts'),
+    _MainMenuItem('Release notes'),
+    _MainMenuItem('Legal summary'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Video tutorials'),
+    _MainMenuItem('Community forum'),
+    _MainMenuItem.divider(),
+    _MainMenuItem('Support...'),
+  ];
+}
+
+/// Main menu item data
+class _MainMenuItem {
+  final String label;
+  final String? shortcut;
+  final bool isDivider;
+
+  const _MainMenuItem(this.label, {this.shortcut}) : isDivider = false;
+  const _MainMenuItem.divider() : label = '', shortcut = null, isDivider = true;
+}
+
+/// Primary button (Back to files)
+class _MainMenuButton extends StatefulWidget {
+  final String label;
+  final bool isPrimary;
+  final VoidCallback? onTap;
+
+  const _MainMenuButton({
+    required this.label,
+    this.isPrimary = false,
+    this.onTap,
+  });
+
+  @override
+  State<_MainMenuButton> createState() => _MainMenuButtonState();
+}
+
+class _MainMenuButtonState extends State<_MainMenuButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: widget.isPrimary
+                ? (_isHovered ? const Color(0xFF0A7AE6) : const Color(0xFF0D99FF))
+                : (_isHovered ? const Color(0xFF404040) : Colors.transparent),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            widget.label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Action item with optional icon and shortcut
+class _MainMenuActionItem extends StatefulWidget {
+  final IconData? icon;
+  final String label;
+  final String? shortcut;
+  final VoidCallback? onTap;
+
+  const _MainMenuActionItem({
+    this.icon,
+    required this.label,
+    this.shortcut,
+    this.onTap,
+  });
+
+  @override
+  State<_MainMenuActionItem> createState() => _MainMenuActionItemState();
+}
+
+class _MainMenuActionItemState extends State<_MainMenuActionItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: _isHovered ? const Color(0xFF0D99FF) : Colors.transparent,
+          child: Row(
+            children: [
+              if (widget.icon != null) ...[
+                Icon(widget.icon, size: 16, color: Colors.white),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+              if (widget.shortcut != null)
+                Text(
+                  widget.shortcut!,
+                  style: const TextStyle(color: Color(0xFF8C8C8C), fontSize: 12),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Submenu item with arrow
+class _MainMenuSubmenuItem extends StatefulWidget {
+  final String label;
+  final bool isHovered;
+  final void Function(BuildContext) onHover;
+  final VoidCallback onLeave;
+
+  const _MainMenuSubmenuItem({
+    required this.label,
+    required this.isHovered,
+    required this.onHover,
+    required this.onLeave,
+  });
+
+  @override
+  State<_MainMenuSubmenuItem> createState() => _MainMenuSubmenuItemState();
+}
+
+class _MainMenuSubmenuItemState extends State<_MainMenuSubmenuItem> {
+  bool _isLocalHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final showHighlight = widget.isHovered || _isLocalHovered;
+
+    return MouseRegion(
+      onEnter: (_) {
+        setState(() => _isLocalHovered = true);
+        widget.onHover(context);
+      },
+      onExit: (_) {
+        setState(() => _isLocalHovered = false);
+        // Delay leaving to allow moving to submenu
+        Future.delayed(const Duration(milliseconds: 100), widget.onLeave);
+      },
+      cursor: SystemMouseCursors.click,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        color: showHighlight ? const Color(0xFF0D99FF) : Colors.transparent,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.label,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 16, color: Color(0xFF8C8C8C)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Menu divider
+class _MainMenuDivider extends StatelessWidget {
+  const _MainMenuDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      color: const Color(0xFF4A4A4A),
+    );
+  }
+}
+
+/// Submenu dropdown
+class _MainMenuSubmenu extends StatelessWidget {
+  final List<_MainMenuItem> items;
+  final VoidCallback onDismiss;
+  final void Function(String)? onAction;
+
+  const _MainMenuSubmenu({
+    required this.items,
+    required this.onDismiss,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 220, maxWidth: 300),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2C2C2C),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              offset: const Offset(0, 4),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: items.map((item) {
+              if (item.isDivider) {
+                return const _MainMenuDivider();
+              }
+              return _SubmenuActionItem(
+                label: item.label,
+                shortcut: item.shortcut,
+                onTap: () {
+                  onAction?.call(item.label);
+                  onDismiss();
+                },
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Submenu action item
+class _SubmenuActionItem extends StatefulWidget {
+  final String label;
+  final String? shortcut;
+  final VoidCallback? onTap;
+
+  const _SubmenuActionItem({
+    required this.label,
+    this.shortcut,
+    this.onTap,
+  });
+
+  @override
+  State<_SubmenuActionItem> createState() => _SubmenuActionItemState();
+}
+
+class _SubmenuActionItemState extends State<_SubmenuActionItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: _isHovered ? const Color(0xFF0D99FF) : Colors.transparent,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+              if (widget.shortcut != null)
+                Text(
+                  widget.shortcut!,
+                  style: const TextStyle(color: Color(0xFF8C8C8C), fontSize: 12),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

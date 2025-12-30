@@ -1,51 +1,257 @@
+/// Figma Viewer - Main Entry Point
+///
+/// This app loads and renders a Figma .fig file using the kiwi_schema library.
+
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'kiwi.dart';
+import 'flutter_renderer.dart';
 import 'src/flutter/assets/variables.dart';
 import 'src/flutter/variables/variables_panel.dart';
 import 'src/flutter/ui/floating_panel.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const FigmaViewerApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class FigmaViewerApp extends StatelessWidget {
+  const FigmaViewerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Variables Panel Demo',
+      title: 'Figma Viewer',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF121212),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        useMaterial3: true,
       ),
-      home: const VariablesPanelDemo(),
+      home: const FigmaViewerPage(),
     );
   }
 }
 
-class VariablesPanelDemo extends StatefulWidget {
-  const VariablesPanelDemo({super.key});
+class FigmaViewerPage extends StatefulWidget {
+  const FigmaViewerPage({super.key});
 
   @override
-  State<VariablesPanelDemo> createState() => _VariablesPanelDemoState();
+  State<FigmaViewerPage> createState() => _FigmaViewerPageState();
 }
 
-class _VariablesPanelDemoState extends State<VariablesPanelDemo> {
-  late VariableManager _manager;
-  bool _showVariablesPanel = true;
+class _FigmaViewerPageState extends State<FigmaViewerPage> {
+  FigmaDocument? _document;
+  String? _error;
+  bool _isLoading = false;
+  String _statusMessage = '';
+  bool _showVariablesPanel = false;
+  VariableManager? _variableManager;
 
   @override
   void initState() {
     super.initState();
-    _manager = _createSampleManager();
+    _loadExampleFile();
   }
 
-  VariableManager _createSampleManager() {
-    // Create resolver first
-    final resolver = VariableResolver(
-      variables: {},
-      collections: {},
+  Future<void> _loadExampleFile() async {
+    setState(() {
+      _isLoading = true;
+      _statusMessage = 'Loading from bundled assets...';
+    });
+
+    try {
+      // Load from bundled assets
+      final schemaData = await rootBundle.load('test/fixtures/figma_schema.bin');
+      final messageData = await rootBundle.load('test/fixtures/figma_message.bin');
+
+      final schemaBytes = schemaData.buffer.asUint8List();
+      final messageBytes = messageData.buffer.asUint8List();
+
+      // Decode
+      final schema = decodeBinarySchema(schemaBytes);
+      final compiled = compileSchema(schema);
+      final message = compiled.decode('Message', messageBytes);
+
+      // Create document
+      final document = FigmaDocument.fromMessage(message);
+
+      // Set images directory (for rendering images from the Figma file)
+      final imagesDirPaths = [
+        '/Users/johndpope/Downloads/Apple iOS UI Kit/images',
+      ];
+      for (final path in imagesDirPaths) {
+        if (Directory(path).existsSync()) {
+          document.imagesDirectory = path;
+          break;
+        }
+      }
+
+      // Initialize variable manager - try to extract real variables from Figma file
+      _variableManager = _extractVariablesFromDocument(document, message);
+
+      setState(() {
+        _document = document;
+        _isLoading = false;
+        _statusMessage = 'Loaded ${document.nodeCount} nodes';
+      });
+    } catch (e, stack) {
+      print('Error loading: $e\n$stack');
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Figma Viewer')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('Error: $_error'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _error = null;
+                  });
+                  _loadExampleFile();
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Figma Viewer')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(_statusMessage),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_document == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Figma Viewer')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.insert_drive_file, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  'Figma Viewer',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _statusMessage.isEmpty
+                      ? 'No document loaded'
+                      : _statusMessage,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        // Figma canvas
+        FigmaCanvasView(
+          document: _document!,
+          showPageSelector: true,
+          showDebugInfo: true,
+        ),
+        // Variables button in bottom toolbar
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: FloatingActionButton.extended(
+            onPressed: () => setState(() => _showVariablesPanel = !_showVariablesPanel),
+            icon: const Icon(Icons.data_object),
+            label: const Text('Variables'),
+            backgroundColor: _showVariablesPanel
+                ? const Color(0xFF0D99FF)
+                : const Color(0xFF3C3C3C),
+          ),
+        ),
+        // Floating Variables Panel
+        if (_showVariablesPanel && _variableManager != null)
+          FloatingPanel(
+            title: 'Local variables',
+            initialPosition: const Offset(50, 50),
+            initialSize: const Size(700, 500),
+            minSize: const Size(500, 300),
+            onClose: () => setState(() => _showVariablesPanel = false),
+            child: VariablesPanelFull(
+              manager: _variableManager!,
+              onVariableSelected: (variable) {
+                debugPrint('Selected: ${variable.name}');
+              },
+              onModeChanged: (collectionId, modeId) {
+                debugPrint('Mode changed: $collectionId -> $modeId');
+                setState(() {});
+              },
+              onClose: () => setState(() => _showVariablesPanel = false),
+            ),
+          ),
+      ],
     );
+  }
+
+  /// Extract variables from Figma document, or create sample variables if none exist
+  VariableManager _extractVariablesFromDocument(FigmaDocument document, Map<String, dynamic> message) {
+    // Check if the message contains variable data
+    final variableCollections = message['variableCollections'];
+    final variables = message['variables'];
+
+    final hasVariables = (variableCollections is Map && variableCollections.isNotEmpty) ||
+                         (variables is Map && variables.isNotEmpty);
+
+    if (hasVariables) {
+      // Use real variables from the Figma file
+      debugPrint('Found ${(variableCollections as Map?)?.length ?? 0} variable collections and ${(variables as Map?)?.length ?? 0} variables in Figma file');
+
+      final resolver = VariableResolver.fromDocument(message);
+
+      debugPrint('Parsed ${resolver.collections.length} collections and ${resolver.variables.length} variables');
+      for (final collection in resolver.collections.values) {
+        debugPrint('  Collection: ${collection.name} with ${collection.modes.length} modes');
+      }
+
+      return VariableManager(resolver);
+    } else {
+      // No variables in file - create sample data for demo purposes
+      debugPrint('No variables found in Figma file, using sample data');
+      return _createSampleVariableManager();
+    }
+  }
+
+  /// Create sample variable manager for demo when no variables exist in file
+  VariableManager _createSampleVariableManager() {
+    final resolver = VariableResolver(variables: {}, collections: {});
     final manager = VariableManager(resolver);
 
     // Create "Themes" collection with Light/Dark modes
@@ -61,36 +267,7 @@ class _VariablesPanelDemoState extends State<VariablesPanelDemo> {
     );
     manager.resolver.collections['themes'] = themesCollection;
 
-    // Create "Responsive" collection
-    final responsiveCollection = VariableCollection(
-      id: 'responsive',
-      name: 'Responsive',
-      order: 2,
-      modes: const [
-        VariableMode(id: 'mobile', name: 'Mobile', index: 0, emoji: '📱'),
-        VariableMode(id: 'desktop', name: 'Desktop', index: 1, emoji: '🖥️'),
-      ],
-      defaultModeId: 'mobile',
-    );
-    manager.resolver.collections['responsive'] = responsiveCollection;
-
-    // Add sample variables to Themes collection
-    // Boolean variable
-    manager.createVariable(
-      name: 'theme',
-      type: VariableType.boolean,
-      collectionId: 'themes',
-      valuesByMode: {'light': false, 'dark': true},
-    );
-
-    manager.createVariable(
-      name: 'dark-theme',
-      type: VariableType.boolean,
-      collectionId: 'themes',
-      valuesByMode: {'light': false, 'dark': true},
-    );
-
-    // System color group
+    // iOS System colors
     manager.createVariable(
       name: 'system/red',
       type: VariableType.color,
@@ -141,7 +318,7 @@ class _VariablesPanelDemoState extends State<VariablesPanelDemo> {
       },
     );
 
-    // Background color group
+    // Background colors
     manager.createVariable(
       name: 'bg/primary',
       type: VariableType.color,
@@ -159,16 +336,6 @@ class _VariablesPanelDemoState extends State<VariablesPanelDemo> {
       valuesByMode: {
         'light': const Color(0xFFF2F2F7),
         'dark': const Color(0xFF1C1C1E),
-      },
-    );
-
-    manager.createVariable(
-      name: 'bg/tertiary',
-      type: VariableType.color,
-      collectionId: 'themes',
-      valuesByMode: {
-        'light': const Color(0xFFE5E5EA),
-        'dark': const Color(0xFF2C2C2E),
       },
     );
 
@@ -193,99 +360,6 @@ class _VariablesPanelDemoState extends State<VariablesPanelDemo> {
       },
     );
 
-    // Responsive variables
-    manager.createVariable(
-      name: 'spacing/base',
-      type: VariableType.number,
-      collectionId: 'responsive',
-      valuesByMode: {'mobile': 8.0, 'desktop': 16.0},
-    );
-
-    manager.createVariable(
-      name: 'spacing/large',
-      type: VariableType.number,
-      collectionId: 'responsive',
-      valuesByMode: {'mobile': 16.0, 'desktop': 32.0},
-    );
-
-    manager.createVariable(
-      name: 'radius/button',
-      type: VariableType.number,
-      collectionId: 'responsive',
-      valuesByMode: {'mobile': 8.0, 'desktop': 12.0},
-    );
-
-    manager.createVariable(
-      name: 'font/body',
-      type: VariableType.string,
-      collectionId: 'responsive',
-      valuesByMode: {'mobile': 'SF Pro Text', 'desktop': 'SF Pro Display'},
-    );
-
     return manager;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Background canvas area
-          Container(
-            color: const Color(0xFF121212),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.grid_view_rounded,
-                    size: 64,
-                    color: Colors.white24,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Canvas Area',
-                    style: TextStyle(
-                      color: Colors.white24,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  if (!_showVariablesPanel)
-                    ElevatedButton.icon(
-                      onPressed: () => setState(() => _showVariablesPanel = true),
-                      icon: const Icon(Icons.data_object),
-                      label: const Text('Show Variables Panel'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D99FF),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          // Floating Variables Panel
-          if (_showVariablesPanel)
-            FloatingPanel(
-              title: 'Local variables',
-              initialPosition: const Offset(50, 50),
-              initialSize: const Size(700, 500),
-              minSize: const Size(500, 300),
-              onClose: () => setState(() => _showVariablesPanel = false),
-              child: VariablesPanelFull(
-                manager: _manager,
-                onVariableSelected: (variable) {
-                  debugPrint('Selected: ${variable.name}');
-                },
-                onModeChanged: (collectionId, modeId) {
-                  debugPrint('Mode changed: $collectionId -> $modeId');
-                  setState(() {});
-                },
-                onClose: () => setState(() => _showVariablesPanel = false),
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }

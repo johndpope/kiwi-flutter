@@ -13,7 +13,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:kiwi_schema/kiwi.dart';
 import 'package:kiwi_schema/flutter_renderer.dart';
-import 'package:kiwi_schema/src/flutter/assets/variables.dart';
 import 'package:kiwi_schema/src/flutter/variables/variables_panel.dart';
 import 'package:kiwi_schema/src/flutter/ui/floating_panel.dart';
 
@@ -91,10 +90,8 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
         }
       }
 
-      // Initialize variable manager with sample data
-      final resolver = VariableResolver(variables: {}, collections: {});
-      _variableManager = VariableManager(resolver);
-      _initSampleVariables();
+      // Initialize variable manager - try to extract real variables from Figma file
+      _variableManager = _extractVariablesFromDocument(document, message);
 
       setState(() {
         _document = document;
@@ -272,9 +269,38 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
     );
   }
 
-  void _initSampleVariables() {
-    if (_variableManager == null) return;
-    final manager = _variableManager!;
+  /// Extract variables from Figma document, or create sample variables if none exist
+  VariableManager _extractVariablesFromDocument(FigmaDocument document, Map<String, dynamic> message) {
+    // Check if the message contains variable data
+    final variableCollections = message['variableCollections'];
+    final variables = message['variables'];
+
+    final hasVariables = (variableCollections is Map && variableCollections.isNotEmpty) ||
+                         (variables is Map && variables.isNotEmpty);
+
+    if (hasVariables) {
+      // Use real variables from the Figma file
+      debugPrint('Found ${(variableCollections as Map?)?.length ?? 0} variable collections and ${(variables as Map?)?.length ?? 0} variables in Figma file');
+
+      final resolver = VariableResolver.fromDocument(message);
+
+      debugPrint('Parsed ${resolver.collections.length} collections and ${resolver.variables.length} variables');
+      for (final collection in resolver.collections.values) {
+        debugPrint('  Collection: ${collection.name} with ${collection.modes.length} modes');
+      }
+
+      return VariableManager(resolver);
+    } else {
+      // No variables in file - create sample data for demo purposes
+      debugPrint('No variables found in Figma file, using sample data');
+      return _createSampleVariableManager();
+    }
+  }
+
+  /// Create sample variable manager for demo when no variables exist in file
+  VariableManager _createSampleVariableManager() {
+    final resolver = VariableResolver(variables: {}, collections: {});
+    final manager = VariableManager(resolver);
 
     // Create "Themes" collection with Light/Dark modes
     final themesCollection = VariableCollection(
@@ -381,6 +407,8 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
         'dark': const Color(0xFF8E8E93),
       },
     );
+
+    return manager;
   }
 }
 
