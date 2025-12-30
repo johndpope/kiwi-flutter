@@ -161,7 +161,15 @@ class VariableCollection {
   });
 
   /// Display name with order (e.g., "1. Themes")
-  String get displayName => order > 0 ? '$order. $name' : name;
+  /// Avoids duplicate prefix if name already starts with order number
+  String get displayName {
+    // Check if name already starts with a number followed by period/dot
+    final hasOrderPrefix = RegExp(r'^\d+\.\s*').hasMatch(name);
+    if (hasOrderPrefix) {
+      return name; // Name already has order prefix
+    }
+    return order > 0 ? '$order. $name' : name;
+  }
 
   /// Create from Figma collection data
   factory VariableCollection.fromMap(Map<String, dynamic> map, {int order = 0}) {

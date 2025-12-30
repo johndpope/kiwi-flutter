@@ -7,17 +7,18 @@ import '../assets/variables.dart';
 import 'variable_icons.dart';
 import 'inline_editors.dart';
 
-/// Colors for the table
+/// Colors for the table - matching Figma's design
 class TableColors {
   static const background = Color(0xFF2C2C2C);
-  static const headerBackground = Color(0xFF252525);
+  static const headerBackground = Color(0xFF2C2C2C);
   static const rowBackground = Color(0xFF2C2C2C);
-  static const rowHover = Color(0xFF3C3C3C);
-  static const rowSelected = Color(0xFF0D99FF);
-  static const divider = Color(0xFF3C3C3C);
+  static const rowHover = Color(0xFF383838);
+  static const rowSelected = Color(0xFF3D5A80);
+  static const divider = Color(0xFF404040);
   static const headerText = Color(0xFFB3B3B3);
   static const cellText = Color(0xFFE5E5E5);
-  static const groupHeader = Color(0xFF8C8C8C);
+  static const groupHeader = Color(0xFF888888);
+  static const groupHeaderBg = Color(0xFF333333);
 }
 
 /// Variables table widget
@@ -85,21 +86,16 @@ class _VariablesTableState extends State<VariablesTable> {
         children: [
           // Name column header
           Container(
-            width: 200,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            width: 220,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: const Text(
               'Name',
               style: TextStyle(
                 color: TableColors.headerText,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ),
-          const VerticalDivider(
-            color: TableColors.divider,
-            width: 1,
-            thickness: 1,
           ),
           // Mode column headers
           Expanded(
@@ -111,13 +107,21 @@ class _VariablesTableState extends State<VariablesTable> {
                   ...modes.map((mode) => _buildModeColumnHeader(mode)),
                   // Add mode button
                   if (widget.onAddMode != null)
-                    IconButton(
-                      icon: const Icon(Icons.add, size: 16),
-                      color: TableColors.headerText,
-                      padding: const EdgeInsets.all(8),
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      onPressed: widget.onAddMode,
-                      tooltip: 'Add mode',
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          left: BorderSide(color: TableColors.divider, width: 1),
+                        ),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.add, size: 16),
+                        color: TableColors.headerText,
+                        padding: const EdgeInsets.all(8),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: widget.onAddMode,
+                        tooltip: 'Add mode',
+                      ),
                     ),
                 ],
               ),
@@ -130,24 +134,29 @@ class _VariablesTableState extends State<VariablesTable> {
 
   Widget _buildModeColumnHeader(VariableMode mode) {
     return Container(
-      width: 150,
+      width: 180,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(
+          left: BorderSide(color: TableColors.divider, width: 1),
+        ),
+      ),
       child: Row(
         children: [
           if (mode.emoji != null) ...[
             Text(
               mode.emoji!,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: 14),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
           ],
           Expanded(
             child: Text(
               mode.name,
               style: const TextStyle(
                 color: TableColors.headerText,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -182,6 +191,11 @@ class _VariablesTableState extends State<VariablesTable> {
   Widget _buildGroupHeader(String groupName) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: TableColors.divider, width: 1),
+        ),
+      ),
       child: Text(
         groupName,
         style: const TextStyle(
@@ -294,20 +308,20 @@ class _VariableRowState extends State<_VariableRow> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
-          color: widget.isSelected
-              ? TableColors.rowSelected.withValues(alpha: 0.3)
-              : _isHovered
-                  ? TableColors.rowHover
-                  : TableColors.rowBackground,
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? TableColors.rowSelected.withValues(alpha: 0.3)
+                : _isHovered
+                    ? TableColors.rowHover
+                    : TableColors.rowBackground,
+            border: const Border(
+              bottom: BorderSide(color: TableColors.divider, width: 0.5),
+            ),
+          ),
           child: Row(
             children: [
               // Name cell
               _buildNameCell(),
-              const VerticalDivider(
-                color: TableColors.divider,
-                width: 1,
-                thickness: 1,
-              ),
               // Value cells for each mode
               Expanded(
                 child: SingleChildScrollView(
@@ -332,7 +346,7 @@ class _VariableRowState extends State<_VariableRow> {
     final isAlias = varValue?.isAlias ?? false;
 
     return Container(
-      width: 200,
+      width: 220,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
@@ -380,8 +394,13 @@ class _VariableRowState extends State<_VariableRow> {
     }
 
     return Container(
-      width: 150,
+      width: 180,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(
+        border: Border(
+          left: BorderSide(color: TableColors.divider, width: 1),
+        ),
+      ),
       child: InlineVariableEditor(
         variable: widget.variable,
         value: resolvedValue,

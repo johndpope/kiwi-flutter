@@ -65,7 +65,7 @@ class _VariablesPanelFullState extends State<VariablesPanelFull> {
       child: Focus(
         autofocus: true,
         child: Container(
-          color: const Color(0xFF1E1E1E),
+          color: const Color(0xFF2C2C2C),
           child: Column(
             children: [
               _buildTopHeader(),
@@ -91,7 +91,7 @@ class _VariablesPanelFullState extends State<VariablesPanelFull> {
                       },
                     ),
                     const VerticalDivider(
-                      color: Color(0xFF3C3C3C),
+                      color: Color(0xFF404040),
                       width: 1,
                       thickness: 1,
                     ),
@@ -141,24 +141,23 @@ class _VariablesPanelFullState extends State<VariablesPanelFull> {
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: const BoxDecoration(
-        color: Color(0xFF252525),
-        border: Border(bottom: BorderSide(color: Color(0xFF3C3C3C))),
+        color: Color(0xFF2C2C2C),
+        border: Border(bottom: BorderSide(color: Color(0xFF404040))),
       ),
       child: Row(
         children: [
-          const Icon(Icons.data_object, size: 16, color: Colors.white70),
-          const SizedBox(width: 8),
           const Text(
             'Variables',
             style: TextStyle(
               color: Colors.white,
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const Spacer(),
+          // Table view icon
           IconButton(
-            icon: const Icon(Icons.grid_view, size: 16),
+            icon: const Icon(Icons.grid_view_outlined, size: 18),
             color: Colors.white54,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),

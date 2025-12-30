@@ -59,7 +59,7 @@ class VariableTypeIcon extends StatelessWidget {
   }
 }
 
-/// Color type icon - filled circle
+/// Color type icon - circle with inner dot (Figma style)
 class _ColorTypeIcon extends StatelessWidget {
   final double size;
 
@@ -72,16 +72,15 @@ class _ColorTypeIcon extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: VariableIconColors.color.withValues(alpha: 0.2),
         border: Border.all(
           color: VariableIconColors.color,
-          width: 1.5,
+          width: 2,
         ),
       ),
       child: Center(
         child: Container(
-          width: size * 0.5,
-          height: size * 0.5,
+          width: size * 0.35,
+          height: size * 0.35,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: VariableIconColors.color,
@@ -92,7 +91,7 @@ class _ColorTypeIcon extends StatelessWidget {
   }
 }
 
-/// Number type icon - hash/number symbol
+/// Number type icon - hash symbol (Figma style)
 class _NumberTypeIcon extends StatelessWidget {
   final double size;
 
@@ -100,19 +99,15 @@ class _NumberTypeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: VariableIconColors.number.withValues(alpha: 0.2),
-      ),
       child: Center(
         child: Text(
           '#',
           style: TextStyle(
             color: VariableIconColors.number,
-            fontSize: size * 0.65,
+            fontSize: size * 0.85,
             fontWeight: FontWeight.w700,
             height: 1,
           ),
@@ -122,7 +117,7 @@ class _NumberTypeIcon extends StatelessWidget {
   }
 }
 
-/// String type icon - T in a box (text)
+/// String type icon - T in a rounded box (Figma style)
 class _StringTypeIcon extends StatelessWidget {
   final double size;
 
@@ -135,10 +130,9 @@ class _StringTypeIcon extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
-        color: VariableIconColors.string.withValues(alpha: 0.2),
         border: Border.all(
           color: VariableIconColors.string,
-          width: 1.5,
+          width: 2,
         ),
       ),
       child: Center(
@@ -146,7 +140,7 @@ class _StringTypeIcon extends StatelessWidget {
           'T',
           style: TextStyle(
             color: VariableIconColors.string,
-            fontSize: size * 0.55,
+            fontSize: size * 0.5,
             fontWeight: FontWeight.w700,
             height: 1,
           ),
@@ -156,7 +150,7 @@ class _StringTypeIcon extends StatelessWidget {
   }
 }
 
-/// Boolean type icon - eye/visibility icon
+/// Boolean type icon - eye icon (Figma style)
 class _BooleanTypeIcon extends StatelessWidget {
   final double size;
 
@@ -164,23 +158,19 @@ class _BooleanTypeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: VariableIconColors.boolean.withValues(alpha: 0.2),
-      ),
       child: Icon(
         Icons.visibility_outlined,
-        size: size * 0.7,
+        size: size * 0.9,
         color: VariableIconColors.boolean,
       ),
     );
   }
 }
 
-/// Alias icon - chain link indicator
+/// Alias icon - same as type icon but with link indicator (Figma style)
 class _AliasIcon extends StatelessWidget {
   final double size;
   final VariableType type;
@@ -190,28 +180,65 @@ class _AliasIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = VariableIconColors.forType(type);
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: color.withValues(alpha: 0.15),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(
-            Icons.link,
-            size: size * 0.6,
-            color: color.withValues(alpha: 0.8),
-          ),
-        ],
-      ),
+    // Show the type icon with reduced opacity for aliases
+    return Opacity(
+      opacity: 0.6,
+      child: _buildTypeIcon(type, size, color),
     );
+  }
+
+  Widget _buildTypeIcon(VariableType type, double size, Color color) {
+    switch (type) {
+      case VariableType.color:
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: color, width: 2),
+          ),
+          child: Center(
+            child: Container(
+              width: size * 0.35,
+              height: size * 0.35,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color,
+              ),
+            ),
+          ),
+        );
+      case VariableType.number:
+        return SizedBox(
+          width: size,
+          height: size,
+          child: Center(
+            child: Text('#', style: TextStyle(color: color, fontSize: size * 0.85, fontWeight: FontWeight.w700, height: 1)),
+          ),
+        );
+      case VariableType.string:
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color, width: 2),
+          ),
+          child: Center(
+            child: Text('T', style: TextStyle(color: color, fontSize: size * 0.5, fontWeight: FontWeight.w700, height: 1)),
+          ),
+        );
+      case VariableType.boolean:
+        return SizedBox(
+          width: size,
+          height: size,
+          child: Icon(Icons.visibility_outlined, size: size * 0.9, color: color),
+        );
+    }
   }
 }
 
-/// Color swatch with hex value display
+/// Color swatch with hex value display (Figma style)
 class ColorSwatchWithHex extends StatelessWidget {
   final Color color;
   final double swatchSize;
@@ -221,14 +248,15 @@ class ColorSwatchWithHex extends StatelessWidget {
   const ColorSwatchWithHex({
     super.key,
     required this.color,
-    this.swatchSize = 16,
+    this.swatchSize = 18,
     this.showHex = true,
     this.hexStyle,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hex = color.value.toRadixString(16).substring(2).toUpperCase();
+    // Get 6-character hex without alpha
+    final hex = color.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -238,11 +266,7 @@ class ColorSwatchWithHex extends StatelessWidget {
           height: swatchSize,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.2),
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(4),
           ),
         ),
         if (showHex) ...[
@@ -252,8 +276,8 @@ class ColorSwatchWithHex extends StatelessWidget {
             style: hexStyle ??
                 const TextStyle(
                   color: Colors.white70,
-                  fontSize: 11,
-                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
                 ),
           ),
         ],
@@ -283,20 +307,20 @@ class BooleanValueDisplay extends StatelessWidget {
         GestureDetector(
           onTap: enabled && onChanged != null ? () => onChanged!(!value) : null,
           child: Container(
-            width: 36,
-            height: 20,
+            width: 40,
+            height: 22,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(11),
               color: value
-                  ? const Color(0xFF4ADE80)
-                  : const Color(0xFF4A4A4A),
+                  ? const Color(0xFF5A9E6F)
+                  : const Color(0xFF5A5A5A),
             ),
             child: AnimatedAlign(
               duration: const Duration(milliseconds: 150),
               alignment: value ? Alignment.centerRight : Alignment.centerLeft,
               child: Container(
-                width: 16,
-                height: 16,
+                width: 18,
+                height: 18,
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
@@ -306,12 +330,12 @@ class BooleanValueDisplay extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Text(
           value ? 'True' : 'False',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 11,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
           ),
         ),
       ],

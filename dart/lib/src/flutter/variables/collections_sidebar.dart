@@ -5,16 +5,17 @@
 import 'package:flutter/material.dart';
 import '../assets/variables.dart';
 
-/// Colors for the sidebar
+/// Colors for the sidebar - matching Figma's design
 class SidebarColors {
-  static const background = Color(0xFF1E1E1E);
-  static const sectionHeader = Color(0xFFB3B3B3);
+  static const background = Color(0xFF2C2C2C);
+  static const sectionHeader = Color(0xFFAAAAAA);
   static const itemText = Color(0xFFE5E5E5);
   static const itemCount = Color(0xFF8C8C8C);
   static const selectedBackground = Color(0xFF0D99FF);
-  static const hoverBackground = Color(0xFF3C3C3C);
-  static const divider = Color(0xFF3C3C3C);
+  static const hoverBackground = Color(0xFF383838);
+  static const divider = Color(0xFF383838);
   static const addButton = Color(0xFF8C8C8C);
+  static const sectionDivider = Color(0xFF444444);
 }
 
 /// Collections sidebar widget
@@ -80,7 +81,7 @@ class CollectionsSidebar extends StatelessWidget {
   }
 
   Widget _buildSectionHeader(String title, {VoidCallback? onAdd, Widget? trailing}) {
-    return Padding(
+    return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
       child: Row(
         children: [
@@ -90,7 +91,6 @@ class CollectionsSidebar extends StatelessWidget {
               color: SidebarColors.sectionHeader,
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
             ),
           ),
           const Spacer(),

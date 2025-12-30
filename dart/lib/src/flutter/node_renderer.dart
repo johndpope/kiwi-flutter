@@ -13,6 +13,78 @@ import 'rendering/effect_renderer.dart';
 import 'rendering/blend_modes.dart';
 import 'rendering/variable_color_resolver.dart';
 
+/// Resolve colorVar reference to a color map {r, g, b, a}
+/// This is used during fill parsing to pre-resolve variable references
+Map<String, dynamic>? _resolveColorVar(dynamic colorVar, Map<String, Map<String, dynamic>>? nodeMap) {
+  if (colorVar == null || nodeMap == null) return null;
+  if (colorVar is! Map) return null;
+
+  final value = colorVar['value'];
+  if (value is! Map) return null;
+
+  final alias = value['alias'];
+  if (alias is! Map) return null;
+
+  // Check for GUID-based reference (internal variable)
+  if (alias['guid'] is Map) {
+    final guid = alias['guid'] as Map;
+    final guidKey = '${guid['sessionID']}:${guid['localID']}';
+    return _resolveVariableGuidToColor(guidKey, nodeMap);
+  }
+
+  return null;
+}
+
+/// Resolve a variable GUID to its color map, following alias chains
+Map<String, dynamic>? _resolveVariableGuidToColor(String guidKey, Map<String, Map<String, dynamic>> nodeMap, {int maxDepth = 10}) {
+  if (maxDepth <= 0) return null;
+
+  final varNode = nodeMap[guidKey];
+  if (varNode == null) return null;
+
+  final type = varNode['type']?.toString();
+  if (type != 'VARIABLE') return null;
+
+  final variableDataValues = varNode['variableDataValues'];
+  if (variableDataValues is! Map) return null;
+
+  final entries = variableDataValues['entries'];
+  if (entries is! List || entries.isEmpty) return null;
+
+  // Use first mode entry (Light mode typically)
+  final entry = entries.first;
+  if (entry is! Map) return null;
+
+  final variableData = entry['variableData'];
+  if (variableData is! Map) return null;
+
+  final dataType = variableData['dataType']?.toString();
+  final valueData = variableData['value'];
+  if (valueData is! Map) return null;
+
+  // Check if it's a direct color value
+  if (dataType == 'COLOR') {
+    final colorValue = valueData['colorValue'];
+    if (colorValue is Map) {
+      return Map<String, dynamic>.from(colorValue);
+    }
+  }
+
+  // Check if it's an alias to another variable
+  if (dataType == 'ALIAS') {
+    final aliasVal = valueData['alias'];
+    if (aliasVal is Map) {
+      final aliasGuid = aliasVal['guid'];
+      if (aliasGuid is Map) {
+        final aliasKey = '${aliasGuid['sessionID']}:${aliasGuid['localID']}';
+        return _resolveVariableGuidToColor(aliasKey, nodeMap, maxDepth: maxDepth - 1);
+      }
+    }
+  }
+
+  return null;
+}
+
 /// InheritedWidget to provide layer visibility state to the render tree
 class LayerVisibilityScope extends InheritedWidget {
   /// Set of node IDs that are hidden via the layers panel
@@ -90,7 +162,8 @@ class FigmaNodeProperties {
   });
 
   /// Create properties from a raw Figma node map
-  factory FigmaNodeProperties.fromMap(Map<String, dynamic> node) {
+  /// [nodeMap] is optional - if provided, colorVar references in fills will be resolved
+  factory FigmaNodeProperties.fromMap(Map<String, dynamic> node, {Map<String, Map<String, dynamic>>? nodeMap}) {
     // Extract transform/position
     double x = 0, y = 0, width = 0, height = 0, rotation = 0;
 
@@ -117,11 +190,30 @@ class FigmaNodeProperties {
       height = height == 0 ? ((bbox['height'] as num?)?.toDouble() ?? 0) : height;
     }
 
-    // Extract fills
+    // Extract fills and resolve colorVar references
     List<Map<String, dynamic>> fills = [];
     final fillsData = node['fillPaints'];
+    final nodeName = node['name']?.toString() ?? '';
     if (fillsData is List) {
-      fills = fillsData.cast<Map<String, dynamic>>();
+      fills = fillsData.map<Map<String, dynamic>>((fill) {
+        if (fill is! Map) return <String, dynamic>{};
+        final fillMap = Map<String, dynamic>.from(fill);
+
+        // Resolve colorVar if present and no static color
+        if (fillMap['colorVar'] != null && fillMap['color'] == null) {
+          final resolvedColor = _resolveColorVar(fillMap['colorVar'], nodeMap);
+          if (resolvedColor != null) {
+            fillMap['color'] = resolvedColor;
+            // Debug: Log successful colorVar resolution for key nodes
+            if (nodeName.contains('Podcast') || nodeName.contains('Episode') || nodeName.contains('Card')) {
+              print('🎨 RESOLVED colorVar for "$nodeName": r=${resolvedColor['r']}, g=${resolvedColor['g']}, b=${resolvedColor['b']}');
+            }
+          } else if (nodeName.contains('Podcast') || nodeName.contains('Episode') || nodeName.contains('Card')) {
+            print('⚠️ FAILED to resolve colorVar for "$nodeName": ${fillMap['colorVar']}');
+          }
+        }
+        return fillMap;
+      }).toList();
     }
 
     // Extract strokes
@@ -611,7 +703,7 @@ class FigmaNodeWidget extends StatelessWidget {
       }
     }
 
-    final props = FigmaNodeProperties.fromMap(effectiveNode);
+    final props = FigmaNodeProperties.fromMap(effectiveNode, nodeMap: nodeMap);
 
     // Check visibility - both the node's visible property and runtime hidden state
     if (!props.visible) {
