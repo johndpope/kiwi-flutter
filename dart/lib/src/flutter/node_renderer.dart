@@ -11,6 +11,41 @@ import 'dart:ui' as ui;
 import 'rendering/paint_renderer.dart';
 import 'rendering/effect_renderer.dart';
 import 'rendering/blend_modes.dart';
+import 'rendering/variable_color_resolver.dart';
+
+/// InheritedWidget to provide layer visibility state to the render tree
+class LayerVisibilityScope extends InheritedWidget {
+  /// Set of node IDs that are hidden via the layers panel
+  final Set<String> hiddenNodeIds;
+
+  /// Callback when visibility is toggled
+  final void Function(String nodeId)? onToggleVisibility;
+
+  const LayerVisibilityScope({
+    super.key,
+    required this.hiddenNodeIds,
+    this.onToggleVisibility,
+    required super.child,
+  });
+
+  static LayerVisibilityScope? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<LayerVisibilityScope>();
+  }
+
+  static Set<String> hiddenNodesOf(BuildContext context) {
+    return maybeOf(context)?.hiddenNodeIds ?? const {};
+  }
+
+  static bool isNodeHidden(BuildContext context, String? nodeId) {
+    if (nodeId == null) return false;
+    return hiddenNodesOf(context).contains(nodeId);
+  }
+
+  @override
+  bool updateShouldNotify(LayerVisibilityScope oldWidget) {
+    return hiddenNodeIds != oldWidget.hiddenNodeIds;
+  }
+}
 
 /// Base class for node properties extracted from Figma node data
 class FigmaNodeProperties {
@@ -172,10 +207,20 @@ String imageHashToHex(dynamic imageHash) {
 }
 
 /// Global debug flag for Figma renderer - set to true to enable verbose logging
-bool figmaRendererDebug = false; // Disabled - see docs/TEXT_RENDERING_ISSUE.md
+bool figmaRendererDebug = false; // Disabled to reduce log spam
+
+/// Debug specific node names (set to non-empty to debug specific nodes)
+Set<String> debugNodeNames = {}; // Empty - no specific node debugging
 
 /// Tracks which node types have been logged (to reduce log spam)
 Set<String>? _loggedRenderTypes;
+
+/// Helper to check if we should debug this node
+bool _shouldDebugNode(String? nodeName) {
+  if (debugNodeNames.isEmpty) return false;
+  if (nodeName == null) return false;
+  return debugNodeNames.any((name) => nodeName.contains(name));
+}
 
 // ============================================================================
 // GUID Mapping Helpers for Component Instance Override Resolution
@@ -446,6 +491,8 @@ class FigmaNodeWidget extends StatelessWidget {
   /// Component property values from parent INSTANCE's componentPropAssignments
   /// Maps defID key (e.g., "6:0") to value containing textValue/boolValue/etc
   final Map<String, dynamic>? componentPropValues;
+  /// Set of node IDs that are hidden via the layers panel (runtime toggle)
+  final Set<String>? hiddenNodeIds;
 
   const FigmaNodeWidget({
     super.key,
@@ -458,6 +505,7 @@ class FigmaNodeWidget extends StatelessWidget {
     this.propertyOverrides,
     this.instanceOverrides,
     this.componentPropValues,
+    this.hiddenNodeIds,
   });
 
   @override
@@ -565,11 +613,30 @@ class FigmaNodeWidget extends StatelessWidget {
 
     final props = FigmaNodeProperties.fromMap(effectiveNode);
 
+    // Check visibility - both the node's visible property and runtime hidden state
     if (!props.visible) {
       return const SizedBox.shrink();
     }
 
+    // Check if this node is hidden via layers panel toggle (direct param or inherited)
+    final nodeKey = node['_guidKey']?.toString();
+    if (nodeKey != null) {
+      // First check direct parameter
+      if (hiddenNodeIds != null && hiddenNodeIds!.contains(nodeKey)) {
+        return const SizedBox.shrink();
+      }
+      // Then check inherited scope
+      if (LayerVisibilityScope.isNodeHidden(context, nodeKey)) {
+        return const SizedBox.shrink();
+      }
+    }
+
     final type = props.type;
+
+    // Debug: Log Card nodes specifically to understand their type
+    if (_shouldDebugNode(props.name)) {
+      print('🔎 NODE TYPE: "${props.name}" is type=$type');
+    }
 
     // Debug: Log which nodes are being rendered (only once per type to reduce spam)
     if (figmaRendererDebug) {
@@ -854,10 +921,54 @@ class FigmaFrameWidget extends StatelessWidget {
     }
 
     // Debug: Log all fill types being processed
-    if (figmaRendererDebug && allFills.isNotEmpty) {
+    if (_shouldDebugNode(props.name) || (figmaRendererDebug && allFills.isNotEmpty)) {
       final fillTypes = allFills.map((f) => f['type']).toSet().toList();
-      if (fillTypes.any((t) => t == 'IMAGE')) {
-        print('DEBUG FILLS: "${props.name}" has ${allFills.length} fills: $fillTypes');
+      if (_shouldDebugNode(props.name) || fillTypes.any((t) => t == 'IMAGE')) {
+        print('🎨 DEBUG FILLS: "${props.name}" has ${allFills.length} fills: $fillTypes');
+        for (int i = 0; i < allFills.length; i++) {
+          final fill = allFills[i];
+          print('   Fill[$i]: type=${fill['type']}, keys=${fill.keys.toList()}');
+          if (fill['type']?.toString().startsWith('GRADIENT') == true) {
+            print('   Gradient stops: ${fill['gradientStops']}');
+            print('   Gradient transform: ${fill['gradientTransform'] ?? fill['transform']}');
+          }
+          // Debug colorVar (variable-bound colors)
+          if (fill['colorVar'] != null) {
+            final colorVar = fill['colorVar'];
+            print('   colorVar: $colorVar');
+            // Try to find the actual color from the style node
+            if (colorVar is Map) {
+              final value = colorVar['value'];
+              if (value is Map && value['alias'] is Map) {
+                final alias = value['alias'] as Map;
+                final assetRef = alias['assetRef'] as Map?;
+                if (assetRef != null) {
+                  final version = assetRef['version']?.toString();
+                  print('   -> Looking for style node with GUID: $version');
+                  if (version != null && nodeMap != null) {
+                    final styleNode = nodeMap![version];
+                    if (styleNode != null) {
+                      print('   -> Found style node: type=${styleNode['type']}, name=${styleNode['name']}');
+                      // Check for fills in the style node
+                      final styleFills = styleNode['fillPaints'] as List?;
+                      if (styleFills != null && styleFills.isNotEmpty) {
+                        final firstFill = styleFills.first;
+                        print('   -> Style fill: $firstFill');
+                      }
+                    } else {
+                      print('   -> Style node NOT found in nodeMap');
+                    }
+                  }
+                }
+              }
+            }
+          }
+          // Debug direct color
+          if (fill['color'] != null) {
+            final c = fill['color'];
+            print('   color: r=${c['r']}, g=${c['g']}, b=${c['b']}, a=${c['a']}');
+          }
+        }
       }
     }
 
@@ -1021,19 +1132,48 @@ class FigmaFrameWidget extends StatelessWidget {
     Gradient? gradient;
     final size = Size(props.width * scale, props.height * scale);
 
+    // Create a color resolver for variable lookups
+    final colorResolver = nodeMap != null
+        ? VariableColorResolver(nodeMap: nodeMap)
+        : null;
+
     for (final fill in props.fills) {
       if (fill['visible'] == false) continue;
 
       final fillType = fill['type']?.toString();
       if (fillType == 'SOLID') {
-        final color = fill['color'];
         final opacity = (fill['opacity'] as num?)?.toDouble() ?? 1.0;
-        if (color is Map) {
-          backgroundColor = PaintRenderer.buildColor(
-            color.cast<String, dynamic>(),
-            opacity,
+
+        // Try to resolve colorVar first (for variable-bound colors)
+        Color? resolvedColor;
+        final colorVar = fill['colorVar'];
+        if (colorVar is Map && colorResolver != null) {
+          // Check if it's a GUID-based reference (internal) vs assetRef (external)
+          final value = colorVar['value'];
+          final isGuidRef = value is Map &&
+              value['alias'] is Map &&
+              (value['alias'] as Map)['guid'] != null;
+
+          resolvedColor = colorResolver.resolveColorVar(
+            colorVar.cast<String, dynamic>(),
           );
+          if (resolvedColor != null) {
+            resolvedColor = resolvedColor.withOpacity(resolvedColor.opacity * opacity);
+          }
         }
+
+        // Fall back to static color
+        if (resolvedColor == null) {
+          final color = fill['color'];
+          if (color is Map) {
+            resolvedColor = PaintRenderer.buildColor(
+              color.cast<String, dynamic>(),
+              opacity,
+            );
+          }
+        }
+
+        backgroundColor = resolvedColor;
       } else if (fillType?.startsWith('GRADIENT_') == true) {
         // Use new PaintRenderer for all gradient types
         gradient = PaintRenderer.buildGradient(fill, size);
@@ -1349,8 +1489,30 @@ class FigmaInstanceWidget extends StatelessWidget {
       }
     }
 
-    // Build decoration from instance's own fills/strokes
-    final decoration = _buildDecoration();
+    // Debug source component resolution
+    if (_shouldDebugNode(props.name)) {
+      print('🔍 INSTANCE "${props.name}": sourceComponent=${sourceComponent != null}');
+      if (sourceComponent == null && symbolData != null) {
+        print('   symbolData: $symbolData');
+      }
+    }
+
+    // Debug source component fills
+    if (_shouldDebugNode(props.name) && sourceComponent != null) {
+      final srcFills = sourceComponent['fillPaints'] as List? ?? [];
+      if (srcFills.isNotEmpty) {
+        print('🎨 SRC COMPONENT "${sourceComponent['name']}" has ${srcFills.length} fills:');
+        for (final fill in srcFills) {
+          print('   srcFill type=${fill['type']}, keys=${fill.keys.toList()}');
+          if (fill['gradientStops'] != null) {
+            print('   -> HAS gradientStops!');
+          }
+        }
+      }
+    }
+
+    // Build decoration from instance's own fills/strokes, falling back to source component
+    final decoration = _buildDecoration(sourceComponent: sourceComponent);
 
     // Get children - either from instance's own children or from source component
     List<String> childrenKeys = [];
@@ -1672,27 +1834,83 @@ class FigmaInstanceWidget extends StatelessWidget {
     );
   }
 
-  BoxDecoration _buildDecoration() {
+  BoxDecoration _buildDecoration({Map<String, dynamic>? sourceComponent}) {
     Color? backgroundColor;
+    Gradient? gradient;
+    final size = Size(props.width * scale, props.height * scale);
 
-    for (final fill in props.fills) {
+    // Create a color resolver for variable lookups
+    final colorResolver = nodeMap != null
+        ? VariableColorResolver(nodeMap: nodeMap)
+        : null;
+
+    // Collect fills from instance, but check source component if instance has style refs
+    List<Map<String, dynamic>> fills = List.from(props.fills);
+
+    // Check if any fill has a colorVar style reference (indicating we might need source fills)
+    bool hasStyleRefs = fills.any((f) => f['colorVar'] != null);
+
+    // If we have style refs and a source component, merge with source fills
+    if (hasStyleRefs && sourceComponent != null) {
+      final srcFills = sourceComponent['fillPaints'] as List?;
+      if (srcFills != null && srcFills.isNotEmpty) {
+        // Check if source has gradient fills (which might be better than our style-ref solid)
+        for (final srcFill in srcFills) {
+          if (srcFill is Map<String, dynamic>) {
+            final srcType = srcFill['type']?.toString();
+            if (srcType?.startsWith('GRADIENT_') == true && srcFill['gradientStops'] != null) {
+              // Source has actual gradient data - use it!
+              fills = srcFills.cast<Map<String, dynamic>>();
+              if (_shouldDebugNode(props.name)) {
+                print('🎨 USING SOURCE COMPONENT FILLS (has gradient) for "${props.name}"');
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    for (final fill in fills) {
       if (fill['visible'] == false) continue;
-      final fillType = fill['type'];
+      final fillType = fill['type']?.toString();
       if (fillType == 'SOLID') {
-        final color = fill['color'];
-        if (color is Map) {
-          backgroundColor = Color.fromRGBO(
-            ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            (color['a'] as num?)?.toDouble() ?? 1.0,
-          );
+        final opacity = (fill['opacity'] as num?)?.toDouble() ?? 1.0;
+
+        // Try to resolve colorVar first (for variable-bound colors)
+        Color? resolvedColor;
+        final colorVar = fill['colorVar'];
+        if (colorVar is Map && colorResolver != null) {
+          resolvedColor = colorResolver.resolveColorVar(colorVar.cast<String, dynamic>());
+          if (resolvedColor != null) {
+            resolvedColor = resolvedColor.withOpacity(resolvedColor.opacity * opacity);
+          }
+        }
+
+        // Fall back to static color
+        if (resolvedColor == null) {
+          final color = fill['color'];
+          if (color is Map) {
+            resolvedColor = PaintRenderer.buildColor(
+              color.cast<String, dynamic>(),
+              opacity,
+            );
+          }
+        }
+
+        backgroundColor = resolvedColor;
+      } else if (fillType?.startsWith('GRADIENT_') == true) {
+        // Use PaintRenderer for all gradient types
+        gradient = PaintRenderer.buildGradient(fill, size);
+        if (_shouldDebugNode(props.name)) {
+          print('🎨 INSTANCE GRADIENT: "${props.name}" type=$fillType gradient=${gradient != null}');
         }
       }
     }
 
     return BoxDecoration(
-      color: backgroundColor,
+      color: gradient == null ? backgroundColor : null,
+      gradient: gradient,
       borderRadius: props.borderRadius,
     );
   }
@@ -1743,19 +1961,25 @@ class _RectanglePainter extends CustomPainter {
       if (fill['visible'] == false) continue;
 
       final paint = Paint();
-      final fillType = fill['type'];
+      final fillType = fill['type']?.toString();
 
       if (fillType == 'SOLID') {
         final color = fill['color'];
+        final opacity = (fill['opacity'] as num?)?.toDouble() ?? 1.0;
         if (color is Map) {
-          paint.color = Color.fromRGBO(
-            ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            (color['a'] as num?)?.toDouble() ?? 1.0,
-          );
+          paint.color = PaintRenderer.buildColor(
+            color.cast<String, dynamic>(),
+            opacity,
+          ) ?? Colors.transparent;
         }
         canvas.drawRRect(rrect, paint);
+      } else if (fillType?.startsWith('GRADIENT_') == true) {
+        // Use PaintRenderer to build gradient
+        final gradient = PaintRenderer.buildGradient(fill, size);
+        if (gradient != null) {
+          paint.shader = gradient.createShader(rect);
+          canvas.drawRRect(rrect, paint);
+        }
       }
     }
 
@@ -1814,19 +2038,25 @@ class _EllipsePainter extends CustomPainter {
       if (fill['visible'] == false) continue;
 
       final paint = Paint();
-      final fillType = fill['type'];
+      final fillType = fill['type']?.toString();
 
       if (fillType == 'SOLID') {
         final color = fill['color'];
+        final opacity = (fill['opacity'] as num?)?.toDouble() ?? 1.0;
         if (color is Map) {
-          paint.color = Color.fromRGBO(
-            ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            (color['a'] as num?)?.toDouble() ?? 1.0,
-          );
+          paint.color = PaintRenderer.buildColor(
+            color.cast<String, dynamic>(),
+            opacity,
+          ) ?? Colors.transparent;
         }
         canvas.drawOval(rect, paint);
+      } else if (fillType?.startsWith('GRADIENT_') == true) {
+        // Use PaintRenderer to build gradient
+        final gradient = PaintRenderer.buildGradient(fill, size);
+        if (gradient != null) {
+          paint.shader = gradient.createShader(rect);
+          canvas.drawOval(rect, paint);
+        }
       }
     }
 
@@ -1839,13 +2069,12 @@ class _EllipsePainter extends CustomPainter {
           ..strokeWidth = props.strokeWeight;
 
         final color = stroke['color'];
+        final opacity = (stroke['opacity'] as num?)?.toDouble() ?? 1.0;
         if (color is Map) {
-          paint.color = Color.fromRGBO(
-            ((color['r'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['g'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            ((color['b'] as num?)?.toDouble() ?? 0) * 255 ~/ 1,
-            (color['a'] as num?)?.toDouble() ?? 1.0,
-          );
+          paint.color = PaintRenderer.buildColor(
+            color.cast<String, dynamic>(),
+            opacity,
+          ) ?? Colors.transparent;
         }
         canvas.drawOval(rect, paint);
       }
@@ -1875,23 +2104,16 @@ class FigmaTextWidget extends StatelessWidget {
     String text = '';
     if (textData is Map) {
       text = textData['characters'] as String? ?? '';
-      // Debug: Log text data structure for troubleshooting
-      if (figmaRendererDebug && text.isNotEmpty && text.length < 20) {
-        print('DEBUG TEXT: "${props.name}" textData.characters="$text" codeUnits=${text.codeUnits}');
-        // Check for other text-related fields
-        if (textData['glyphs'] != null) {
-          print('  glyphs: ${textData['glyphs']}');
-        }
-        if (textData['layoutVersion'] != null) {
-          print('  layoutVersion: ${textData['layoutVersion']}');
-        }
-      }
     } else {
       text = nodeData['characters'] as String? ?? props.name ?? '';
-      // Debug: Log when falling back to characters or name
-      if (figmaRendererDebug && text.isNotEmpty && text.length < 20) {
-        print('DEBUG TEXT FALLBACK: "${props.name}" text="$text" (from characters/name)');
-      }
+    }
+
+    // Check if this is an SF Symbol (Apple icon character)
+    // SF Symbols use Unicode Private Use Area and can't render in Flutter without SF Pro font
+    final bool isSFSymbol = _containsSFSymbols(text);
+    if (isSFSymbol && text.length <= 4) {
+      // Return an Icon widget instead of trying to render the SF Symbol character
+      return _buildSFSymbolPlaceholder(props, scale, text);
     }
 
     // Extract text style with scaling
@@ -1918,17 +2140,42 @@ class FigmaTextWidget extends StatelessWidget {
     final bool autoWidth = textAutoResize == 'WIDTH_AND_HEIGHT';
     final bool autoHeight = textAutoResize == 'WIDTH_AND_HEIGHT' || textAutoResize == 'HEIGHT';
 
+    Widget textWidget = Text(
+      text,
+      style: style,
+      textAlign: textAlign,
+      overflow: TextOverflow.visible,
+      softWrap: true,
+    );
+
+    // Check for gradient fills - wrap in ShaderMask if gradient
+    final gradient = _getGradientFill();
+    if (gradient != null) {
+      textWidget = ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) => gradient.createShader(bounds),
+        child: textWidget,
+      );
+    }
+
     return SizedBox(
       width: autoWidth ? null : (props.width > 0 ? props.width * scale : null),
       height: autoHeight ? null : (props.height > 0 ? props.height * scale : null),
-      child: Text(
-        text,
-        style: style,
-        textAlign: textAlign,
-        overflow: TextOverflow.visible, // Allow overflow to be visible
-        softWrap: true,
-      ),
+      child: textWidget,
     );
+  }
+
+  /// Check fills for a gradient and return it
+  Gradient? _getGradientFill() {
+    for (final fill in props.fills) {
+      if (fill['visible'] == false) continue;
+      final fillType = fill['type']?.toString();
+      if (fillType?.startsWith('GRADIENT_') == true) {
+        final size = Size(props.width * scale, props.height * scale);
+        return PaintRenderer.buildGradient(fill, size);
+      }
+    }
+    return null;
   }
 
   TextStyle _buildTextStyle(String text) {
@@ -2026,8 +2273,26 @@ class FigmaTextWidget extends StatelessWidget {
     }
 
     // Force system font for SF Symbols (icons)
+    // SF Symbols require the Apple system font to render properly
+    // Using null fontFamily with proper fallback lets the platform choose
     if (hasSFSymbols) {
-      fontFamily = '.AppleSystemUIFont';
+      // On macOS/iOS, use null to get the system font that supports SF Symbols
+      // The system will automatically use SF Pro which contains SF Symbols
+      return TextStyle(
+        fontSize: fontSize * scale,
+        fontWeight: fontWeight,
+        fontStyle: fontStyle,
+        color: color,
+        fontFamily: null, // Use system default for SF Symbols
+        fontFamilyFallback: const [
+          '.SF Pro',
+          'SF Pro Display',
+          'SF Pro Text',
+          '.AppleSystemUIFont',
+        ],
+        letterSpacing: letterSpacing != null ? letterSpacing * scale : null,
+        height: height,
+      );
     }
 
     return TextStyle(
@@ -2114,6 +2379,424 @@ class FigmaTextWidget extends StatelessWidget {
 
     // Return original if no mapping found - Flutter will try to use it
     return figmaFont;
+  }
+
+  /// Build a placeholder widget for SF Symbol characters that can't render in Flutter
+  Widget _buildSFSymbolPlaceholder(FigmaNodeProperties props, double scale, String sfSymbolText) {
+    // Get the color from fills
+    // Default to iOS blue for SF Symbols (common in iOS UI)
+    Color iconColor = const Color(0xFF007AFF);
+    for (final fill in props.fills) {
+      if (fill['visible'] == false) continue;
+
+      final fillType = fill['type']?.toString();
+
+      // Handle SOLID fills
+      final colorData = fill['color'];
+      if (colorData is Map) {
+        final r = (colorData['r'] as num?)?.toDouble() ?? 0;
+        final g = (colorData['g'] as num?)?.toDouble() ?? 0;
+        final b = (colorData['b'] as num?)?.toDouble() ?? 0;
+        final a = (colorData['a'] as num?)?.toDouble() ?? 1.0;
+        iconColor = Color.fromRGBO(
+          (r * 255).round().clamp(0, 255),
+          (g * 255).round().clamp(0, 255),
+          (b * 255).round().clamp(0, 255),
+          a,
+        );
+        break;
+      }
+
+      // Handle GRADIENT fills - extract first stop color
+      if (fillType?.startsWith('GRADIENT_') == true) {
+        final gradientStops = fill['gradientStops'] as List?;
+        if (gradientStops != null && gradientStops.isNotEmpty) {
+          final firstStop = gradientStops.first as Map?;
+          final stopColor = firstStop?['color'] as Map?;
+          if (stopColor != null) {
+            final r = (stopColor['r'] as num?)?.toDouble() ?? 0;
+            final g = (stopColor['g'] as num?)?.toDouble() ?? 0;
+            final b = (stopColor['b'] as num?)?.toDouble() ?? 0;
+            final a = (stopColor['a'] as num?)?.toDouble() ?? 1.0;
+            iconColor = Color.fromRGBO(
+              (r * 255).round().clamp(0, 255),
+              (g * 255).round().clamp(0, 255),
+              (b * 255).round().clamp(0, 255),
+              a,
+            );
+            break;
+          }
+        }
+      }
+    }
+
+    // Get font size for icon sizing
+    double iconSize = 17.0; // Default SF Symbol size
+    final rawFontSize = props.raw['fontSize'];
+    if (rawFontSize is num) {
+      iconSize = rawFontSize.toDouble();
+    } else {
+      final derivedTextData = props.raw['derivedTextData'];
+      if (derivedTextData is Map) {
+        final baseFontSize = derivedTextData['baseFontSize'];
+        if (baseFontSize is num) {
+          iconSize = baseFontSize.toDouble();
+        }
+      }
+    }
+
+    // Map SF Symbol Unicode to a Flutter icon
+    // SF Symbols are in Supplementary Private Use Area (U+100000+)
+    // We decode the surrogate pair to get the actual codepoint
+    IconData iconData = Icons.circle; // Default fallback
+
+    if (sfSymbolText.length >= 2) {
+      final highSurrogate = sfSymbolText.codeUnitAt(0);
+      final lowSurrogate = sfSymbolText.codeUnitAt(1);
+      if (highSurrogate >= 0xD800 && highSurrogate <= 0xDBFF &&
+          lowSurrogate >= 0xDC00 && lowSurrogate <= 0xDFFF) {
+        // Decode surrogate pair to Unicode codepoint
+        final codepoint = 0x10000 + ((highSurrogate - 0xD800) << 10) + (lowSurrogate - 0xDC00);
+
+        // Map common SF Symbol codepoints to Flutter Material icons
+        iconData = _mapSFSymbolToMaterialIcon(codepoint);
+      }
+    }
+
+    return SizedBox(
+      width: props.width > 0 ? props.width * scale : iconSize * scale,
+      height: props.height > 0 ? props.height * scale : iconSize * scale,
+      child: Center(
+        child: Icon(
+          iconData,
+          size: iconSize * scale,
+          color: iconColor,
+        ),
+      ),
+    );
+  }
+
+  /// Map SF Symbol Unicode codepoint to a Material icon
+  IconData _mapSFSymbolToMaterialIcon(int codepoint) {
+    // Common SF Symbol mappings (codepoint -> Material icon)
+    // These are approximate equivalents
+    switch (codepoint) {
+      // Settings/gear icons
+      case 0x100A5C: // gear
+      case 0x100A5D: // gear.circle
+      case 0x100A5E: // gear.circle.fill
+      case 0x10057C: // gearshape
+      case 0x10057D: // gearshape.fill
+        return Icons.settings;
+
+      // Privacy/hand icons
+      case 0x1004E4: // hand.raised
+      case 0x1004E5: // hand.raised.fill
+      case 0x100C6C: // hand.raised.square
+        return Icons.pan_tool;
+
+      // Accessibility
+      case 0x100401: // accessibility
+      case 0x100402: // accessibility.fill
+        return Icons.accessibility;
+
+      // General icons - App Store A
+      case 0x10058A: // a.square (App Store A)
+        return Icons.apps;
+
+      // WiFi
+      case 0x100063: // wifi
+        return Icons.wifi;
+
+      // Bluetooth
+      case 0x100066: // bluetooth
+        return Icons.bluetooth;
+
+      // Battery
+      case 0x10006A: // battery.100
+      case 0x10006B: // battery.75
+        return Icons.battery_full;
+
+      // Airplane
+      case 0x10001F: // airplane
+        return Icons.airplanemode_active;
+
+      // Bell/notifications
+      case 0x100093: // bell
+      case 0x100094: // bell.fill
+        return Icons.notifications;
+
+      // Lock
+      case 0x100182: // lock
+      case 0x100183: // lock.fill
+        return Icons.lock;
+
+      // Person/profile
+      case 0x1001A3: // person
+      case 0x1001A4: // person.fill
+      case 0x1001A5: // person.circle
+        return Icons.person;
+
+      // Star
+      case 0x100190: // star
+      case 0x100191: // star.fill
+        return Icons.star;
+
+      // Heart
+      case 0x100189: // heart
+      case 0x10018A: // heart.fill
+        return Icons.favorite;
+
+      // Magnifying glass/search
+      case 0x100145: // magnifyingglass
+        return Icons.search;
+
+      // Camera
+      case 0x100100: // camera
+      case 0x100101: // camera.fill
+        return Icons.camera_alt;
+
+      // Photo/image
+      case 0x10010C: // photo
+      case 0x10010D: // photo.fill
+        return Icons.photo;
+
+      // Music
+      case 0x100157: // music.note
+        return Icons.music_note;
+
+      // Video/play
+      case 0x100167: // play
+      case 0x100168: // play.fill
+        return Icons.play_arrow;
+
+      // Map/location
+      case 0x1001D4: // map
+      case 0x1001D5: // map.fill
+        return Icons.map;
+
+      // Clock/time
+      case 0x10010F: // clock
+      case 0x100110: // clock.fill
+        return Icons.access_time;
+
+      // Calendar
+      case 0x100113: // calendar
+        return Icons.calendar_today;
+
+      // Document/file
+      case 0x10011F: // doc
+      case 0x100120: // doc.fill
+        return Icons.description;
+
+      // Folder
+      case 0x100124: // folder
+      case 0x100125: // folder.fill
+        return Icons.folder;
+
+      // Trash/delete
+      case 0x10012E: // trash
+      case 0x10012F: // trash.fill
+        return Icons.delete;
+
+      // Pencil/edit
+      case 0x100135: // pencil
+        return Icons.edit;
+
+      // Checkmark
+      case 0x10017B: // checkmark
+      case 0x10017C: // checkmark.circle
+        return Icons.check;
+
+      // X mark/close
+      case 0x10017F: // xmark
+      case 0x100180: // xmark.circle
+        return Icons.close;
+
+      // Plus/add
+      case 0x100178: // plus
+      case 0x100179: // plus.circle
+        return Icons.add;
+
+      // Minus
+      case 0x10017A: // minus
+        return Icons.remove;
+
+      // Arrow right
+      case 0x100001: // arrow.right
+        return Icons.arrow_forward;
+
+      // Chevron right (common in lists)
+      case 0x100085: // chevron.right
+        return Icons.chevron_right;
+
+      // Info
+      case 0x100173: // info.circle
+      case 0x100174: // info.circle.fill
+        return Icons.info;
+
+      // Question mark/help
+      case 0x100175: // questionmark.circle
+        return Icons.help;
+
+      // Exclamation/warning
+      case 0x100176: // exclamationmark.triangle
+        return Icons.warning;
+
+      // Share
+      case 0x10014A: // square.and.arrow.up
+        return Icons.share;
+
+      // Download
+      case 0x10014C: // square.and.arrow.down
+        return Icons.download;
+
+      // Home/house icons (very common in tab bars)
+      case 0x100360: // house
+      case 0x100361: // house.fill
+        return Icons.home;
+
+      // Bell with badge (notifications)
+      case 0x1002C2: // bell.badge
+      case 0x1002C3: // bell.badge.fill
+        return Icons.notifications_active;
+
+      // Calendar circle
+      case 0x1003B8: // calendar.circle
+      case 0x1003B9: // calendar.circle.fill
+        return Icons.event;
+
+      // Person with square/circle
+      case 0x1006EE: // person.crop.square
+      case 0x1006EF: // person.crop.square.fill
+        return Icons.account_box;
+
+      // Circle with checkmark
+      case 0x10017C: // checkmark.circle (duplicate for consistency)
+      case 0x10017D: // checkmark.circle.fill
+        return Icons.check_circle;
+
+      // Message/chat
+      case 0x1002AB: // message
+      case 0x1002AC: // message.fill
+        return Icons.chat_bubble;
+
+      // Envelope/mail
+      case 0x1002B0: // envelope
+      case 0x1002B1: // envelope.fill
+        return Icons.email;
+
+      // Phone
+      case 0x100284: // phone
+      case 0x100285: // phone.fill
+        return Icons.phone;
+
+      // Circle fill (generic)
+      case 0x100000: // circle
+      case 0x100001: // circle.fill (often used as bullet/dot)
+        return Icons.circle;
+
+      // Ellipsis/more
+      case 0x100185: // ellipsis
+      case 0x100188: // ellipsis.circle
+      case 0x100189: // ellipsis.circle.fill
+        return Icons.more_horiz;
+
+      // WiFi slash
+      case 0x10019B: // wifi.slash
+        return Icons.wifi_off;
+
+      // Cellular/signal
+      case 0x10019D: // cellularbars
+      case 0x10019E: // antenna.radiowaves.left.and.right
+        return Icons.signal_cellular_alt;
+
+      // Battery charging
+      case 0x10064C: // battery.100.bolt
+        return Icons.battery_charging_full;
+
+      // Location/pin
+      case 0x100762: // location
+      case 0x100763: // location.fill
+        return Icons.location_on;
+
+      // Book/library
+      case 0x100405: // book
+      case 0x100406: // book.fill
+        return Icons.book;
+
+      // Arrow up
+      case 0x100202: // arrow.up
+        return Icons.arrow_upward;
+
+      // Slider/settings
+      case 0x1008FA: // slider.horizontal.3
+        return Icons.tune;
+
+      // App/grid
+      case 0x100A2B: // square.grid.2x2
+        return Icons.apps;
+
+      // Square grid 3x3
+      case 0x101088: // square.grid.3x3
+        return Icons.grid_view;
+
+      // Compass
+      case 0x10012B: // safari
+        return Icons.explore;
+
+      // Cart/shopping
+      case 0x10025A: // cart
+      case 0x10025B: // cart.fill
+        return Icons.shopping_cart;
+
+      // Tag
+      case 0x10026E: // tag
+      case 0x10026F: // tag.fill
+        return Icons.local_offer;
+
+      // Video camera
+      case 0x100385: // video
+      case 0x100384: // video.fill
+        return Icons.videocam;
+
+      // Mic/microphone
+      case 0x1003A1: // mic
+      case 0x1003A2: // mic.fill
+        return Icons.mic;
+
+      // Power
+      case 0x100874: // power
+        return Icons.power_settings_new;
+
+      // Crop
+      case 0x1002B5: // crop
+        return Icons.crop;
+
+      // Link
+      case 0x1002D1: // link
+        return Icons.link;
+
+      // QR code
+      case 0x100AD1: // qrcode
+        return Icons.qr_code;
+
+      // Keyboard
+      case 0x10017E: // keyboard
+        return Icons.keyboard;
+
+      // Globe
+      case 0x10017A: // globe
+        return Icons.language;
+
+      // Minus circle
+      case 0x100F0F: // minus.circle
+        return Icons.remove_circle;
+
+      // Default: return a generic circle icon
+      default:
+        return Icons.circle;
+    }
   }
 
   /// Check if text contains SF Symbols (private use area characters)

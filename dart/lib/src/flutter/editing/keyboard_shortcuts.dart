@@ -49,6 +49,7 @@ enum ShortcutAction {
   zoomTo100,
   toggleGrid,
   toggleRulers,
+  toggleVisibility, // Cmd/Ctrl+Shift+H - hide/show layer
   save,
   // Auto layout shortcuts
   toggleAutoLayout,
@@ -181,6 +182,10 @@ class KeyboardShortcuts extends StatelessWidget {
       // View toggles
       SingleActivator(LogicalKeyboardKey.quote, meta: isMac, control: !isMac):
           const _ShortcutIntent(ShortcutAction.toggleGrid),
+
+      // Layer visibility (Cmd/Ctrl+Shift+H)
+      SingleActivator(LogicalKeyboardKey.keyH, meta: isMac, control: !isMac, shift: true):
+          const _ShortcutIntent(ShortcutAction.toggleVisibility),
 
       // Save
       SingleActivator(LogicalKeyboardKey.keyS, meta: isMac, control: !isMac):

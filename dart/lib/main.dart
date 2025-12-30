@@ -72,6 +72,95 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
       final compiled = compileSchema(schema);
       final message = compiled.decode('Message', messageBytes);
 
+      // Debug: Print all top-level keys in the message to find style/variable data
+      debugPrint('📋 MESSAGE TOP-LEVEL KEYS: ${message.keys.toList()}');
+
+      // Examine blobs structure - user hinted that hex values should match
+      final blobs = message['blobs'] as List? ?? [];
+      debugPrint('📦 BLOBS count: ${blobs.length}');
+
+      // Target asset keys from colorVar references
+      final targetAssetKeys = [
+        '44e3c4781fcc7aa4a3df3182f3234bb8bc3dc0d8', // From podcast cards
+        '7bb6ad78796564b1d11f0db8b8a3521f32d53ec1',
+        'd21936c5c10855ad0944c247f81f64b0b00d0269',
+      ];
+
+      if (blobs.isNotEmpty) {
+        // Print first few blob structures to understand format
+        for (var i = 0; i < blobs.length && i < 5; i++) {
+          final blob = blobs[i];
+          if (blob is Map) {
+            debugPrint('📦 Blob $i keys: ${blob.keys.toList()}');
+          }
+        }
+
+        // Search for matching asset keys
+        for (final blob in blobs) {
+          if (blob is Map) {
+            final blobKey = blob['key']?.toString() ?? blob['hash']?.toString();
+            if (blobKey != null && targetAssetKeys.contains(blobKey)) {
+              debugPrint('🎯 FOUND BLOB WITH MATCHING KEY: $blobKey');
+              debugPrint('   Full blob: $blob');
+            }
+          }
+        }
+      }
+
+      // Search for library references in message
+      debugPrint('📚 Looking for library data...');
+      for (final key in ['sharedPluginData', 'libraryAssetMapping', 'libraries', 'librarySharedStyles']) {
+        if (message.containsKey(key)) {
+          final data = message[key];
+          debugPrint('📚 Found $key: ${data.runtimeType}');
+          if (data is Map && data.isNotEmpty) {
+            debugPrint('   Keys: ${data.keys.take(5).toList()}...');
+          } else if (data is List) {
+            debugPrint('   Count: ${data.length}');
+          }
+        }
+      }
+
+      // Search for shared styles in nodes (fillStyleID, strokeStyleID)
+      final nodeChanges = message['nodeChanges'] as List? ?? [];
+      final styleNodes = <String, Map<String, dynamic>>{};
+
+      for (final node in nodeChanges) {
+        if (node is Map) {
+          // Look for nodes with style info
+          if (node['fillStyleID'] != null || node['strokeStyleID'] != null) {
+            final guid = node['guid'];
+            if (guid is Map) {
+              final guidKey = '${guid['sessionID']}:${guid['localID']}';
+              debugPrint('🎨 Node with style ID: $guidKey');
+              debugPrint('   fillStyleID: ${node['fillStyleID']}');
+              debugPrint('   name: ${node['name']}');
+            }
+          }
+
+          // Collect STYLE type nodes
+          final type = node['type']?.toString();
+          if (type != null && type.contains('STYLE')) {
+            final guid = node['guid'];
+            if (guid is Map) {
+              final guidKey = '${guid['sessionID']}:${guid['localID']}';
+              styleNodes[guidKey] = node as Map<String, dynamic>;
+            }
+          }
+        }
+      }
+
+      if (styleNodes.isNotEmpty) {
+        debugPrint('🎨 Found ${styleNodes.length} STYLE nodes:');
+        for (final entry in styleNodes.entries.take(10)) {
+          debugPrint('   ${entry.key}: ${entry.value['name']} (${entry.value['type']})');
+          final fills = entry.value['fillPaints'] as List?;
+          if (fills != null && fills.isNotEmpty) {
+            debugPrint('      fills: $fills');
+          }
+        }
+      }
+
       // Create document
       final document = FigmaDocument.fromMessage(message);
 
@@ -221,32 +310,221 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
     );
   }
 
-  /// Extract variables from Figma document, or create sample variables if none exist
+  /// Extract variables from Figma document by parsing nodeChanges
   VariableManager _extractVariablesFromDocument(FigmaDocument document, Map<String, dynamic> message) {
-    // Check if the message contains variable data
-    final variableCollections = message['variableCollections'];
-    final variables = message['variables'];
+    final nodeChanges = message['nodeChanges'] as List? ?? [];
 
-    final hasVariables = (variableCollections is Map && variableCollections.isNotEmpty) ||
-                         (variables is Map && variables.isNotEmpty);
+    // Extract VARIABLE_SET nodes (collections with modes)
+    final variableSets = <String, Map<String, dynamic>>{};
+    // Extract VARIABLE nodes (actual variables with values)
+    final variableNodes = <String, Map<String, dynamic>>{};
 
-    if (hasVariables) {
-      // Use real variables from the Figma file
-      debugPrint('Found ${(variableCollections as Map?)?.length ?? 0} variable collections and ${(variables as Map?)?.length ?? 0} variables in Figma file');
+    for (final node in nodeChanges) {
+      if (node is! Map) continue;
+      final type = node['type']?.toString();
+      final guid = node['guid'];
+      if (guid is! Map) continue;
+      final guidKey = '${guid['sessionID']}:${guid['localID']}';
 
-      final resolver = VariableResolver.fromDocument(message);
-
-      debugPrint('Parsed ${resolver.collections.length} collections and ${resolver.variables.length} variables');
-      for (final collection in resolver.collections.values) {
-        debugPrint('  Collection: ${collection.name} with ${collection.modes.length} modes');
+      if (type == 'VARIABLE_SET') {
+        variableSets[guidKey] = node as Map<String, dynamic>;
+      } else if (type == 'VARIABLE') {
+        variableNodes[guidKey] = node as Map<String, dynamic>;
       }
+    }
 
-      return VariableManager(resolver);
-    } else {
-      // No variables in file - create sample data for demo purposes
+    debugPrint('📊 Found ${variableSets.length} VARIABLE_SET and ${variableNodes.length} VARIABLE nodes');
+
+    if (variableSets.isEmpty && variableNodes.isEmpty) {
       debugPrint('No variables found in Figma file, using sample data');
       return _createSampleVariableManager();
     }
+
+    // Parse collections from VARIABLE_SET nodes
+    final collections = <String, VariableCollection>{};
+    var collectionOrder = 1;
+
+    for (final entry in variableSets.entries) {
+      final guidKey = entry.key;
+      final node = entry.value;
+      final name = node['name']?.toString() ?? 'Collection';
+
+      // Parse modes from variableSetModes
+      final modesData = node['variableSetModes'];
+      final modes = <VariableMode>[];
+
+      if (modesData is Map && modesData['entries'] is List) {
+        final entries = modesData['entries'] as List;
+        for (var i = 0; i < entries.length; i++) {
+          final modeEntry = entries[i];
+          if (modeEntry is Map) {
+            final modeId = modeEntry['modeID'];
+            String modeIdKey = '';
+            if (modeId is Map) {
+              modeIdKey = '${modeId['sessionID']}:${modeId['localID']}';
+            }
+            final modeName = modeEntry['name']?.toString() ?? 'Mode ${i + 1}';
+            modes.add(VariableMode(
+              id: modeIdKey,
+              name: modeName,
+              index: i,
+              emoji: _inferModeEmoji(modeName),
+            ));
+          }
+        }
+      }
+
+      // Default modes if none found
+      if (modes.isEmpty) {
+        modes.add(const VariableMode(id: 'default', name: 'Default', index: 0));
+      }
+
+      collections[guidKey] = VariableCollection(
+        id: guidKey,
+        name: name,
+        order: collectionOrder++,
+        modes: modes,
+        defaultModeId: modes.first.id,
+      );
+
+      debugPrint('  📁 Collection "$name" with ${modes.length} modes: ${modes.map((m) => m.name).join(', ')}');
+    }
+
+    // Parse variables from VARIABLE nodes
+    final variables = <String, DesignVariable>{};
+
+    for (final entry in variableNodes.entries) {
+      final guidKey = entry.key;
+      final node = entry.value;
+      final name = node['name']?.toString() ?? 'Variable';
+      final resolvedType = node['variableResolvedDataType']?.toString();
+
+      // Determine variable type
+      VariableType type;
+      switch (resolvedType) {
+        case 'COLOR':
+          type = VariableType.color;
+          break;
+        case 'FLOAT':
+          type = VariableType.number;
+          break;
+        case 'BOOLEAN':
+          type = VariableType.boolean;
+          break;
+        default:
+          type = VariableType.string;
+      }
+
+      // Find parent collection
+      final variableCollectionID = node['variableCollectionID'];
+      String collectionId = '';
+      if (variableCollectionID is Map) {
+        collectionId = '${variableCollectionID['sessionID']}:${variableCollectionID['localID']}';
+      }
+
+      // Parse values by mode from variableDataValues
+      final valuesByMode = <String, VariableValue<dynamic>>{};
+      final dataValues = node['variableDataValues'];
+
+      if (dataValues is Map && dataValues['entries'] is List) {
+        final entries = dataValues['entries'] as List;
+        for (final modeEntry in entries) {
+          if (modeEntry is! Map) continue;
+
+          final modeId = modeEntry['modeID'];
+          String modeIdKey = '';
+          if (modeId is Map) {
+            modeIdKey = '${modeId['sessionID']}:${modeId['localID']}';
+          }
+
+          final variableData = modeEntry['variableData'];
+          if (variableData is! Map) continue;
+
+          final dataType = variableData['dataType']?.toString();
+          final valueData = variableData['value'];
+
+          if (dataType == 'COLOR' && valueData is Map) {
+            final colorValue = valueData['colorValue'];
+            if (colorValue is Map) {
+              final r = (colorValue['r'] as num?)?.toDouble() ?? 0;
+              final g = (colorValue['g'] as num?)?.toDouble() ?? 0;
+              final b = (colorValue['b'] as num?)?.toDouble() ?? 0;
+              final a = (colorValue['a'] as num?)?.toDouble() ?? 1;
+              valuesByMode[modeIdKey] = VariableValue(
+                value: Color.fromRGBO(
+                  (r * 255).round().clamp(0, 255),
+                  (g * 255).round().clamp(0, 255),
+                  (b * 255).round().clamp(0, 255),
+                  a,
+                ),
+              );
+            }
+          } else if (dataType == 'ALIAS' && valueData is Map) {
+            final alias = valueData['alias'];
+            if (alias is Map && alias['guid'] is Map) {
+              final aliasGuid = alias['guid'] as Map;
+              final aliasKey = '${aliasGuid['sessionID']}:${aliasGuid['localID']}';
+              valuesByMode[modeIdKey] = VariableValue(
+                value: null,
+                resolveType: VariableResolveType.alias,
+                aliasId: aliasKey,
+              );
+            }
+          }
+        }
+      }
+
+      // Parse scopes
+      final scopesData = node['scopes'] as List?;
+      final scopes = <VariableScope>[];
+      if (scopesData != null) {
+        for (final scope in scopesData) {
+          if (scope == 'ALL_SCOPES') scopes.add(VariableScope.allScopes);
+          else if (scope == 'ALL_FILLS') scopes.add(VariableScope.allFills);
+          else if (scope == 'FRAME_FILL') scopes.add(VariableScope.frameFill);
+          else if (scope == 'SHAPE_FILL') scopes.add(VariableScope.shapeFill);
+          else if (scope == 'TEXT_FILL') scopes.add(VariableScope.textFill);
+          else if (scope == 'STROKE_COLOR') scopes.add(VariableScope.strokeColor);
+        }
+      }
+      if (scopes.isEmpty) scopes.add(VariableScope.allScopes);
+
+      variables[guidKey] = DesignVariable(
+        id: guidKey,
+        name: name,
+        type: type,
+        collectionId: collectionId,
+        valuesByMode: valuesByMode,
+        scopes: scopes,
+      );
+    }
+
+    debugPrint('📊 Parsed ${collections.length} collections and ${variables.length} variables');
+
+    // Only include COLOR variables for now
+    final colorVariables = Map.fromEntries(
+      variables.entries.where((e) => e.value.type == VariableType.color)
+    );
+    debugPrint('  🎨 ${colorVariables.length} color variables');
+
+    final resolver = VariableResolver(
+      variables: colorVariables,
+      collections: collections,
+    );
+
+    return VariableManager(resolver);
+  }
+
+  /// Infer emoji from mode name
+  String? _inferModeEmoji(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('light')) return '☀️';
+    if (lower.contains('dark')) return '🌙';
+    if (lower.contains('mobile')) return '📱';
+    if (lower.contains('desktop')) return '🖥️';
+    if (lower.contains('tablet')) return '📱';
+    if (lower.contains('default')) return '⭐';
+    return null;
   }
 
   /// Create sample variable manager for demo when no variables exist in file

@@ -4,3 +4,4 @@ js/*.js
 js/*.d.ts
 js/.npmignore
 *.combined
+dart/test/goldens/*.png

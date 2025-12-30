@@ -252,6 +252,9 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   bool _showRulers = false;
   bool _showOutlines = false;
 
+  // Layer visibility - tracks which nodes are hidden via layers panel
+  final Set<String> _hiddenNodeIds = {};
+
   // Cached canvas content widget
   Widget? _cachedCanvasContent;
   int? _cachedPageIndex;
@@ -269,6 +272,14 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   // Main menu overlay
   OverlayEntry? _mainMenuOverlay;
 
+  // Page name editing state
+  int? _editingPageIndex;
+  final TextEditingController _pageNameController = TextEditingController();
+  final FocusNode _pageNameFocusNode = FocusNode();
+
+  // Page sorting state
+  bool _sortPagesAlphabetically = false;
+
   @override
   void initState() {
     super.initState();
@@ -284,6 +295,32 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
         snapToObjects: true,
       ),
     );
+
+    // DEBUG: Auto-navigate to C.04 Thumbnail page if it exists
+    _navigateToPageByName('C.04');
+  }
+
+  /// Navigate to a page by name (partial match, case-insensitive)
+  void _navigateToPageByName(String searchName) {
+    final pages = widget.document.pages;
+    final searchLower = searchName.toLowerCase();
+
+    // Always list all pages for debugging
+    debugPrint('🔍 Available pages (${pages.length} total):');
+    for (int i = 0; i < pages.length; i++) {
+      final name = pages[i]['name']?.toString() ?? '(no name)';
+      debugPrint('  [$i] $name');
+    }
+
+    for (int i = 0; i < pages.length; i++) {
+      final pageName = pages[i]['name']?.toString() ?? '';
+      if (pageName.toLowerCase().contains(searchLower)) {
+        debugPrint('🔍 ✓ Found page "$pageName" at index $i, navigating...');
+        _currentPageIndex = i;
+        return;
+      }
+    }
+    debugPrint('🔍 ✗ Page containing "$searchName" not found.');
   }
 
   void _initializeDocumentState() {
@@ -303,8 +340,86 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     _scaleNotifier.dispose();
     _canvasFocusNode.dispose();
     _assetSearchController.dispose();
+    _pageNameController.dispose();
+    _pageNameFocusNode.dispose();
     _hideMainMenu();
     super.dispose();
+  }
+
+  // ============ PAGE NAME EDITING ============
+  /// Start editing a page name
+  void _startEditingPageName(int pageIndex) {
+    final pages = widget.document.pages;
+    if (pageIndex < 0 || pageIndex >= pages.length) return;
+
+    final currentName = pages[pageIndex]['name'] as String? ?? 'Page ${pageIndex + 1}';
+    setState(() {
+      _editingPageIndex = pageIndex;
+      _pageNameController.text = currentName;
+    });
+
+    // Request focus after the frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pageNameFocusNode.requestFocus();
+      _pageNameController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _pageNameController.text.length,
+      );
+    });
+  }
+
+  /// Finish editing and save the page name
+  void _finishEditingPageName() {
+    if (_editingPageIndex == null) return;
+
+    final newName = _pageNameController.text.trim();
+    if (newName.isNotEmpty) {
+      // Update the page name in the document
+      final pages = widget.document.pages;
+      if (_editingPageIndex! < pages.length) {
+        pages[_editingPageIndex!]['name'] = newName;
+      }
+    }
+
+    setState(() {
+      _editingPageIndex = null;
+    });
+  }
+
+  /// Cancel editing without saving
+  void _cancelEditingPageName() {
+    setState(() {
+      _editingPageIndex = null;
+    });
+  }
+
+  // ============ LAYER VISIBILITY ============
+  /// Toggle visibility of a node in the layers panel
+  void _toggleNodeVisibility(String nodeId) {
+    setState(() {
+      if (_hiddenNodeIds.contains(nodeId)) {
+        _hiddenNodeIds.remove(nodeId);
+      } else {
+        _hiddenNodeIds.add(nodeId);
+      }
+      _invalidateCache();
+    });
+  }
+
+  /// Toggle visibility for selected nodes (keyboard shortcut)
+  void _toggleSelectedVisibility() {
+    final selectedNode = DebugOverlayController.instance.selectedNode;
+    if (selectedNode == null) return;
+
+    final nodeKey = selectedNode['_guidKey']?.toString();
+    if (nodeKey != null) {
+      _toggleNodeVisibility(nodeKey);
+    }
+  }
+
+  /// Check if a node is hidden
+  bool _isNodeHidden(String nodeId) {
+    return _hiddenNodeIds.contains(nodeId);
   }
 
   // ============ MAIN MENU ============
@@ -437,6 +552,9 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
         break;
       case ShortcutAction.save:
         // TODO: Implement save
+        break;
+      case ShortcutAction.toggleVisibility:
+        _toggleSelectedVisibility();
         break;
       default:
         // Other actions not yet implemented
@@ -937,6 +1055,20 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
                   style: TextStyle(color: FigmaColors.text1, fontSize: 11, fontWeight: FontWeight.w500),
                 ),
                 const Spacer(),
+                // Sort alphabetically toggle
+                Tooltip(
+                  message: _sortPagesAlphabetically ? 'Sort by order' : 'Sort alphabetically',
+                  waitDuration: const Duration(milliseconds: 500),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _sortPagesAlphabetically = !_sortPagesAlphabetically),
+                    child: Icon(
+                      _sortPagesAlphabetically ? Icons.sort_by_alpha : Icons.sort,
+                      size: 14,
+                      color: _sortPagesAlphabetically ? FigmaColors.accent : FigmaColors.text3,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () {
                     // TODO: Add new page
@@ -951,11 +1083,27 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
         if (_pagesExpanded)
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 200),
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              itemCount: pages.length,
-              itemBuilder: (context, index) => _buildFilePageItem(index, pages[index]),
+            child: Builder(
+              builder: (context) {
+                // Create sorted indices for mapping
+                final sortedIndices = List.generate(pages.length, (i) => i);
+                if (_sortPagesAlphabetically) {
+                  sortedIndices.sort((a, b) {
+                    final nameA = (pages[a]['name'] as String? ?? '').toLowerCase();
+                    final nameB = (pages[b]['name'] as String? ?? '').toLowerCase();
+                    return nameA.compareTo(nameB);
+                  });
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: pages.length,
+                  itemBuilder: (context, index) {
+                    final originalIndex = sortedIndices[index];
+                    return _buildFilePageItem(originalIndex, pages[originalIndex]);
+                  },
+                );
+              },
             ),
           ),
 
@@ -1016,13 +1164,19 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   Widget _buildFilePageItem(int index, Map<String, dynamic> page) {
     final pageName = page['name'] as String? ?? 'Page ${index + 1}';
     final isSelected = index == _currentPageIndex;
+    final isEditing = _editingPageIndex == index;
 
     return GestureDetector(
-      onTap: () => _onPageChanged(index),
+      onTap: () {
+        if (!isEditing) {
+          _onPageChanged(index);
+        }
+      },
+      onDoubleTap: () => _startEditingPageName(index),
       child: Container(
         height: 28,
         padding: const EdgeInsets.only(left: 32, right: 12),
-        color: isSelected ? FigmaColors.accent.withOpacity(0.3) : Colors.transparent,
+        color: isSelected ? FigmaColors.accent.withValues(alpha: 0.3) : Colors.transparent,
         child: Row(
           children: [
             Icon(
@@ -1032,14 +1186,48 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                pageName,
-                style: TextStyle(
-                  color: isSelected ? FigmaColors.text1 : FigmaColors.text2,
-                  fontSize: 11,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: isEditing
+                  ? KeyboardListener(
+                      focusNode: FocusNode(),
+                      onKeyEvent: (event) {
+                        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+                          _cancelEditingPageName();
+                        }
+                      },
+                      child: TextField(
+                        controller: _pageNameController,
+                        focusNode: _pageNameFocusNode,
+                        style: const TextStyle(
+                          color: FigmaColors.text1,
+                          fontSize: 11,
+                        ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(2),
+                            borderSide: const BorderSide(color: FigmaColors.accent),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(2),
+                            borderSide: const BorderSide(color: FigmaColors.accent, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: FigmaColors.bg1,
+                        ),
+                        onSubmitted: (_) => _finishEditingPageName(),
+                        onEditingComplete: _finishEditingPageName,
+                        onTapOutside: (_) => _finishEditingPageName(),
+                      ),
+                    )
+                  : Text(
+                      pageName,
+                      style: TextStyle(
+                        color: isSelected ? FigmaColors.text1 : FigmaColors.text2,
+                        fontSize: 11,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
             ),
           ],
         ),
@@ -2412,11 +2600,13 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     return _KeyboardNavigableLayerTree(
       children: children,
       nodeMap: widget.document.nodeMap,
+      hiddenNodeIds: _hiddenNodeIds,
       onSelect: (node) {
         DebugOverlayController.instance.setEnabled(true);
         DebugOverlayController.instance.selectNode(node);
         _centerOnNode(node);
       },
+      onToggleVisibility: _toggleNodeVisibility,
     );
   }
 
@@ -2628,23 +2818,34 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     }
 
     // Cache the content widget to avoid rebuilding on pan/zoom
-    if (_cachedCanvasContent != null && _cachedPageIndex == _currentPageIndex) {
+    // Don't use cache if we have hidden nodes (they change visibility dynamically)
+    if (_cachedCanvasContent != null && _cachedPageIndex == _currentPageIndex && _hiddenNodeIds.isEmpty) {
       return _cachedCanvasContent!;
     }
 
     _cachedPageIndex = _currentPageIndex;
-    _cachedCanvasContent = SizedBox(
+    final content = SizedBox(
       width: 20000,
       height: 20000,
-      child: FigmaNodeWidget(
-        node: page,
-        nodeMap: widget.document.nodeMap,
-        blobMap: widget.document.blobMap,
-        imagesDirectory: widget.document.imagesDirectory,
-        scale: 1.0,
+      child: LayerVisibilityScope(
+        hiddenNodeIds: _hiddenNodeIds,
+        onToggleVisibility: _toggleNodeVisibility,
+        child: FigmaNodeWidget(
+          node: page,
+          nodeMap: widget.document.nodeMap,
+          blobMap: widget.document.blobMap,
+          imagesDirectory: widget.document.imagesDirectory,
+          scale: 1.0,
+          hiddenNodeIds: _hiddenNodeIds,
+        ),
       ),
     );
-    return _cachedCanvasContent!;
+
+    // Only cache if no hidden nodes
+    if (_hiddenNodeIds.isEmpty) {
+      _cachedCanvasContent = content;
+    }
+    return content;
   }
 
   Widget _buildBottomBar() {
@@ -3292,12 +3493,16 @@ class _BottomBarButton extends StatelessWidget {
 class _KeyboardNavigableLayerTree extends StatefulWidget {
   final List children;
   final Map<String, Map<String, dynamic>> nodeMap;
+  final Set<String> hiddenNodeIds;
   final void Function(Map<String, dynamic>) onSelect;
+  final void Function(String nodeId)? onToggleVisibility;
 
   const _KeyboardNavigableLayerTree({
     required this.children,
     required this.nodeMap,
+    required this.hiddenNodeIds,
     required this.onSelect,
+    this.onToggleVisibility,
   });
 
   @override
@@ -3310,18 +3515,126 @@ class _KeyboardNavigableLayerTreeState extends State<_KeyboardNavigableLayerTree
   int _focusedIndex = 0;
   List<_FlatLayerItem> _flatList = [];
   final ScrollController _scrollController = ScrollController();
+  String? _lastSelectedKey;
 
   @override
   void initState() {
     super.initState();
     _rebuildFlatList();
+    // Listen for selection changes from canvas
+    DebugOverlayController.instance.addListener(_onSelectionChanged);
   }
 
   @override
   void dispose() {
+    DebugOverlayController.instance.removeListener(_onSelectionChanged);
     _focusNode.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Called when selection changes (e.g., from canvas click)
+  void _onSelectionChanged() {
+    final selectedNode = DebugOverlayController.instance.selectedNode;
+    if (selectedNode == null) return;
+
+    final selectedKey = selectedNode['_guidKey']?.toString();
+    if (selectedKey == null || selectedKey == _lastSelectedKey) return;
+
+    _lastSelectedKey = selectedKey;
+
+    // Find and expand the path to the selected node
+    _expandPathToNode(selectedKey);
+  }
+
+  /// Find the path to a node and expand all parent nodes
+  void _expandPathToNode(String targetKey) {
+    // Find the path from root to target node
+    final path = _findPathToNode(targetKey);
+    if (path.isEmpty) return;
+
+    // Expand all nodes in the path (except the target itself)
+    bool needsRebuild = false;
+    for (int i = 0; i < path.length - 1; i++) {
+      if (!_expandedNodes.contains(path[i])) {
+        _expandedNodes.add(path[i]);
+        needsRebuild = true;
+      }
+    }
+
+    if (needsRebuild) {
+      setState(() {
+        _rebuildFlatList();
+      });
+    }
+
+    // Schedule scroll to the selected node after rebuild
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToNode(targetKey);
+    });
+  }
+
+  /// Find the path (list of node keys) from root to target node
+  List<String> _findPathToNode(String targetKey) {
+    for (final childKey in widget.children) {
+      final path = _findPathRecursive(childKey.toString(), targetKey, []);
+      if (path.isNotEmpty) return path;
+    }
+    return [];
+  }
+
+  List<String> _findPathRecursive(String currentKey, String targetKey, List<String> currentPath) {
+    final newPath = [...currentPath, currentKey];
+
+    if (currentKey == targetKey) {
+      return newPath;
+    }
+
+    final node = widget.nodeMap[currentKey];
+    if (node == null) return [];
+
+    final children = node['children'] as List? ?? [];
+    for (final childKey in children) {
+      final result = _findPathRecursive(childKey.toString(), targetKey, newPath);
+      if (result.isNotEmpty) return result;
+    }
+
+    return [];
+  }
+
+  /// Scroll to make the target node visible
+  void _scrollToNode(String targetKey) {
+    if (!_scrollController.hasClients) return;
+
+    // Find the index of the target node in the flat list
+    final index = _flatList.indexWhere((item) => item.key == targetKey);
+    if (index < 0) return;
+
+    final itemHeight = 28.0;
+    final itemTop = index * itemHeight;
+    final itemBottom = itemTop + itemHeight;
+    final viewTop = _scrollController.offset;
+    final viewBottom = viewTop + _scrollController.position.viewportDimension;
+
+    // Scroll if needed
+    if (itemTop < viewTop) {
+      _scrollController.animateTo(
+        itemTop,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    } else if (itemBottom > viewBottom) {
+      _scrollController.animateTo(
+        itemBottom - _scrollController.position.viewportDimension,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+
+    // Update focused index
+    setState(() {
+      _focusedIndex = index;
+    });
   }
 
   void _rebuildFlatList() {
@@ -3486,12 +3799,14 @@ class _KeyboardNavigableLayerTreeState extends State<_KeyboardNavigableLayerTree
             return _LayerItemRow(
               item: item,
               isFocused: isFocused,
+              isHidden: widget.hiddenNodeIds.contains(item.key),
               onTap: () {
                 setState(() => _focusedIndex = index);
                 widget.onSelect(item.node);
                 _focusNode.requestFocus();
               },
               onToggleExpand: item.hasChildren ? () => _toggleExpand(item.key) : null,
+              onToggleVisibility: () => widget.onToggleVisibility?.call(item.key),
             );
           },
         ),
@@ -3519,14 +3834,18 @@ class _FlatLayerItem {
 class _LayerItemRow extends StatefulWidget {
   final _FlatLayerItem item;
   final bool isFocused;
+  final bool isHidden;
   final VoidCallback onTap;
   final VoidCallback? onToggleExpand;
+  final VoidCallback? onToggleVisibility;
 
   const _LayerItemRow({
     required this.item,
     required this.isFocused,
+    this.isHidden = false,
     required this.onTap,
     this.onToggleExpand,
+    this.onToggleVisibility,
   });
 
   @override
@@ -3575,7 +3894,9 @@ class _LayerItemRowState extends State<_LayerItemRow> {
     final name = widget.item.node['name'] as String? ?? 'Unnamed';
     final type = widget.item.node['type'] as String? ?? 'UNKNOWN';
     final nodeKey = widget.item.node['_guidKey']?.toString();
-    final isVisible = widget.item.node['visible'] as bool? ?? true;
+    final nodeVisible = widget.item.node['visible'] as bool? ?? true;
+    // Combine node visibility and runtime hidden state
+    final isVisible = nodeVisible && !widget.isHidden;
     final isLocked = widget.item.node['locked'] as bool? ?? false;
 
     return ListenableBuilder(
@@ -3646,14 +3967,22 @@ class _LayerItemRowState extends State<_LayerItemRow> {
                         color: isLocked ? FigmaColors.text2 : FigmaColors.text3.withValues(alpha: 0.5),
                       ),
                     ),
-                  // Visibility icon (show when hidden or hovered)
+                  // Visibility icon (show when hidden or hovered) - clickable to toggle
                   if (!isVisible || _isHovered)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Icon(
-                        isVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                        size: 12,
-                        color: isVisible ? FigmaColors.text3.withValues(alpha: 0.5) : FigmaColors.text3,
+                    Tooltip(
+                      message: isVisible ? 'Hide layer' : 'Show layer',
+                      waitDuration: const Duration(milliseconds: 500),
+                      child: GestureDetector(
+                        onTap: widget.onToggleVisibility,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(
+                            isVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            size: 12,
+                            color: isVisible ? FigmaColors.text3.withValues(alpha: 0.5) : FigmaColors.text3,
+                          ),
+                        ),
                       ),
                     ),
                 ],

@@ -13,6 +13,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
+import 'variable_color_resolver.dart';
+
 /// Renders Figma paint data to Flutter painting primitives
 class PaintRenderer {
   /// Build a Flutter Color from Figma color data
@@ -256,6 +258,9 @@ class PaintRenderer {
   }
 
   /// Build a BoxDecoration from Figma fills
+  ///
+  /// If [colorResolver] is provided, colorVar references in fills will be
+  /// resolved to actual colors. Otherwise, only static colors are used.
   static BoxDecoration buildDecoration({
     required List<Map<String, dynamic>> fills,
     required Size size,
@@ -263,6 +268,7 @@ class PaintRenderer {
     double strokeWeight = 0,
     BorderRadius? borderRadius,
     List<BoxShadow>? shadows,
+    VariableColorResolver? colorResolver,
   }) {
     Color? backgroundColor;
     Gradient? gradient;
@@ -274,11 +280,28 @@ class PaintRenderer {
       final type = fill['type']?.toString();
 
       if (type == 'SOLID') {
-        final color = fill['color'];
         final opacity = (fill['opacity'] as num?)?.toDouble() ?? 1.0;
-        if (color is Map) {
-          backgroundColor = buildColor(color.cast<String, dynamic>(), opacity);
+
+        // Try to resolve colorVar first (for variable-bound colors)
+        Color? resolvedColor;
+        final colorVar = fill['colorVar'];
+        if (colorVar is Map && colorResolver != null) {
+          resolvedColor = colorResolver.resolveColorVar(colorVar.cast<String, dynamic>());
+          if (resolvedColor != null) {
+            // Apply opacity
+            resolvedColor = resolvedColor.withOpacity(resolvedColor.opacity * opacity);
+          }
         }
+
+        // Fall back to static color
+        if (resolvedColor == null) {
+          final color = fill['color'];
+          if (color is Map) {
+            resolvedColor = buildColor(color.cast<String, dynamic>(), opacity);
+          }
+        }
+
+        backgroundColor = resolvedColor;
       } else if (type?.startsWith('GRADIENT_') == true) {
         gradient = buildGradient(fill, size);
       }
