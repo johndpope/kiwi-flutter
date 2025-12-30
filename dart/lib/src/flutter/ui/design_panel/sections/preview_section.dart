@@ -5,6 +5,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../design_panel_colors.dart';
+import '../design_panel_icons.dart';
 import '../widgets/property_row.dart';
 
 /// Preview section widget (collapsed by default)
@@ -34,6 +35,11 @@ class PreviewSection extends StatelessWidget {
           title: 'Preview',
           expanded: expanded,
           onToggle: onToggle,
+          leadingIcon: const Icon(
+            DesignPanelIcons.preview,
+            size: DesignPanelDimensions.smallIconSize,
+            color: DesignPanelColors.text3,
+          ),
         ),
         if (expanded)
           SectionContent(
@@ -55,11 +61,13 @@ class _CollapsibleHeader extends StatefulWidget {
   final String title;
   final bool expanded;
   final VoidCallback onToggle;
+  final Widget? leadingIcon;
 
   const _CollapsibleHeader({
     required this.title,
     required this.expanded,
     required this.onToggle,
+    this.leadingIcon,
   });
 
   @override
@@ -98,6 +106,11 @@ class _CollapsibleHeaderState extends State<_CollapsibleHeader> {
                 ),
               ),
               const SizedBox(width: DesignPanelSpacing.xs),
+              // Leading icon (if provided)
+              if (widget.leadingIcon != null) ...[
+                widget.leadingIcon!,
+                const SizedBox(width: DesignPanelSpacing.xs),
+              ],
               // Title
               Text(
                 widget.title,

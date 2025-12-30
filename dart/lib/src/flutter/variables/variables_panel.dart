@@ -40,7 +40,7 @@ class _VariablesPanelFullState extends State<VariablesPanelFull> {
   String? _selectedGroupId;
   String? _selectedVariableId;
   String _searchQuery = '';
-  final GlobalKey<_VariablesTableHeaderState> _tableHeaderKey = GlobalKey();
+  final GlobalKey<VariablesTableHeaderState> _tableHeaderKey = GlobalKey();
 
   @override
   void initState() {
@@ -272,7 +272,7 @@ class _VariablesPanelFullState extends State<VariablesPanelFull> {
   }
 
   void _onValueChanged(DesignVariable variable, String modeId, dynamic value) {
-    widget.manager.updateVariable(variable.id, modeId: modeId, value: value);
+    widget.manager.updateVariableValue(variable.id, modeId, value);
     setState(() {});
   }
 

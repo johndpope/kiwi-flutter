@@ -70,14 +70,15 @@ class _FigmaDesignPanelState extends State<FigmaDesignPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: widget.width,
-      decoration: const BoxDecoration(
-        color: DesignPanelColors.bg2,
-        border: Border(
-          left: BorderSide(color: DesignPanelColors.border, width: 1),
+    return Material(
+      color: DesignPanelColors.bg2,
+      child: Container(
+        width: widget.width,
+        decoration: const BoxDecoration(
+          border: Border(
+            left: BorderSide(color: DesignPanelColors.border, width: 1),
+          ),
         ),
-      ),
       child: Column(
         children: [
           // Tab switcher
@@ -101,6 +102,7 @@ class _FigmaDesignPanelState extends State<FigmaDesignPanel> {
           // Help button
           HelpButton(onTap: widget.onHelp),
         ],
+      ),
       ),
     );
   }

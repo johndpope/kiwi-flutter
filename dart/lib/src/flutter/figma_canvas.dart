@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'node_renderer.dart';
 import 'state/state.dart';
 import 'editing/editing.dart';
+import 'ui/design_panel/design_panel.dart';
 
 // Figma's exact colors
 class FigmaColors {
@@ -569,7 +570,7 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
                       children: [
                         if (_showLeftPanel) _buildLeftPanel(),
                         Expanded(child: _buildCanvas()),
-                        if (_showRightPanel) _buildRightPanel(),
+                        if (_showRightPanel) _buildNewRightPanel(),
                       ],
                     ),
                   ),
@@ -756,9 +757,17 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
             ),
           ),
         ),
-        // Pages list (collapsible)
+        // Pages list (collapsible, constrained height)
         if (_pagesExpanded)
-          ...pages.asMap().entries.map((entry) => _buildFilePageItem(entry.key, entry.value)),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: pages.length,
+              itemBuilder: (context, index) => _buildFilePageItem(index, pages[index]),
+            ),
+          ),
 
         // ===== COMPONENTS DIVIDER =====
         Padding(
@@ -2395,7 +2404,28 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
     );
   }
 
-  // ============ RIGHT PANEL ============
+  // ============ NEW RIGHT PANEL (FigmaDesignPanel) ============
+  Widget _buildNewRightPanel() {
+    return ListenableBuilder(
+      listenable: DebugOverlayController.instance,
+      builder: (context, _) {
+        final node = DebugOverlayController.instance.selectedNode;
+        return FigmaDesignPanel(
+          node: node,
+          zoomLevel: _scale,
+          onPropertyChanged: (path, value) {
+            // Handle property changes
+            print('Property changed: $path = $value');
+          },
+          onZoomChanged: (zoom) {
+            setState(() => _scale = zoom);
+          },
+        );
+      },
+    );
+  }
+
+  // ============ OLD RIGHT PANEL (kept for reference) ============
   Widget _buildRightPanel() {
     return Container(
       width: 300,

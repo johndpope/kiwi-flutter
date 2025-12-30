@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../design_panel_colors.dart';
+import '../design_panel_icons.dart';
 import '../widgets/section_header.dart';
 import '../widgets/property_row.dart';
 import '../widgets/visibility_toggle.dart';
@@ -56,6 +57,11 @@ class EffectsSection extends StatelessWidget {
           onToggle: onToggle,
           onGridSettings: onGridSettings,
           onAdd: onAdd,
+          leadingIcon: const Icon(
+            DesignPanelIcons.effects,
+            size: DesignPanelDimensions.smallIconSize,
+            color: DesignPanelColors.text3,
+          ),
         ),
         if (expanded)
           SectionContent(

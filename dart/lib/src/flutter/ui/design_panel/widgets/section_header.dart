@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../design_panel_colors.dart';
+import '../design_panel_icons.dart';
 
 /// A collapsible section header matching Figma's design
 class SectionHeader extends StatelessWidget {
@@ -11,6 +12,7 @@ class SectionHeader extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
   final Widget? trailing;
+  final Widget? leadingIcon;
   final bool showDivider;
 
   const SectionHeader({
@@ -19,6 +21,7 @@ class SectionHeader extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     this.trailing,
+    this.leadingIcon,
     this.showDivider = true,
   });
 
@@ -50,6 +53,10 @@ class SectionHeader extends StatelessWidget {
               color: DesignPanelColors.text2,
             ),
             const SizedBox(width: DesignPanelSpacing.xs),
+            if (leadingIcon != null) ...[
+              leadingIcon!,
+              const SizedBox(width: DesignPanelSpacing.xs),
+            ],
             Text(title, style: DesignPanelTypography.headerStyle),
             const Spacer(),
             if (trailing != null) trailing!,
@@ -67,6 +74,7 @@ class SectionHeaderWithAdd extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback? onAdd;
   final Widget? extraActions;
+  final Widget? leadingIcon;
   final bool showDivider;
 
   const SectionHeaderWithAdd({
@@ -76,6 +84,7 @@ class SectionHeaderWithAdd extends StatelessWidget {
     required this.onToggle,
     this.onAdd,
     this.extraActions,
+    this.leadingIcon,
     this.showDivider = true,
   });
 
@@ -86,6 +95,7 @@ class SectionHeaderWithAdd extends StatelessWidget {
       expanded: expanded,
       onToggle: onToggle,
       showDivider: showDivider,
+      leadingIcon: leadingIcon,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -108,6 +118,7 @@ class SectionHeaderWithGrid extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback? onGridSettings;
   final VoidCallback? onAdd;
+  final Widget? leadingIcon;
   final bool showDivider;
 
   const SectionHeaderWithGrid({
@@ -117,6 +128,7 @@ class SectionHeaderWithGrid extends StatelessWidget {
     required this.onToggle,
     this.onGridSettings,
     this.onAdd,
+    this.leadingIcon,
     this.showDivider = true,
   });
 
@@ -127,6 +139,7 @@ class SectionHeaderWithGrid extends StatelessWidget {
       expanded: expanded,
       onToggle: onToggle,
       showDivider: showDivider,
+      leadingIcon: leadingIcon,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

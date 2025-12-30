@@ -10,8 +10,12 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:kiwi_schema/kiwi.dart';
 import 'package:kiwi_schema/flutter_renderer.dart';
+import 'package:kiwi_schema/src/flutter/assets/variables.dart';
+import 'package:kiwi_schema/src/flutter/variables/variables_panel.dart';
+import 'package:kiwi_schema/src/flutter/ui/floating_panel.dart';
 
 void main() {
   runApp(const FigmaViewerApp());
@@ -45,6 +49,8 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
   String? _error;
   bool _isLoading = false;
   String _statusMessage = '';
+  bool _showVariablesPanel = false;
+  VariableManager? _variableManager;
 
   @override
   void initState() {
@@ -53,63 +59,18 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
   }
 
   Future<void> _loadExampleFile() async {
-    // Try to load the Apple iOS UI Kit from the fixtures
-    final paths = [
-      // Check from example directory
-      '${Directory.current.path}/test/fixtures/figma_message.bin',
-      // Check from dart directory
-      'test/fixtures/figma_message.bin',
-      // Check parent directories
-      '${Directory.current.path}/../test/fixtures/figma_message.bin',
-    ];
-
-    print('Current directory: ${Directory.current.path}');
-    for (final path in paths) {
-      print('Trying path: $path');
-      final file = File(path);
-      if (await file.exists()) {
-        print('Found file at: $path');
-        await _loadPreDecompressedMessage(file);
-        return;
-      }
-    }
-
-    setState(() {
-      _statusMessage = 'No Figma file found.\n'
-          'Run: python3 /tmp/decompress_fig.py /path/to/canvas.fig test/fixtures\n'
-          'to create test fixtures.';
-    });
-  }
-
-  Future<void> _loadPreDecompressedMessage(File messageFile) async {
     setState(() {
       _isLoading = true;
-      _statusMessage = 'Loading pre-decompressed message...';
+      _statusMessage = 'Loading from bundled assets...';
     });
 
     try {
-      // Find schema file
-      final schemaPaths = [
-        'test/fixtures/figma_schema.bin',
-        '${Directory.current.path}/test/fixtures/figma_schema.bin',
-        '${Directory.current.path}/../test/fixtures/figma_schema.bin',
-      ];
+      // Load from bundled assets
+      final schemaData = await rootBundle.load('test/fixtures/figma_schema.bin');
+      final messageData = await rootBundle.load('test/fixtures/figma_message.bin');
 
-      File? schemaFile;
-      for (final path in schemaPaths) {
-        final file = File(path);
-        if (file.existsSync()) {
-          schemaFile = file;
-          break;
-        }
-      }
-
-      if (schemaFile == null) {
-        throw Exception('Schema file not found in any of: ${schemaPaths.join(", ")}');
-      }
-
-      final schemaBytes = await schemaFile.readAsBytes();
-      final messageBytes = await messageFile.readAsBytes();
+      final schemaBytes = schemaData.buffer.asUint8List();
+      final messageBytes = messageData.buffer.asUint8List();
 
       // Decode
       final schema = decodeBinarySchema(schemaBytes);
@@ -129,6 +90,11 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
           break;
         }
       }
+
+      // Initialize variable manager with sample data
+      final resolver = VariableResolver(variables: {}, collections: {});
+      _variableManager = VariableManager(resolver);
+      _initSampleVariables();
 
       setState(() {
         _document = document;
@@ -261,10 +227,159 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
       );
     }
 
-    return FigmaCanvasView(
-      document: _document!,
-      showPageSelector: true,
-      showDebugInfo: true,
+    return Stack(
+      children: [
+        // Figma canvas
+        FigmaCanvasView(
+          document: _document!,
+          showPageSelector: true,
+          showDebugInfo: true,
+        ),
+        // Variables button in bottom toolbar
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: FloatingActionButton.extended(
+            onPressed: () => setState(() => _showVariablesPanel = !_showVariablesPanel),
+            icon: const Icon(Icons.data_object),
+            label: const Text('Variables'),
+            backgroundColor: _showVariablesPanel
+                ? const Color(0xFF0D99FF)
+                : const Color(0xFF3C3C3C),
+          ),
+        ),
+        // Floating Variables Panel
+        if (_showVariablesPanel && _variableManager != null)
+          FloatingPanel(
+            title: 'Local variables',
+            initialPosition: const Offset(50, 50),
+            initialSize: const Size(700, 500),
+            minSize: const Size(500, 300),
+            onClose: () => setState(() => _showVariablesPanel = false),
+            child: VariablesPanelFull(
+              manager: _variableManager!,
+              onVariableSelected: (variable) {
+                debugPrint('Selected: ${variable.name}');
+              },
+              onModeChanged: (collectionId, modeId) {
+                debugPrint('Mode changed: $collectionId -> $modeId');
+                setState(() {});
+              },
+              onClose: () => setState(() => _showVariablesPanel = false),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _initSampleVariables() {
+    if (_variableManager == null) return;
+    final manager = _variableManager!;
+
+    // Create "Themes" collection with Light/Dark modes
+    final themesCollection = VariableCollection(
+      id: 'themes',
+      name: 'Themes',
+      order: 1,
+      modes: const [
+        VariableMode(id: 'light', name: 'Light', index: 0, emoji: '☀️'),
+        VariableMode(id: 'dark', name: 'Dark', index: 1, emoji: '🌙'),
+      ],
+      defaultModeId: 'light',
+    );
+    manager.resolver.collections['themes'] = themesCollection;
+
+    // iOS System colors
+    manager.createVariable(
+      name: 'system/red',
+      type: VariableType.color,
+      collectionId: 'themes',
+      valuesByMode: {
+        'light': const Color(0xFFFF3B30),
+        'dark': const Color(0xFFFF453A),
+      },
+    );
+
+    manager.createVariable(
+      name: 'system/orange',
+      type: VariableType.color,
+      collectionId: 'themes',
+      valuesByMode: {
+        'light': const Color(0xFFFF9500),
+        'dark': const Color(0xFFFF9F0A),
+      },
+    );
+
+    manager.createVariable(
+      name: 'system/yellow',
+      type: VariableType.color,
+      collectionId: 'themes',
+      valuesByMode: {
+        'light': const Color(0xFFFFCC00),
+        'dark': const Color(0xFFFFD60A),
+      },
+    );
+
+    manager.createVariable(
+      name: 'system/green',
+      type: VariableType.color,
+      collectionId: 'themes',
+      valuesByMode: {
+        'light': const Color(0xFF34C759),
+        'dark': const Color(0xFF30D158),
+      },
+    );
+
+    manager.createVariable(
+      name: 'system/blue',
+      type: VariableType.color,
+      collectionId: 'themes',
+      valuesByMode: {
+        'light': const Color(0xFF007AFF),
+        'dark': const Color(0xFF0A84FF),
+      },
+    );
+
+    // Background colors
+    manager.createVariable(
+      name: 'bg/primary',
+      type: VariableType.color,
+      collectionId: 'themes',
+      valuesByMode: {
+        'light': const Color(0xFFFFFFFF),
+        'dark': const Color(0xFF000000),
+      },
+    );
+
+    manager.createVariable(
+      name: 'bg/secondary',
+      type: VariableType.color,
+      collectionId: 'themes',
+      valuesByMode: {
+        'light': const Color(0xFFF2F2F7),
+        'dark': const Color(0xFF1C1C1E),
+      },
+    );
+
+    // Text colors
+    manager.createVariable(
+      name: 'text/primary',
+      type: VariableType.color,
+      collectionId: 'themes',
+      valuesByMode: {
+        'light': const Color(0xFF000000),
+        'dark': const Color(0xFFFFFFFF),
+      },
+    );
+
+    manager.createVariable(
+      name: 'text/secondary',
+      type: VariableType.color,
+      collectionId: 'themes',
+      valuesByMode: {
+        'light': const Color(0xFF8E8E93),
+        'dark': const Color(0xFF8E8E93),
+      },
     );
   }
 }

@@ -519,7 +519,7 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
         children: [
           // Figma-style top tab bar
           _buildFigmaTabBar(displayName),
-          // Canvas view
+          // Canvas view (includes Design Panel on right)
           Expanded(
             child: FigmaCanvasView(
               document: _document!,

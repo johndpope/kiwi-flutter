@@ -366,8 +366,8 @@ class _VariableRowState extends State<_VariableRow> {
     String? aliasEmoji;
 
     if (isAlias && varValue?.aliasId != null) {
-      // Resolve alias
-      resolvedValue = widget.resolver.resolve(widget.variable.id, modeId: mode.id);
+      // Resolve alias - follow the chain to get the actual value
+      resolvedValue = _resolveValueForMode(widget.variable.id, mode.id);
       final aliasTarget = widget.resolver.variables[varValue!.aliasId];
       if (aliasTarget != null) {
         aliasTargetName = aliasTarget.name.split('/').last;
@@ -375,7 +375,8 @@ class _VariableRowState extends State<_VariableRow> {
         aliasEmoji = mode.emoji;
       }
     } else {
-      resolvedValue = widget.resolver.resolve(widget.variable.id, modeId: mode.id);
+      // Direct value - just get from valuesByMode
+      resolvedValue = varValue?.value;
     }
 
     return Container(
@@ -392,6 +393,23 @@ class _VariableRowState extends State<_VariableRow> {
             : null,
       ),
     );
+  }
+
+  /// Resolve value for a specific mode, following alias chains
+  dynamic _resolveValueForMode(String variableId, String modeId, {int maxDepth = 10}) {
+    if (maxDepth <= 0) return null;
+
+    final variable = widget.resolver.variables[variableId];
+    if (variable == null) return null;
+
+    final varValue = variable.valuesByMode[modeId];
+    if (varValue == null) return null;
+
+    if (varValue.isAlias && varValue.aliasId != null) {
+      return _resolveValueForMode(varValue.aliasId!, modeId, maxDepth: maxDepth - 1);
+    }
+
+    return varValue.value;
   }
 }
 
@@ -415,10 +433,10 @@ class VariablesTableHeader extends StatefulWidget {
   });
 
   @override
-  State<VariablesTableHeader> createState() => _VariablesTableHeaderState();
+  State<VariablesTableHeader> createState() => VariablesTableHeaderState();
 }
 
-class _VariablesTableHeaderState extends State<VariablesTableHeader> {
+class VariablesTableHeaderState extends State<VariablesTableHeader> {
   late TextEditingController _searchController;
   final FocusNode _searchFocusNode = FocusNode();
 
@@ -476,7 +494,9 @@ class _VariablesTableHeaderState extends State<VariablesTableHeader> {
           SizedBox(
             width: 180,
             height: 28,
-            child: TextField(
+            child: Material(
+              color: Colors.transparent,
+              child: TextField(
               controller: _searchController,
               focusNode: _searchFocusNode,
               style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -506,6 +526,7 @@ class _VariablesTableHeaderState extends State<VariablesTableHeader> {
                 setState(() {}); // Trigger rebuild for clear button
                 widget.onSearchChanged?.call(value);
               },
+            ),
             ),
           ),
           const SizedBox(width: 8),

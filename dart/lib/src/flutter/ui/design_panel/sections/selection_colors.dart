@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../design_panel_colors.dart';
+import '../design_panel_icons.dart';
 import '../widgets/section_header.dart';
 import '../widgets/property_row.dart';
 
@@ -31,6 +32,11 @@ class SelectionColorsSection extends StatelessWidget {
           title: 'Selection colors',
           expanded: expanded,
           onToggle: onToggle,
+          leadingIcon: const Icon(
+            DesignPanelIcons.selectionColors,
+            size: DesignPanelDimensions.smallIconSize,
+            color: DesignPanelColors.text3,
+          ),
         ),
         if (expanded)
           SectionContent(

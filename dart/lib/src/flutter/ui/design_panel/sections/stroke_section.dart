@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../design_panel_colors.dart';
+import '../design_panel_icons.dart';
 import '../widgets/section_header.dart';
 import '../widgets/property_row.dart';
 import '../widgets/visibility_toggle.dart';
@@ -67,6 +68,11 @@ class _StrokeSectionState extends State<StrokeSection> {
           onToggle: widget.onToggle,
           onGridSettings: widget.onAdvancedSettings,
           onAdd: widget.onAdd,
+          leadingIcon: const Icon(
+            DesignPanelIcons.stroke,
+            size: DesignPanelDimensions.smallIconSize,
+            color: DesignPanelColors.text3,
+          ),
         ),
         if (widget.expanded)
           SectionContent(

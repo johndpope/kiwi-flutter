@@ -134,7 +134,9 @@ class _ZoomDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final zoomPercent = (zoomLevel * 100).round();
 
-    return PopupMenuButton<double>(
+    return Material(
+      color: Colors.transparent,
+      child: PopupMenuButton<double>(
       tooltip: 'Zoom',
       onSelected: onZoomChanged,
       offset: const Offset(0, 36),
@@ -184,6 +186,7 @@ class _ZoomDropdown extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
