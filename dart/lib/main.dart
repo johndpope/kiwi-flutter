@@ -10,9 +10,20 @@ import 'flutter_renderer.dart';
 import 'src/flutter/assets/variables.dart';
 import 'src/flutter/variables/variables_panel.dart';
 import 'src/flutter/ui/floating_panel.dart';
+import 'src/flutter/tiles/tiles.dart';
 
 void main() {
   runApp(const FigmaViewerApp());
+}
+
+/// Quick access to test harness for debugging tile rendering
+class TestHarnessRoute extends StatelessWidget {
+  const TestHarnessRoute({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const TileTestHarness();
+  }
 }
 
 class FigmaViewerApp extends StatelessWidget {
@@ -46,6 +57,9 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
   String _statusMessage = '';
   bool _showVariablesPanel = false;
   VariableManager? _variableManager;
+
+  // Tile-based rendering (enabled by default for large documents)
+  bool _useTileRendering = true;
 
   @override
   void initState() {
@@ -267,17 +281,76 @@ class _FigmaViewerPageState extends State<FigmaViewerPage> {
 
     return Stack(
       children: [
-        // Figma canvas
+        // Integrated Figma canvas with optional tile rendering
         FigmaCanvasView(
           document: _document!,
           showPageSelector: true,
           showDebugInfo: true,
+          useTileRenderer: _useTileRendering,
+          onTileRendererChanged: (v) => setState(() => _useTileRendering = v),
         ),
+
+        // Rendering mode toggle (top-left) - only show when NOT in tile mode (tile mode has its own controls)
+        if (!_useTileRendering)
+        Positioned(
+          top: 16,
+          left: 16,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2C2C2C),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF444444)),
+              ),
+              child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Toggle between rendering modes
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.grid_view, color: Colors.white70, size: 16),
+                    const SizedBox(width: 8),
+                    const Text('Tile Rendering', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: _useTileRendering,
+                      onChanged: (v) => setState(() => _useTileRendering = v),
+                      activeColor: const Color(0xFF0D99FF),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          ),
+        ),
+
+        // Test harness button (bottom left)
+        Positioned(
+          bottom: 16,
+          left: 16,
+          child: FloatingActionButton.small(
+            heroTag: 'testHarness',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TileTestHarness()),
+              );
+            },
+            backgroundColor: const Color(0xFF3C3C3C),
+            child: const Icon(Icons.bug_report, size: 20),
+          ),
+        ),
+
         // Variables button in bottom toolbar
         Positioned(
           bottom: 16,
           right: 16,
           child: FloatingActionButton.extended(
+            heroTag: 'variables',
             onPressed: () => setState(() => _showVariablesPanel = !_showVariablesPanel),
             icon: const Icon(Icons.data_object),
             label: const Text('Variables'),

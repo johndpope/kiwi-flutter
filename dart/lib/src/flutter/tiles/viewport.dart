@@ -8,6 +8,48 @@ import 'package:flutter/widgets.dart';
 /// Fixed tile size in world coordinates (must match Rust TILE_SIZE)
 const double kTileSize = 1024.0;
 
+/// LOD Configuration - simplified to 2 levels with hysteresis
+///
+/// LOD 0: High detail (scale >= 0.5) - 1024x1024 tiles
+/// LOD 1: Low detail (scale < 0.5) - 4096x4096 tiles (4x larger)
+///
+/// Hysteresis prevents rapid LOD switching at threshold boundaries
+const double kLodThreshold = 0.5;      // Primary threshold
+const double kLodHysteresis = 0.15;    // 15% buffer zone
+const double kLodUpThreshold = kLodThreshold + kLodHysteresis;   // 0.65 - switch UP to LOD 0
+const double kLodDownThreshold = kLodThreshold - kLodHysteresis; // 0.35 - switch DOWN to LOD 1
+
+/// Global LOD state tracker for hysteresis
+class _LodState {
+  static int currentLod = 1;  // Start at low detail (safe default)
+
+  /// Calculate LOD with hysteresis to prevent thrashing
+  static int calculateLod(double scale) {
+    if (currentLod == 0) {
+      // Currently high detail - only drop to low if scale goes well below threshold
+      if (scale < kLodDownThreshold) {
+        currentLod = 1;
+      }
+    } else {
+      // Currently low detail - only jump to high if scale goes well above threshold
+      if (scale >= kLodUpThreshold) {
+        currentLod = 0;
+      }
+    }
+    return currentLod;
+  }
+
+  /// Reset LOD state (call when switching documents/pages)
+  static void reset() {
+    currentLod = 1;
+  }
+}
+
+/// Public function to reset LOD state when switching pages/documents
+void resetLodState() {
+  _LodState.reset();
+}
+
 /// Viewport in world coordinates
 class WorldViewport {
   /// World-space X coordinate of viewport top-left
@@ -64,18 +106,16 @@ class WorldViewport {
     );
   }
 
-  /// Get the level of detail for this zoom level
-  int get lod {
-    if (scale >= 0.5) return 0; // Full detail
-    if (scale >= 0.25) return 1; // Half detail
-    if (scale >= 0.125) return 2; // Quarter detail
-    return 3; // Minimum detail
-  }
+  /// Get the level of detail for this zoom level (with hysteresis)
+  /// LOD 0: High detail - 1024x1024 tiles
+  /// LOD 1: Low detail - 4096x4096 tiles
+  int get lod => _LodState.calculateLod(scale);
 
   /// Get the effective tile size at current LOD
+  /// LOD 0: 1024 (1x) - for close-up work
+  /// LOD 1: 4096 (4x) - for overview/zoomed out
   double get effectiveTileSize {
-    final lodScale = 1 << lod; // 2^lod
-    return kTileSize * lodScale;
+    return lod == 0 ? kTileSize : kTileSize * 4;
   }
 
   /// Check if a rectangle in world coordinates intersects this viewport
@@ -131,9 +171,10 @@ class TileCoord {
   const TileCoord(this.x, this.y, this.zoomLevel);
 
   /// Get the world-space bounds of this tile
+  /// LOD 0: 1024x1024 tiles
+  /// LOD 1: 4096x4096 tiles
   Rect get bounds {
-    final lodScale = 1 << zoomLevel; // 2^zoomLevel
-    final tileSize = kTileSize * lodScale;
+    final tileSize = zoomLevel == 0 ? kTileSize : kTileSize * 4;
     return Rect.fromLTWH(
       x * tileSize,
       y * tileSize,

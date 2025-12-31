@@ -1127,13 +1127,14 @@ class FigmaFrameWidget extends StatelessWidget {
         // Fallback: Try to load image from blobMap if imagesDirectory not available
         if (imageWidget == null && blobMap != null) {
           // Get blob index from fill
+          // BlobMap keys are stored as 'blob_N' format (see figma_canvas.dart:109)
           final blobIndex = fill['imagePaintDataIndex'] ?? fill['blobIndex'];
           if (blobIndex is num) {
-            final blobKey = blobIndex.toString();
+            final blobKey = 'blob_${blobIndex.toInt()}';
             final blobData = blobMap![blobKey];
             if (blobData != null && blobData.isNotEmpty) {
               if (figmaRendererDebug) {
-                print('DEBUG IMAGE: Loading from blob[$blobIndex] size=${blobData.length}');
+                print('DEBUG IMAGE: Loading from $blobKey size=${blobData.length}');
               }
               imageWidget = Image.memory(
                 Uint8List.fromList(blobData),
@@ -1153,6 +1154,8 @@ class FigmaFrameWidget extends StatelessWidget {
                 },
               );
               break;
+            } else if (figmaRendererDebug) {
+              print('DEBUG IMAGE: blobKey $blobKey NOT found (available: ${blobMap!.keys.take(5).toList()})');
             }
           }
         }

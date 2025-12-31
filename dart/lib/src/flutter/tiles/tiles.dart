@@ -33,3 +33,4 @@ export 'tile_painter.dart';
 export 'tile_manager.dart';
 export 'tile_rasterizer.dart';
 export 'tile_backend.dart';
+export 'tile_test_harness.dart';

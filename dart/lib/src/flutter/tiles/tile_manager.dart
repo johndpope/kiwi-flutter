@@ -4,8 +4,11 @@
 /// managing tile caching and async tile generation.
 
 import 'dart:async';
+import 'dart:io' as io;
 import 'dart:ui' as ui;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'viewport.dart';
 import 'tile_painter.dart';
 import 'tile_backend.dart';
@@ -75,6 +78,15 @@ class TileManager extends StatefulWidget {
   /// Callback when backend changes
   final void Function(TileBackendType type)? onBackendChanged;
 
+  /// Callback when a tile is rendered (for triggering parent rebuilds)
+  final void Function(TileCoord coord, ui.Image image)? onTileRendered;
+
+  /// Callback when state is ready (for parent to get reference)
+  final void Function(TileManagerState state)? onStateReady;
+
+  /// Explicit screen size (used when inside InteractiveViewer)
+  final Size? screenSize;
+
   const TileManager({
     super.key,
     required this.document,
@@ -84,6 +96,9 @@ class TileManager extends StatefulWidget {
     this.overlayPainter,
     this.onBoundsCalculated,
     this.onBackendChanged,
+    this.onTileRendered,
+    this.onStateReady,
+    this.screenSize,
   });
 
   @override
@@ -114,6 +129,9 @@ class TileManagerState extends State<TileManager> {
   /// Current backend type
   late TileBackendType _currentBackendType;
 
+  /// Counter to force rebuilds when cache is invalidated
+  int _updateCounter = 0;
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +139,10 @@ class TileManagerState extends State<TileManager> {
     _backend = TileBackendFactory.create(_currentBackendType);
     widget.transformController.addListener(_onTransformChanged);
     _initBackend();
+    // Notify parent that state is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onStateReady?.call(this);
+    });
   }
 
   @override
@@ -155,6 +177,19 @@ class TileManagerState extends State<TileManager> {
   /// Initialize the backend
   Future<void> _initBackend() async {
     try {
+      // Set up callback to trigger re-render when images load
+      _backend.onCacheInvalidated = () {
+        if (mounted) {
+          debugPrint('TileManager: Cache invalidated, clearing tile cache and re-rendering');
+          // Clear our local tile cache so tiles are re-requested with new images
+          _disposeCache();
+          _pendingTiles.clear();
+          setState(() {
+            _updateCounter++;  // Force rebuild
+          });
+        }
+      };
+
       await _backend.initialize(widget.document, widget.rootNodeId);
       if (mounted) {
         setState(() {});
@@ -212,9 +247,9 @@ class TileManagerState extends State<TileManager> {
   }
 
   void _disposeCache() {
-    for (final image in _tileCache.values) {
-      image.dispose();
-    }
+    // Don't manually dispose images - they may still be referenced by CustomPainter.
+    // Just clear the cache map and let Dart's garbage collector handle disposal
+    // when the images are no longer referenced.
     _tileCache.clear();
   }
 
@@ -244,10 +279,13 @@ class TileManagerState extends State<TileManager> {
         // Evict old tiles if over capacity
         _evictIfNeeded();
 
-        setState(() {
-          _tileCache[coord] = result.image;
-          _pendingTiles.remove(coord);
-        });
+        _tileCache[coord] = result.image;
+        _pendingTiles.remove(coord);
+
+        // Notify parent that a tile was rendered
+        widget.onTileRendered?.call(coord, result.image);
+
+        setState(() {});
       } else if (result == null) {
         _pendingTiles.remove(coord);
       }
@@ -294,80 +332,94 @@ class TileManagerState extends State<TileManager> {
 
   @override
   Widget build(BuildContext context) {
+    // Use explicit screenSize if provided (from TileCanvas), otherwise use LayoutBuilder
+    if (widget.screenSize != null) {
+      return _buildContent(widget.screenSize!);
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenSize = Size(
-          constraints.maxWidth,
-          constraints.maxHeight,
+          constraints.maxWidth.isFinite ? constraints.maxWidth : 800,
+          constraints.maxHeight.isFinite ? constraints.maxHeight : 600,
         );
+        return _buildContent(screenSize);
+      },
+    );
+  }
 
-        final viewport = WorldViewport.fromController(
-          screenSize: screenSize,
-          controller: widget.transformController,
-        );
+  Widget _buildContent(Size screenSize) {
+    final viewport = WorldViewport.fromController(
+      screenSize: screenSize,
+      controller: widget.transformController,
+    );
 
-        _lastViewport = viewport;
+    _lastViewport = viewport;
 
-        return Stack(
-          children: [
-            // Main tile canvas
-            CustomPaint(
-              painter: TilePainter(
+    return Stack(
+      children: [
+        // Main tile canvas
+        Positioned.fill(
+          child: CustomPaint(
+            painter: TilePainter(
+              viewport: viewport,
+              transform: widget.transformController.value,
+              tileCache: _tileCache,
+              onTileNeeded: _requestTile,
+              showDebugBounds: widget.config.showTileBounds,
+            ),
+            size: screenSize,
+          ),
+        ),
+
+        // Overlay painter
+        if (widget.overlayPainter != null)
+          Positioned.fill(
+            child: CustomPaint(
+              painter: widget.overlayPainter,
+              size: screenSize,
+            ),
+          ),
+
+        // Debug overlay
+        if (widget.config.showDebugOverlay)
+          Positioned.fill(
+            child: CustomPaint(
+              painter: TileDebugOverlay(
                 viewport: viewport,
                 transform: widget.transformController.value,
-                tileCache: _tileCache,
-                onTileNeeded: _requestTile,
-                showDebugBounds: widget.config.showTileBounds,
+                cachedTileCount: _tileCache.length,
+                maxTiles: widget.config.maxCachedTiles,
+                dirtyTiles: _pendingTiles.length,
               ),
               size: screenSize,
             ),
+          ),
 
-            // Overlay painter
-            if (widget.overlayPainter != null)
-              CustomPaint(
-                painter: widget.overlayPainter,
-                size: screenSize,
+        // Backend indicator
+        if (widget.config.showDebugOverlay)
+          Positioned(
+            right: 10,
+            top: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _backend.isReady
+                    ? Colors.green.withValues(alpha: 0.8)
+                    : Colors.orange.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(4),
               ),
-
-            // Debug overlay
-            if (widget.config.showDebugOverlay)
-              CustomPaint(
-                painter: TileDebugOverlay(
-                  viewport: viewport,
-                  transform: widget.transformController.value,
-                  cachedTileCount: _tileCache.length,
-                  maxTiles: widget.config.maxCachedTiles,
-                  dirtyTiles: _pendingTiles.length,
-                ),
-                size: screenSize,
-              ),
-
-            // Backend indicator
-            if (widget.config.showDebugOverlay)
-              Positioned(
-                right: 10,
-                top: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _backend.isReady
-                        ? Colors.green.withValues(alpha: 0.8)
-                        : Colors.orange.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    _backend.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+              child: Text(
+                _backend.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-          ],
-        );
-      },
+            ),
+          ),
+      ],
     );
   }
 }
@@ -401,12 +453,147 @@ class TileCanvas extends StatefulWidget {
 
 class TileCanvasState extends State<TileCanvas> {
   late TransformationController _transformController;
-  final GlobalKey<TileManagerState> _tileManagerKey = GlobalKey();
+  Size _screenSize = Size.zero;
+  int _tileUpdateCount = 0;  // Counter to trigger rebuilds when tiles are rendered
+  Rect? _contentBounds;  // Bounds of the page content
+  bool _initialTransformSet = false;
+
+  // Track the TileManager state via callback instead of GlobalKey
+  TileManagerState? _tileManagerState;
+
+  // Queue for tile requests before backend is ready
+  final Set<TileCoord> _pendingTileRequests = {};
+
+  // Key for capturing screenshots
+  final GlobalKey _repaintBoundaryKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _transformController = TransformationController();
+    _calculateContentBounds();
+  }
+
+  @override
+  void didUpdateWidget(TileCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Recalculate bounds when page changes
+    if (oldWidget.rootNodeId != widget.rootNodeId ||
+        oldWidget.document != widget.document) {
+      _initialTransformSet = false;  // Reset so we center on new content
+      _contentBounds = null;
+      _tileManagerState = null;  // Clear reference, new one will be set via callback
+      // Reset LOD state for new page
+      resetLodState();
+      _calculateContentBounds();
+    }
+  }
+
+  /// Calculate the bounds of all content on the current page
+  void _calculateContentBounds() {
+    final doc = widget.document;
+    final nodeMap = doc.nodeMap;
+
+    // Get the page node
+    final pageNode = nodeMap[widget.rootNodeId];
+    if (pageNode == null) {
+      debugPrint('TileCanvas: Page node not found: ${widget.rootNodeId}');
+      return;
+    }
+
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = double.negativeInfinity;
+    double maxY = double.negativeInfinity;
+    int nodeCount = 0;
+
+    // Get the direct children of the page (top-level frames)
+    final children = pageNode['children'] as List? ?? [];
+
+    for (final childId in children) {
+      final node = nodeMap[childId.toString()];
+      if (node == null) continue;
+
+      // Skip invisible nodes
+      if (node['visible'] == false) continue;
+
+      // Get bounds from transform + size or boundingBox
+      double x = 0, y = 0, width = 0, height = 0;
+
+      final transform = node['transform'];
+      if (transform is Map) {
+        x = (transform['m02'] as num?)?.toDouble() ?? 0;
+        y = (transform['m12'] as num?)?.toDouble() ?? 0;
+      }
+
+      final size = node['size'];
+      if (size is Map) {
+        width = (size['x'] as num?)?.toDouble() ?? 0;
+        height = (size['y'] as num?)?.toDouble() ?? 0;
+      }
+
+      // Try boundingBox as fallback
+      if (width <= 0 || height <= 0) {
+        final bbox = node['boundingBox'];
+        if (bbox is Map) {
+          x = (bbox['x'] as num?)?.toDouble() ?? x;
+          y = (bbox['y'] as num?)?.toDouble() ?? y;
+          width = (bbox['width'] as num?)?.toDouble() ?? 0;
+          height = (bbox['height'] as num?)?.toDouble() ?? 0;
+        }
+      }
+
+      if (width > 0 && height > 0) {
+        minX = minX < x ? minX : x;
+        minY = minY < y ? minY : y;
+        maxX = maxX > (x + width) ? maxX : (x + width);
+        maxY = maxY > (y + height) ? maxY : (y + height);
+        nodeCount++;
+      }
+    }
+
+    if (nodeCount > 0 && minX.isFinite && minY.isFinite) {
+      _contentBounds = Rect.fromLTRB(minX, minY, maxX, maxY);
+      debugPrint('TileCanvas: Content bounds = $_contentBounds ($nodeCount top-level frames)');
+    } else {
+      debugPrint('TileCanvas: No valid content bounds found (${children.length} children checked)');
+    }
+  }
+
+  /// Set initial transform to center on content
+  void _setInitialTransform(Size screenSize) {
+    if (_initialTransformSet || _contentBounds == null) return;
+    _initialTransformSet = true;
+
+    final bounds = _contentBounds!;
+
+    // Calculate scale to fit content with padding
+    // Use more padding (400px) to ensure content fits comfortably
+    final scaleX = screenSize.width / (bounds.width + 400);
+    final scaleY = screenSize.height / (bounds.height + 400);
+    // Allow zooming out to 1% minimum for very large canvases
+    final scale = (scaleX < scaleY ? scaleX : scaleY).clamp(0.01, 2.0);
+    debugPrint('TileCanvas: Content bounds = $bounds, screenSize = $screenSize');
+    debugPrint('TileCanvas: scaleX=$scaleX, scaleY=$scaleY, chosen=${scaleX < scaleY ? scaleX : scaleY}, clamped=$scale');
+
+    // Calculate translation to center content
+    final contentCenterX = bounds.left + bounds.width / 2;
+    final contentCenterY = bounds.top + bounds.height / 2;
+    final screenCenterX = screenSize.width / 2;
+    final screenCenterY = screenSize.height / 2;
+
+    final translateX = screenCenterX - contentCenterX * scale;
+    final translateY = screenCenterY - contentCenterY * scale;
+
+    final matrix = Matrix4.identity();
+    matrix.setEntry(0, 0, scale);
+    matrix.setEntry(1, 1, scale);
+    matrix.setEntry(0, 3, translateX);
+    matrix.setEntry(1, 3, translateY);
+
+    _transformController.value = matrix;
+    debugPrint('TileCanvas: Initial transform set - scale=$scale, translate=($translateX, $translateY)');
   }
 
   @override
@@ -415,40 +602,417 @@ class TileCanvasState extends State<TileCanvas> {
     super.dispose();
   }
 
+  /// Capture current canvas as PNG for debugging
+  /// Returns the image bytes or null if capture fails
+  Future<List<int>?> captureDebugScreenshot() async {
+    try {
+      final boundary = _repaintBoundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        debugPrint('TileCanvas: Cannot capture - no render boundary found');
+        return null;
+      }
+
+      final image = await boundary.toImage(pixelRatio: 1.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        debugPrint('TileCanvas: Cannot capture - toByteData failed');
+        return null;
+      }
+
+      final bytes = byteData.buffer.asUint8List();
+      debugPrint('TileCanvas: Screenshot captured (${bytes.length} bytes, ${image.width}x${image.height})');
+      return bytes;
+    } catch (e) {
+      debugPrint('TileCanvas: Screenshot capture error - $e');
+      return null;
+    }
+  }
+
+  /// Save screenshot to temp file and return path
+  Future<String?> saveDebugScreenshot([String? prefix]) async {
+    final bytes = await captureDebugScreenshot();
+    if (bytes == null) return null;
+
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filename = '${prefix ?? 'tile_debug'}_$timestamp.png';
+      final tempDir = '/tmp';
+      final path = '$tempDir/$filename';
+
+      await io.File(path).writeAsBytes(bytes);
+      debugPrint('TileCanvas: Screenshot saved to $path');
+      return path;
+    } catch (e) {
+      debugPrint('TileCanvas: Screenshot save error - $e');
+      return null;
+    }
+  }
+
+  void _onTileRendered(TileCoord coord, ui.Image image) {
+    // Just increment counter to trigger rebuild - don't store image reference
+    setState(() {
+      _tileUpdateCount++;
+    });
+  }
+
+  /// Get the tile cache directly from TileManager
+  Map<TileCoord, ui.Image> get _tileCache =>
+      _tileManagerState?._tileCache ?? {};
+
   /// Get tile manager state
-  TileManagerState? get tileManager => _tileManagerKey.currentState;
+  TileManagerState? get tileManager => _tileManagerState;
 
   /// Switch backend type
   void setBackendType(TileBackendType type) {
-    _tileManagerKey.currentState?.setBackendType(type);
+    _tileManagerState?.setBackendType(type);
   }
 
   @override
   Widget build(BuildContext context) {
-    return InteractiveViewer.builder(
-      transformationController: _transformController,
-      minScale: widget.minScale,
-      maxScale: widget.maxScale,
-      boundaryMargin: const EdgeInsets.all(double.infinity),
-      builder: (context, quad) {
-        return Stack(
-          children: [
-            TileManager(
-              key: _tileManagerKey,
-              document: widget.document,
-              rootNodeId: widget.rootNodeId,
-              transformController: _transformController,
-              config: widget.config,
-              onBoundsCalculated: widget.onBoundsCalculated,
-              onBackendChanged: widget.onBackendChanged,
-            ),
-            if (widget.overlayBuilder != null &&
-                _tileManagerKey.currentState != null)
-              widget.overlayBuilder!(context, _tileManagerKey.currentState!),
-          ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _screenSize = Size(
+          constraints.maxWidth.isFinite ? constraints.maxWidth : 800,
+          constraints.maxHeight.isFinite ? constraints.maxHeight : 600,
+        );
+
+        // Set initial transform to center on content (only once)
+        _setInitialTransform(_screenSize);
+
+        return Container(
+          color: const Color(0xFF1A1A2E),
+          child: Stack(
+            children: [
+              // Gesture detector for pan/zoom that updates our transform
+              GestureDetector(
+                onScaleStart: _onScaleStart,
+                onScaleUpdate: _onScaleUpdate,
+                child: MouseRegion(
+                  child: Listener(
+                    onPointerSignal: _onPointerSignal,
+                    child: ClipRect(
+                      // AnimatedBuilder for efficient repaints on transform changes
+                      child: AnimatedBuilder(
+                        animation: _transformController,
+                        builder: (context, child) {
+                          return RepaintBoundary(
+                            key: _repaintBoundaryKey,
+                            child: CustomPaint(
+                              painter: _ViewportTilePainter(
+                                transform: _transformController.value,
+                                screenSize: _screenSize,
+                                tileCache: _tileCache,
+                                onTileNeeded: (coord) {
+                                  if (_tileManagerState != null) {
+                                    _tileManagerState!._requestTile(coord);
+                                  } else {
+                                    // Queue request until backend is ready
+                                    _pendingTileRequests.add(coord);
+                                  }
+                                },
+                              ),
+                              size: _screenSize,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // The TileManager (handles backend and caching)
+              // Uses ValueKey to force recreation when page changes
+              Offstage(
+                child: TileManager(
+                  key: ValueKey('tile_manager_${widget.rootNodeId}'),
+                  document: widget.document,
+                  rootNodeId: widget.rootNodeId,
+                  transformController: _transformController,
+                  config: widget.config,
+                  onBoundsCalculated: widget.onBoundsCalculated,
+                  onBackendChanged: widget.onBackendChanged,
+                  onTileRendered: _onTileRendered,
+                  onStateReady: (state) {
+                    _tileManagerState = state;
+                    // Process any tile requests that were queued before backend was ready
+                    if (_pendingTileRequests.isNotEmpty) {
+                      debugPrint('TileCanvas: Processing ${_pendingTileRequests.length} pending tile requests');
+                      for (final coord in _pendingTileRequests) {
+                        state._requestTile(coord);
+                      }
+                      _pendingTileRequests.clear();
+                    }
+                    // Trigger a repaint now that the backend is ready
+                    // This ensures tiles are requested on initial load
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() {});
+                    });
+                  },
+                  screenSize: _screenSize,
+                ),
+              ),
+
+              // Debug overlay - wrapped in AnimatedBuilder for efficient updates
+              Positioned(
+                top: 60,
+                right: 10,
+                child: AnimatedBuilder(
+                  animation: _transformController,
+                  builder: (context, _) => Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: _buildDebugInfo(),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
+  }
+
+  Offset? _lastFocalPoint;
+  double _startScale = 1.0;
+
+  void _onScaleStart(ScaleStartDetails details) {
+    _lastFocalPoint = details.localFocalPoint;
+    _startScale = _transformController.value.getMaxScaleOnAxis();
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    final matrix = _transformController.value.clone();
+    final storage = matrix.storage;
+
+    // Apply pan (translation) - directly in screen coordinates
+    if (_lastFocalPoint != null) {
+      final delta = details.localFocalPoint - _lastFocalPoint!;
+      // Add delta directly to translation (screen-space panning)
+      storage[12] += delta.dx;
+      storage[13] += delta.dy;
+    }
+
+    // Apply scale around focal point
+    if (details.scale != 1.0) {
+      final focalPoint = details.localFocalPoint;
+      final newScale = (_startScale * details.scale).clamp(0.01, 10.0);
+      final currentScale = matrix.getMaxScaleOnAxis();
+      final scaleChange = newScale / currentScale;
+
+      // Scale around focal point
+      storage[12] = focalPoint.dx - (focalPoint.dx - storage[12]) * scaleChange;
+      storage[13] = focalPoint.dy - (focalPoint.dy - storage[13]) * scaleChange;
+      storage[0] *= scaleChange;
+      storage[5] *= scaleChange;
+    }
+
+    // Just update the controller - the AnimatedBuilder will handle repaints efficiently
+    _transformController.value = matrix;
+    _lastFocalPoint = details.localFocalPoint;
+    // NO setState - let AnimatedBuilder handle repaint
+  }
+
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is PointerScrollEvent) {
+      final scaleFactor = event.scrollDelta.dy > 0 ? 0.9 : 1.1;
+      final matrix = _transformController.value.clone();
+      final storage = matrix.storage;
+      final focalPoint = event.localPosition;
+
+      // Scale around focal point using screen-space math (same as _onScaleUpdate)
+      final currentScale = matrix.getMaxScaleOnAxis();
+      final newScale = (currentScale * scaleFactor).clamp(0.01, 10.0);
+      final scaleChange = newScale / currentScale;
+
+      storage[12] = focalPoint.dx - (focalPoint.dx - storage[12]) * scaleChange;
+      storage[13] = focalPoint.dy - (focalPoint.dy - storage[13]) * scaleChange;
+      storage[0] *= scaleChange;
+      storage[5] *= scaleChange;
+
+      _transformController.value = matrix;
+    }
+  }
+
+  Widget _buildDebugInfo() {
+    final scale = _transformController.value.getMaxScaleOnAxis();
+    final lod = _calculateLOD(scale);
+    final translation = _transformController.value.getTranslation();
+    final cacheSize = _tileCache.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Scale: ${scale.toStringAsFixed(2)}x',
+             style: TextStyle(color: Colors.lime.shade300, fontSize: 11)),
+        Text('LOD: $lod',
+             style: TextStyle(color: Colors.cyan.shade300, fontSize: 11)),
+        Text('Pos: (${translation.x.toInt()}, ${translation.y.toInt()})',
+             style: TextStyle(color: Colors.orange.shade300, fontSize: 11)),
+        Text('Cache: $cacheSize tiles',
+             style: TextStyle(color: Colors.purple.shade300, fontSize: 11)),
+        Text('Updates: $_tileUpdateCount',
+             style: TextStyle(color: Colors.pink.shade300, fontSize: 11)),
+      ],
+    );
+  }
+
+  /// Calculate LOD - 2 levels only
+  /// LOD 0: High detail (scale >= 0.5)
+  /// LOD 1: Low detail (scale < 0.5)
+  int _calculateLOD(double scale) {
+    return scale >= 0.5 ? 0 : 1;
+  }
+}
+
+/// Painter that renders tiles based on current viewport
+class _ViewportTilePainter extends CustomPainter {
+  final Matrix4 transform;
+  final Size screenSize;
+  final Map<TileCoord, ui.Image> tileCache;
+  final void Function(TileCoord) onTileNeeded;
+  final bool showDebugPlaceholders;
+
+  // Cached Paint objects for performance (avoid allocations during paint)
+  static final _imagePaint = Paint()..filterQuality = FilterQuality.medium;
+  static final _borderPaint = Paint()
+    ..color = Colors.cyan.withValues(alpha: 0.5)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1;
+  static final _evenTilePaint = Paint()..color = const Color(0xFF2A2A3E);
+  static final _oddTilePaint = Paint()..color = const Color(0xFF3A3A4E);
+
+  _ViewportTilePainter({
+    required this.transform,
+    required this.screenSize,
+    required this.tileCache,
+    required this.onTileNeeded,
+    this.showDebugPlaceholders = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = transform.getMaxScaleOnAxis();
+    final translation = transform.getTranslation();
+
+    // Calculate LOD based on zoom
+    final lod = _calculateLOD(scale);
+    final lodScale = 1 << lod;  // 2^lod
+    final tileWorldSize = kTileSize * lodScale;
+
+    // Calculate visible world area
+    final worldX = -translation.x / scale;
+    final worldY = -translation.y / scale;
+    final worldWidth = size.width / scale;
+    final worldHeight = size.height / scale;
+
+    // Calculate visible tile range
+    final minTx = (worldX / tileWorldSize).floor();
+    final minTy = (worldY / tileWorldSize).floor();
+    final maxTx = ((worldX + worldWidth) / tileWorldSize).ceil();
+    final maxTy = ((worldY + worldHeight) / tileWorldSize).ceil();
+
+    // Draw each visible tile
+    for (var tx = minTx; tx <= maxTx; tx++) {
+      for (var ty = minTy; ty <= maxTy; ty++) {
+        final coord = TileCoord(tx, ty, lod);
+
+        // Calculate screen position
+        final worldLeft = tx * tileWorldSize;
+        final worldTop = ty * tileWorldSize;
+        final screenLeft = worldLeft * scale + translation.x;
+        final screenTop = worldTop * scale + translation.y;
+        final screenSize = tileWorldSize * scale;
+
+        final screenRect = Rect.fromLTWH(screenLeft, screenTop, screenSize, screenSize);
+
+        // Draw tile content or placeholder
+        if (tileCache.containsKey(coord)) {
+          final image = tileCache[coord];
+          // Validate image before drawing
+          if (image != null && image.width > 0 && image.height > 0) {
+            try {
+              canvas.drawImageRect(
+                image,
+                Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+                screenRect,
+                _imagePaint,  // Use cached Paint
+              );
+            } catch (e) {
+              // Image might be disposed, draw placeholder instead
+              _drawPlaceholder(canvas, screenRect, coord, lod);
+            }
+          } else {
+            _drawPlaceholder(canvas, screenRect, coord, lod);
+          }
+        } else {
+          _drawPlaceholder(canvas, screenRect, coord, lod);
+          onTileNeeded(coord);
+        }
+      }
+    }
+  }
+
+  // LOD tint paints (cached)
+  static final _lodTintPaints = [
+    Paint()..color = Colors.blue.withValues(alpha: 0.2),
+    Paint()..color = Colors.green.withValues(alpha: 0.2),
+    Paint()..color = Colors.orange.withValues(alpha: 0.2),
+    Paint()..color = Colors.red.withValues(alpha: 0.2),
+  ];
+
+  void _drawPlaceholder(Canvas canvas, Rect rect, TileCoord coord, int lod) {
+    // Always draw a basic placeholder background for loading tiles
+    // This prevents a blank/purple screen while tiles load
+    final isEven = (coord.x + coord.y) % 2 == 0;
+    canvas.drawRect(rect, isEven ? _evenTilePaint : _oddTilePaint);
+
+    // Only show debug overlay if enabled
+    if (!showDebugPlaceholders) return;
+
+    // LOD tint overlay - use cached paint
+    canvas.drawRect(rect, _lodTintPaints[lod % _lodTintPaints.length]);
+
+    // Border - use cached paint
+    canvas.drawRect(rect, _borderPaint);
+
+    // Label (only if tile is large enough)
+    if (rect.width > 50) {
+      final paragraphBuilder = ui.ParagraphBuilder(ui.ParagraphStyle(
+        textAlign: TextAlign.center,
+      ))
+        ..pushStyle(ui.TextStyle(
+          color: Colors.yellow,
+          fontSize: rect.width > 100 ? 12 : 8,
+        ))
+        ..addText('(${coord.x},${coord.y})\nz$lod');
+
+      final paragraph = paragraphBuilder.build()
+        ..layout(ui.ParagraphConstraints(width: rect.width));
+
+      canvas.drawParagraph(
+        paragraph,
+        Offset(rect.left, rect.center.dy - 12),
+      );
+    }
+  }
+
+  /// Calculate LOD - 2 levels only
+  /// LOD 0: High detail (scale >= 0.5)
+  /// LOD 1: Low detail (scale < 0.5)
+  int _calculateLOD(double scale) {
+    return scale >= 0.5 ? 0 : 1;
+  }
+
+  @override
+  bool shouldRepaint(covariant _ViewportTilePainter oldDelegate) {
+    return transform != oldDelegate.transform ||
+           tileCache.length != oldDelegate.tileCache.length;
   }
 }
 

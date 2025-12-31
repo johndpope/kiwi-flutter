@@ -142,6 +142,14 @@ flutter test test/fig_file_test.dart   # Figma file tests
 2. Create new widget class following the pattern of existing widgets
 3. Extract properties from `FigmaNodeProperties`
 
+### Updating Tile Backend Renderer
+
+When updating `tile_backend.dart`, use the **decorator pattern** - reference the implementation in `node_renderer.dart` as the source of truth and port matching functionality to maintain parity. Key areas:
+- `_renderVector` - SVG path parsing from `fillGeometry`/`strokeGeometry`
+- `_renderRect`, `_renderEllipse` - fills, strokes, corner radii
+- `_createPaint` - gradients, solid colors, image fills
+- Effects: drop shadows, inner shadows, blur
+
 ### Debugging Figma File Parsing
 
 ```dart

@@ -11,6 +11,7 @@ import 'node_renderer.dart';
 import 'state/state.dart';
 import 'editing/editing.dart';
 import 'ui/design_panel/design_panel.dart';
+import 'tiles/tiles.dart';
 // REMOVED: selection_overlay.dart - redundant, functionality now in _CanvasSelectionPainter below
 
 // Figma's exact colors
@@ -227,6 +228,12 @@ class FigmaCanvasView extends StatefulWidget {
   final double? initialViewportWidth;
   final double? initialViewportHeight;
 
+  /// Whether to use tile-based rendering (high-performance mode)
+  final bool useTileRenderer;
+
+  /// Callback when tile renderer toggle changes
+  final ValueChanged<bool>? onTileRendererChanged;
+
   const FigmaCanvasView({
     super.key,
     required this.document,
@@ -237,6 +244,8 @@ class FigmaCanvasView extends StatefulWidget {
     this.imagesDirectory,
     this.initialViewportWidth,
     this.initialViewportHeight,
+    this.useTileRenderer = false,
+    this.onTileRendererChanged,
   });
 
   @override
@@ -299,12 +308,18 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
   // Page sorting state
   bool _sortPagesAlphabetically = false;
 
+  // Tile rendering state
+  late bool _useTileRenderer;
+  TileBackendType _tileBackendType = TileBackendType.rust;
+  final GlobalKey<TileCanvasState> _tileCanvasKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
     _currentPageIndex = widget.initialPageIndex;
     _transformController = TransformationController();
     _documentState = DocumentState();
+    _useTileRenderer = widget.useTileRenderer;
     _initializeDocumentState();
     _snapEngine = SnapEngine(
       config: const SnapConfig(
@@ -315,8 +330,8 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
       ),
     );
 
-    // DEBUG: Auto-navigate to C.04 Thumbnail page if it exists
-    _navigateToPageByName('C.04');
+    // DEBUG: Auto-navigate to C.03 App Logos page if it exists
+    _navigateToPageByName('C.03');
   }
 
   /// Navigate to a page by name (partial match, case-insensitive)
@@ -351,6 +366,16 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
       rootNodeIds: rootNodeIds,
       documentName: widget.document.documentNode?['name'] as String?,
     );
+  }
+
+  @override
+  void didUpdateWidget(FigmaCanvasView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.useTileRenderer != widget.useTileRenderer) {
+      setState(() {
+        _useTileRenderer = widget.useTileRenderer;
+      });
+    }
   }
 
   @override
@@ -2660,6 +2685,21 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
 
   // ============ CANVAS ============
   Widget _buildCanvas() {
+    // Use IndexedStack to keep both canvases mounted but show only one
+    // This avoids widget tree reconciliation issues when switching modes
+    return IndexedStack(
+      index: _useTileRenderer ? 0 : 1,
+      children: [
+        // Index 0: Tile canvas
+        _buildTileCanvas(),
+        // Index 1: Normal canvas
+        _buildNormalCanvas(),
+      ],
+    );
+  }
+
+  /// Build the normal (widget-based) canvas
+  Widget _buildNormalCanvas() {
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {
@@ -2905,6 +2945,102 @@ class _FigmaCanvasViewState extends State<FigmaCanvasView> {
         ],
       ),
       ),
+    );
+  }
+
+  /// Build tile-based canvas for high-performance rendering
+  Widget _buildTileCanvas() {
+    final pages = widget.document.pages;
+    final rootNodeId = pages.isNotEmpty
+        ? pages[_currentPageIndex]['_guidKey'] as String? ?? '0:0'
+        : '0:0';
+
+    return Stack(
+      children: [
+        // Tile canvas
+        TileCanvas(
+          key: _tileCanvasKey,
+          document: widget.document,
+          rootNodeId: rootNodeId,
+          config: TileManagerConfig(
+            showDebugOverlay: true,
+            showTileBounds: true,
+            backendType: _tileBackendType,
+          ),
+          onBackendChanged: (type) {
+            setState(() => _tileBackendType = type);
+          },
+        ),
+
+        // Tile rendering controls overlay
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2C2C2C),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF444444)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Toggle back to standard renderer
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.grid_view, color: Colors.white70, size: 16),
+                    const SizedBox(width: 8),
+                    const Text('Tile Mode', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: _useTileRenderer,
+                      onChanged: (v) {
+                        setState(() => _useTileRenderer = v);
+                        widget.onTileRendererChanged?.call(v);
+                      },
+                      activeColor: const Color(0xFF0D99FF),
+                    ),
+                  ],
+                ),
+                // Backend selection
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Backend: ', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                    ChoiceChip(
+                      label: const Text('Rust', style: TextStyle(fontSize: 11)),
+                      selected: _tileBackendType == TileBackendType.rust,
+                      onSelected: (s) {
+                        if (s) {
+                          setState(() => _tileBackendType = TileBackendType.rust);
+                          _tileCanvasKey.currentState?.setBackendType(TileBackendType.rust);
+                        }
+                      },
+                      selectedColor: const Color(0xFF0D99FF),
+                    ),
+                    const SizedBox(width: 4),
+                    ChoiceChip(
+                      label: const Text('Dart', style: TextStyle(fontSize: 11)),
+                      selected: _tileBackendType == TileBackendType.dart,
+                      onSelected: (s) {
+                        if (s) {
+                          setState(() => _tileBackendType = TileBackendType.dart);
+                          _tileCanvasKey.currentState?.setBackendType(TileBackendType.dart);
+                        }
+                      },
+                      selectedColor: const Color(0xFF0D99FF),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

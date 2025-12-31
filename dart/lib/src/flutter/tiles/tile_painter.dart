@@ -29,13 +29,13 @@ class TilePainter extends CustomPainter {
 
   /// Paint for tile borders in debug mode
   static final _debugBorderPaint = Paint()
-    ..color = Colors.red.withValues(alpha: 0.5)
+    ..color = Colors.cyan
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 2.0;
+    ..strokeWidth = 3.0;
 
-  /// Paint for placeholder tiles
+  /// Paint for placeholder tiles - use a checkerboard pattern
   static final _placeholderPaint = Paint()
-    ..color = const Color(0xFF3A3A3A);
+    ..color = const Color(0xFF2A2A2A);
 
   /// Text style for debug info
   static final _debugTextStyle = ui.TextStyle(
@@ -53,6 +53,12 @@ class TilePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Draw background
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = const Color(0xFF1A1A1A),
+    );
+
     final visibleTiles = getVisibleTiles(viewport);
     final requestedTiles = <TileCoord>{};
 
@@ -87,6 +93,31 @@ class TilePainter extends CustomPainter {
     }
   }
 
+  /// Draw a visible debug grid pattern
+  void _drawDebugGrid(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = Colors.blue.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    const gridSize = 100.0;
+    for (var x = 0.0; x < size.width; x += gridSize) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+    for (var y = 0.0; y < size.height; y += gridSize) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Draw center crosshair
+    final centerPaint = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final center = Offset(size.width / 2, size.height / 2);
+    canvas.drawLine(center - const Offset(50, 0), center + const Offset(50, 0), centerPaint);
+    canvas.drawLine(center - const Offset(0, 50), center + const Offset(0, 50), centerPaint);
+  }
+
   Rect _worldRectToScreen(Rect worldRect) {
     final translation = transform.getTranslation();
     final scale = transform.getMaxScaleOnAxis();
@@ -100,21 +131,44 @@ class TilePainter extends CustomPainter {
   }
 
   void _drawPlaceholder(Canvas canvas, Rect bounds, TileCoord coord) {
-    // Draw a subtle placeholder rectangle
-    canvas.drawRect(bounds, _placeholderPaint);
+    // Checkerboard color based on tile position
+    final isEven = (coord.x + coord.y) % 2 == 0;
+    final bgColor = isEven ? const Color(0xFF333333) : const Color(0xFF444444);
 
-    // Draw loading indicator pattern
-    final centerX = bounds.center.dx;
-    final centerY = bounds.center.dy;
-    final radius = bounds.shortestSide * 0.1;
+    // Draw background
+    canvas.drawRect(bounds, Paint()..color = bgColor);
 
-    canvas.drawCircle(
-      Offset(centerX, centerY),
-      radius,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.1)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
+    // Draw visible grid pattern inside tile
+    final gridPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.1)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    const gridSize = 50.0;
+    for (var x = bounds.left; x < bounds.right; x += gridSize) {
+      canvas.drawLine(Offset(x, bounds.top), Offset(x, bounds.bottom), gridPaint);
+    }
+    for (var y = bounds.top; y < bounds.bottom; y += gridSize) {
+      canvas.drawLine(Offset(bounds.left, y), Offset(bounds.right, y), gridPaint);
+    }
+
+    // Draw tile coordinate in center
+    final paragraphBuilder = ui.ParagraphBuilder(ui.ParagraphStyle(
+      textAlign: TextAlign.center,
+    ))
+      ..pushStyle(ui.TextStyle(
+        color: Colors.yellow,
+        fontSize: 16,
+        fontWeight: ui.FontWeight.bold,
+      ))
+      ..addText('TILE\n(${coord.x}, ${coord.y})\nz${coord.zoomLevel}');
+
+    final paragraph = paragraphBuilder.build()
+      ..layout(ui.ParagraphConstraints(width: bounds.width));
+
+    canvas.drawParagraph(
+      paragraph,
+      Offset(bounds.left, bounds.center.dy - 30),
     );
   }
 
