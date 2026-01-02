@@ -4,7 +4,9 @@
 /// managing tile caching and async tile generation.
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io' as io;
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +14,45 @@ import 'package:flutter/rendering.dart';
 import 'viewport.dart';
 import 'tile_painter.dart';
 import 'tile_backend.dart';
+
+/// Priority levels for tile requests
+enum TilePriority {
+  critical,   // Center of viewport - render immediately
+  high,       // Visible tiles - render soon
+  medium,     // Adjacent prefetch tiles - render when idle
+  low,        // Far prefetch tiles - render last
+}
+
+/// A tile render request with priority and distance info
+class TileRequest implements Comparable<TileRequest> {
+  final TileCoord coord;
+  final TilePriority priority;
+  final double distanceFromCenter;
+  final DateTime requestTime;
+
+  TileRequest({
+    required this.coord,
+    required this.priority,
+    required this.distanceFromCenter,
+  }) : requestTime = DateTime.now();
+
+  @override
+  int compareTo(TileRequest other) {
+    // Sort by priority first (lower index = higher priority)
+    final priorityCompare = priority.index.compareTo(other.priority.index);
+    if (priorityCompare != 0) return priorityCompare;
+    // Then by distance (closer = higher priority)
+    return distanceFromCenter.compareTo(other.distanceFromCenter);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TileRequest && coord == other.coord;
+
+  @override
+  int get hashCode => coord.hashCode;
+}
 
 /// Configuration for the tile manager
 class TileManagerConfig {
@@ -30,12 +71,20 @@ class TileManagerConfig {
   /// Which backend to use
   final TileBackendType backendType;
 
+  /// Number of tile rings to prefetch beyond visible viewport
+  final int prefetchRings;
+
+  /// Maximum concurrent tile renders
+  final int maxConcurrentRenders;
+
   const TileManagerConfig({
     this.maxCachedTiles = 128,
     this.showDebugOverlay = false,
     this.showTileBounds = false,
     this.viewportDebounce = const Duration(milliseconds: 16),
     this.backendType = TileBackendType.rust,
+    this.prefetchRings = 1,
+    this.maxConcurrentRenders = 4,
   });
 
   TileManagerConfig copyWith({
@@ -44,6 +93,8 @@ class TileManagerConfig {
     bool? showTileBounds,
     Duration? viewportDebounce,
     TileBackendType? backendType,
+    int? prefetchRings,
+    int? maxConcurrentRenders,
   }) {
     return TileManagerConfig(
       maxCachedTiles: maxCachedTiles ?? this.maxCachedTiles,
@@ -51,6 +102,8 @@ class TileManagerConfig {
       showTileBounds: showTileBounds ?? this.showTileBounds,
       viewportDebounce: viewportDebounce ?? this.viewportDebounce,
       backendType: backendType ?? this.backendType,
+      prefetchRings: prefetchRings ?? this.prefetchRings,
+      maxConcurrentRenders: maxConcurrentRenders ?? this.maxConcurrentRenders,
     );
   }
 }
@@ -109,11 +162,16 @@ class TileManagerState extends State<TileManager> {
   /// Cache of rendered tile images
   final Map<TileCoord, ui.Image> _tileCache = {};
 
-  /// Set of tiles currently being rendered
-  final Set<TileCoord> _pendingTiles = {};
+  /// Priority queue for tile requests (sorted by priority then distance)
+  final SplayTreeSet<TileRequest> _requestQueue = SplayTreeSet();
+
+  /// Map for quick lookup of pending tiles
+  final Map<TileCoord, TileRequest> _pendingTiles = {};
+
+  /// Number of tiles currently being rendered
+  int _activeRenders = 0;
 
   /// Last calculated viewport (reserved for viewport change detection)
-  // ignore: unused_field
   WorldViewport? _lastViewport;
 
   /// Timer for viewport change debouncing
@@ -131,6 +189,12 @@ class TileManagerState extends State<TileManager> {
 
   /// Counter to force rebuilds when cache is invalidated
   int _updateCounter = 0;
+
+  /// Get queue depth for debugging
+  int get queueDepth => _requestQueue.length;
+
+  /// Get active render count for debugging
+  int get activeRenders => _activeRenders;
 
   @override
   void initState() {
@@ -183,7 +247,9 @@ class TileManagerState extends State<TileManager> {
           debugPrint('TileManager: Cache invalidated, clearing tile cache and re-rendering');
           // Clear our local tile cache so tiles are re-requested with new images
           _disposeCache();
+          _requestQueue.clear();
           _pendingTiles.clear();
+          _activeRenders = 0;
           setState(() {
             _updateCounter++;  // Force rebuild
           });
@@ -255,23 +321,69 @@ class TileManagerState extends State<TileManager> {
 
   void _clearCache() {
     _disposeCache();
+    _requestQueue.clear();
     _pendingTiles.clear();
+    _activeRenders = 0;
     _cacheHits = 0;
     _cacheMisses = 0;
     _backend.clearCache();
   }
 
-  /// Request a tile to be rendered
+  /// Request a tile to be rendered (legacy method - wraps priority version)
   Future<void> _requestTile(TileCoord coord) async {
+    // Use default high priority for direct requests
+    _requestTileWithPriority(coord, TilePriority.high, Offset.zero);
+  }
+
+  /// Request a tile with priority and distance info
+  void _requestTileWithPriority(
+    TileCoord coord,
+    TilePriority priority,
+    Offset viewportCenter,
+  ) {
     // Don't request if already pending or cached
-    if (_pendingTiles.contains(coord) || _tileCache.containsKey(coord)) {
+    if (_pendingTiles.containsKey(coord) || _tileCache.containsKey(coord)) {
       _cacheHits++;
       return;
     }
 
-    _pendingTiles.add(coord);
     _cacheMisses++;
 
+    // Calculate distance from viewport center
+    final tileBounds = coord.bounds;
+    final tileCenter = tileBounds.center;
+    final distance = sqrt(
+      pow(tileCenter.dx - viewportCenter.dx, 2) +
+      pow(tileCenter.dy - viewportCenter.dy, 2),
+    );
+
+    final request = TileRequest(
+      coord: coord,
+      priority: priority,
+      distanceFromCenter: distance,
+    );
+
+    _requestQueue.add(request);
+    _pendingTiles[coord] = request;
+
+    // Process the queue
+    _processQueue();
+  }
+
+  /// Process pending tile requests respecting concurrency limit
+  void _processQueue() {
+    while (_activeRenders < widget.config.maxConcurrentRenders &&
+           _requestQueue.isNotEmpty) {
+      final request = _requestQueue.first;
+      _requestQueue.remove(request);
+      _activeRenders++;
+
+      _renderTileAsync(request.coord);
+    }
+  }
+
+  /// Render a tile asynchronously
+  Future<void> _renderTileAsync(TileCoord coord) async {
     try {
       final result = await _backend.renderTile(coord);
 
@@ -280,18 +392,19 @@ class TileManagerState extends State<TileManager> {
         _evictIfNeeded();
 
         _tileCache[coord] = result.image;
-        _pendingTiles.remove(coord);
 
         // Notify parent that a tile was rendered
         widget.onTileRendered?.call(coord, result.image);
 
         setState(() {});
-      } else if (result == null) {
-        _pendingTiles.remove(coord);
       }
     } catch (e) {
       debugPrint('TileManager: Error rendering tile $coord - $e');
+    } finally {
       _pendingTiles.remove(coord);
+      _activeRenders--;
+      // Process next tile in queue
+      _processQueue();
     }
   }
 
@@ -314,6 +427,121 @@ class TileManagerState extends State<TileManager> {
     }
   }
 
+  /// Request visible and prefetch tiles with proper priority
+  void requestTilesForViewport(WorldViewport viewport, Size screenSize) {
+    final viewportCenter = Offset(
+      viewport.x + viewport.width / 2,
+      viewport.y + viewport.height / 2,
+    );
+
+    final lod = viewport.lod;
+    final tileSize = viewport.effectiveTileSize;
+
+    // Calculate visible tile range
+    final minTx = (viewport.x / tileSize).floor();
+    final minTy = (viewport.y / tileSize).floor();
+    final maxTx = ((viewport.x + viewport.width) / tileSize).ceil();
+    final maxTy = ((viewport.y + viewport.height) / tileSize).ceil();
+
+    // Calculate viewport diagonal for priority thresholds
+    final viewportDiagonal = sqrt(
+      pow(screenSize.width, 2) + pow(screenSize.height, 2),
+    );
+
+    // Request visible tiles with appropriate priority
+    for (var tx = minTx; tx <= maxTx; tx++) {
+      for (var ty = minTy; ty <= maxTy; ty++) {
+        final coord = TileCoord(tx, ty, lod);
+        final priority = _calculateVisibleTilePriority(
+          coord, viewportCenter, viewportDiagonal,
+        );
+        _requestTileWithPriority(coord, priority, viewportCenter);
+      }
+    }
+
+    // Request prefetch tiles with lower priority
+    if (widget.config.prefetchRings > 0) {
+      _requestPrefetchTiles(
+        minTx, minTy, maxTx, maxTy, lod, viewportCenter,
+      );
+    }
+  }
+
+  /// Calculate priority for a visible tile based on distance from center
+  TilePriority _calculateVisibleTilePriority(
+    TileCoord coord,
+    Offset viewportCenter,
+    double viewportDiagonal,
+  ) {
+    final tileBounds = coord.bounds;
+    final tileCenter = tileBounds.center;
+    final distance = sqrt(
+      pow(tileCenter.dx - viewportCenter.dx, 2) +
+      pow(tileCenter.dy - viewportCenter.dy, 2),
+    );
+
+    // Center 25% of viewport = critical priority
+    if (distance < viewportDiagonal * 0.25) {
+      return TilePriority.critical;
+    }
+    return TilePriority.high;
+  }
+
+  /// Request prefetch tiles around the visible area
+  void _requestPrefetchTiles(
+    int minTx, int minTy, int maxTx, int maxTy,
+    int lod, Offset viewportCenter,
+  ) {
+    for (int ring = 1; ring <= widget.config.prefetchRings; ring++) {
+      // Top and bottom edges
+      for (int tx = minTx - ring; tx <= maxTx + ring; tx++) {
+        _requestTileWithPriority(
+          TileCoord(tx, minTy - ring, lod),
+          TilePriority.medium,
+          viewportCenter,
+        );
+        _requestTileWithPriority(
+          TileCoord(tx, maxTy + ring, lod),
+          TilePriority.medium,
+          viewportCenter,
+        );
+      }
+      // Left and right edges (excluding corners already done)
+      for (int ty = minTy - ring + 1; ty <= maxTy + ring - 1; ty++) {
+        _requestTileWithPriority(
+          TileCoord(minTx - ring, ty, lod),
+          TilePriority.medium,
+          viewportCenter,
+        );
+        _requestTileWithPriority(
+          TileCoord(maxTx + ring, ty, lod),
+          TilePriority.medium,
+          viewportCenter,
+        );
+      }
+    }
+  }
+
+  /// Count how many prefetch tiles would be requested for the current viewport
+  int _countPrefetchTiles(WorldViewport viewport) {
+    if (widget.config.prefetchRings <= 0) return 0;
+
+    final tileSize = viewport.effectiveTileSize;
+    final minTx = (viewport.x / tileSize).floor();
+    final minTy = (viewport.y / tileSize).floor();
+    final maxTx = ((viewport.x + viewport.width) / tileSize).ceil();
+    final maxTy = ((viewport.y + viewport.height) / tileSize).ceil();
+
+    int count = 0;
+    for (int ring = 1; ring <= widget.config.prefetchRings; ring++) {
+      // Top and bottom edges
+      count += 2 * (maxTx - minTx + 1 + 2 * ring);
+      // Left and right edges (excluding corners already counted)
+      count += 2 * (maxTy - minTy + 1 + 2 * ring - 2);
+    }
+    return count;
+  }
+
   /// Get cache statistics
   Map<String, dynamic> getCacheStats() {
     return {
@@ -321,6 +549,10 @@ class TileManagerState extends State<TileManager> {
       'backendReady': _backend.isReady,
       'cachedTiles': _tileCache.length,
       'pendingTiles': _pendingTiles.length,
+      'queueDepth': _requestQueue.length,
+      'activeRenders': _activeRenders,
+      'maxConcurrent': widget.config.maxConcurrentRenders,
+      'prefetchRings': widget.config.prefetchRings,
       'maxTiles': widget.config.maxCachedTiles,
       'cacheHits': _cacheHits,
       'cacheMisses': _cacheMisses,
@@ -391,6 +623,11 @@ class TileManagerState extends State<TileManager> {
                 cachedTileCount: _tileCache.length,
                 maxTiles: widget.config.maxCachedTiles,
                 dirtyTiles: _pendingTiles.length,
+                queueDepth: _requestQueue.length,
+                activeRenders: _activeRenders,
+                maxConcurrentRenders: widget.config.maxConcurrentRenders,
+                prefetchRings: widget.config.prefetchRings,
+                prefetchTileCount: _countPrefetchTiles(viewport),
               ),
               size: screenSize,
             ),
@@ -862,11 +1099,15 @@ class TileCanvasState extends State<TileCanvas> {
     );
   }
 
-  /// Calculate LOD - 2 levels only
-  /// LOD 0: High detail (scale >= 0.5)
-  /// LOD 1: Low detail (scale < 0.5)
+  /// Calculate LOD using the 5-level system from viewport.dart
+  /// Uses the global thresholds but without hysteresis (for display only)
   int _calculateLOD(double scale) {
-    return scale >= 0.5 ? 0 : 1;
+    for (int i = 0; i < kLodScaleThresholds.length; i++) {
+      if (scale >= kLodScaleThresholds[i]) {
+        return i;
+      }
+    }
+    return kLodScaleThresholds.length - 1;
   }
 }
 
@@ -900,10 +1141,10 @@ class _ViewportTilePainter extends CustomPainter {
     final scale = transform.getMaxScaleOnAxis();
     final translation = transform.getTranslation();
 
-    // Calculate LOD based on zoom
+    // Calculate LOD based on zoom using the 5-level system
     final lod = _calculateLOD(scale);
-    final lodScale = 1 << lod;  // 2^lod
-    final tileWorldSize = kTileSize * lodScale;
+    final tileMultiplier = kLodTileMultipliers[lod.clamp(0, 4)];
+    final tileWorldSize = kTileSize * tileMultiplier;
 
     // Calculate visible world area
     final worldX = -translation.x / scale;
@@ -958,12 +1199,13 @@ class _ViewportTilePainter extends CustomPainter {
     }
   }
 
-  // LOD tint paints (cached)
+  // LOD tint paints (cached) - 5 levels
   static final _lodTintPaints = [
-    Paint()..color = Colors.blue.withValues(alpha: 0.2),
-    Paint()..color = Colors.green.withValues(alpha: 0.2),
-    Paint()..color = Colors.orange.withValues(alpha: 0.2),
-    Paint()..color = Colors.red.withValues(alpha: 0.2),
+    Paint()..color = Colors.red.withValues(alpha: 0.2),      // LOD 0: finest
+    Paint()..color = Colors.orange.withValues(alpha: 0.2),   // LOD 1
+    Paint()..color = Colors.yellow.withValues(alpha: 0.2),   // LOD 2: base
+    Paint()..color = Colors.green.withValues(alpha: 0.2),    // LOD 3
+    Paint()..color = Colors.blue.withValues(alpha: 0.2),     // LOD 4: coarsest
   ];
 
   void _drawPlaceholder(Canvas canvas, Rect rect, TileCoord coord, int lod) {
@@ -1002,11 +1244,15 @@ class _ViewportTilePainter extends CustomPainter {
     }
   }
 
-  /// Calculate LOD - 2 levels only
-  /// LOD 0: High detail (scale >= 0.5)
-  /// LOD 1: Low detail (scale < 0.5)
+  /// Calculate LOD using the 5-level system
+  /// Uses thresholds without hysteresis for painting
   int _calculateLOD(double scale) {
-    return scale >= 0.5 ? 0 : 1;
+    for (int i = 0; i < kLodScaleThresholds.length; i++) {
+      if (scale >= kLodScaleThresholds[i]) {
+        return i;
+      }
+    }
+    return kLodScaleThresholds.length - 1;
   }
 
   @override

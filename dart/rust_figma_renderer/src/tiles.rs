@@ -14,6 +14,26 @@ pub const TILE_SIZE: f64 = 1024.0;
 /// Maximum number of cached tiles (LRU eviction when exceeded)
 pub const MAX_CACHED_TILES: usize = 256;
 
+/// Scale thresholds for each LOD level (descending order)
+/// Must match kLodScaleThresholds in Dart viewport.dart
+pub const LOD_SCALE_THRESHOLDS: [f64; 5] = [
+    2.0,   // LOD 0: scale >= 2.0 (zoomed in, finest detail)
+    1.0,   // LOD 1: scale >= 1.0
+    0.5,   // LOD 2: scale >= 0.5 (base/default)
+    0.25,  // LOD 3: scale >= 0.25
+    0.0,   // LOD 4: scale < 0.25 (overview, coarsest)
+];
+
+/// Tile size multipliers relative to TILE_SIZE (1024)
+/// Must match kLodTileMultipliers in Dart viewport.dart
+pub const LOD_TILE_MULTIPLIERS: [f64; 5] = [
+    0.25,  // LOD 0: 256x256 tiles (fine detail when zoomed in)
+    0.5,   // LOD 1: 512x512 tiles
+    1.0,   // LOD 2: 1024x1024 tiles (base)
+    2.0,   // LOD 3: 2048x2048 tiles
+    4.0,   // LOD 4: 4096x4096 tiles (coarse for overview)
+];
+
 /// Tile coordinate in grid space
 #[derive(Clone, Copy, Hash, Eq, PartialEq, Debug)]
 pub struct TileCoord {
@@ -29,9 +49,10 @@ impl TileCoord {
     }
 
     /// Get the world-space bounds of this tile
+    /// Uses LOD_TILE_MULTIPLIERS for the 5-level LOD system
     pub fn bounds(&self) -> RectInfo {
-        let scale = 2.0_f64.powi(self.zoom_level as i32);
-        let tile_size = TILE_SIZE * scale;
+        let multiplier = LOD_TILE_MULTIPLIERS[self.zoom_level.min(4) as usize];
+        let tile_size = TILE_SIZE * multiplier;
 
         RectInfo {
             x: self.x as f64 * tile_size,
@@ -98,8 +119,8 @@ impl TileGrid {
     /// Get visible tile coordinates for a viewport
     pub fn get_visible_tiles(&self, viewport: &Viewport) -> Vec<TileCoord> {
         let zoom_level = self.zoom_to_lod(viewport.scale);
-        let scale = 2.0_f64.powi(zoom_level as i32);
-        let tile_size = TILE_SIZE * scale;
+        let multiplier = LOD_TILE_MULTIPLIERS[zoom_level.min(4) as usize];
+        let tile_size = TILE_SIZE * multiplier;
 
         // Calculate tile range covering viewport
         let min_tx = (viewport.x / tile_size).floor() as i32;
@@ -120,17 +141,15 @@ impl TileGrid {
         tiles
     }
 
-    /// Convert zoom scale to LOD level
+    /// Convert zoom scale to LOD level using the 5-level system
+    /// Must match _LodState.calculateLod in Dart viewport.dart
     fn zoom_to_lod(&self, scale: f64) -> u8 {
-        if scale >= 0.5 {
-            0 // Full detail
-        } else if scale >= 0.25 {
-            1 // Half detail
-        } else if scale >= 0.125 {
-            2 // Quarter detail
-        } else {
-            3 // Minimum detail
+        for (i, &threshold) in LOD_SCALE_THRESHOLDS.iter().enumerate() {
+            if scale >= threshold {
+                return i as u8;
+            }
         }
+        (LOD_SCALE_THRESHOLDS.len() - 1) as u8
     }
 
     /// Get or create a tile, returning it with updated access time
@@ -177,11 +196,14 @@ impl TileGrid {
         );
 
         let lod = coord.zoom_level;
+        // Simplification factor based on LOD level
+        // Higher LOD = coarser tiles = more aggressive node filtering
         let simplification = match lod {
-            0 => 1.0,   // Full detail
-            1 => 0.5,   // Skip nodes < 2px
-            2 => 0.25,  // Skip nodes < 4px
-            _ => 0.125, // Aggressive simplification
+            0 => 1.0,    // LOD 0: Full detail (256px tiles, zoomed in)
+            1 => 0.75,   // LOD 1: Skip nodes < 1.3px
+            2 => 0.5,    // LOD 2: Skip nodes < 2px (base)
+            3 => 0.25,   // LOD 3: Skip nodes < 4px
+            _ => 0.125,  // LOD 4: Skip nodes < 8px (overview)
         };
 
         let mut commands = Vec::new();
@@ -248,12 +270,12 @@ impl TileGrid {
 
     /// Get all tile coordinates that intersect with given bounds
     fn tiles_for_bounds(&self, bounds: &NodeBounds) -> Vec<TileCoord> {
-        // For each LOD level, find tiles that intersect
+        // For each LOD level (0-4), find tiles that intersect
         let mut coords = Vec::new();
 
-        for zoom_level in 0..=3u8 {
-            let scale = 2.0_f64.powi(zoom_level as i32);
-            let tile_size = TILE_SIZE * scale;
+        for zoom_level in 0..=4u8 {
+            let multiplier = LOD_TILE_MULTIPLIERS[zoom_level as usize];
+            let tile_size = TILE_SIZE * multiplier;
 
             let min_tx = (bounds.min_x / tile_size).floor() as i32;
             let min_ty = (bounds.min_y / tile_size).floor() as i32;
@@ -381,11 +403,20 @@ mod tests {
     #[test]
     fn test_zoom_to_lod() {
         let grid = TileGrid::new();
-        assert_eq!(grid.zoom_to_lod(1.0), 0);
-        assert_eq!(grid.zoom_to_lod(0.5), 0);
-        assert_eq!(grid.zoom_to_lod(0.4), 1);
-        assert_eq!(grid.zoom_to_lod(0.25), 1);
-        assert_eq!(grid.zoom_to_lod(0.2), 2);
-        assert_eq!(grid.zoom_to_lod(0.1), 3);
+        // LOD 0: scale >= 2.0
+        assert_eq!(grid.zoom_to_lod(3.0), 0);
+        assert_eq!(grid.zoom_to_lod(2.0), 0);
+        // LOD 1: scale >= 1.0
+        assert_eq!(grid.zoom_to_lod(1.5), 1);
+        assert_eq!(grid.zoom_to_lod(1.0), 1);
+        // LOD 2: scale >= 0.5
+        assert_eq!(grid.zoom_to_lod(0.75), 2);
+        assert_eq!(grid.zoom_to_lod(0.5), 2);
+        // LOD 3: scale >= 0.25
+        assert_eq!(grid.zoom_to_lod(0.4), 3);
+        assert_eq!(grid.zoom_to_lod(0.25), 3);
+        // LOD 4: scale < 0.25
+        assert_eq!(grid.zoom_to_lod(0.2), 4);
+        assert_eq!(grid.zoom_to_lod(0.1), 4);
     }
 }
