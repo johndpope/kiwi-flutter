@@ -32,13 +32,13 @@ print_usage() {
     echo "  --all             Build everything and run"
     echo "  --clean           Clean build artifacts"
     echo "  --release         Build in release mode"
-    echo "  --platform <p>    Platform to run on (macos, ios, chrome)"
+    echo "  --platform <p>    Platform to run on (macos, ios, linux, chrome)"
     echo "  -h, --help        Show this help"
     echo ""
     echo "Examples:"
     echo "  $0 --all                    # Build everything and run on macOS"
     echo "  $0 --native --bindings      # Build native + generate bindings"
-    echo "  $0 --run --platform ios     # Run on iOS simulator"
+    echo "  $0 --run --platform linux   # Run on Linux desktop"
     echo "  $0 --clean --all            # Clean and rebuild everything"
 }
 
@@ -123,6 +123,31 @@ if [[ "$BUILD_NATIVE" == "true" ]]; then
         exit 1
     fi
 
+    # Ensure flutter_rust_bridge bindings are generated before building native
+    if [[ "$GENERATE_BINDINGS" == "false" ]]; then
+        echo -e "${BLUE}🔗 Generating Flutter bindings (required for native build)...${NC}"
+
+        # Check if flutter_rust_bridge_codegen is installed
+        if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            echo -e "${YELLOW}Installing flutter_rust_bridge_codegen...${NC}"
+            cargo install flutter_rust_bridge_codegen
+        fi
+
+        # Get Flutter dependencies first
+        cd "$SCRIPT_DIR"
+        flutter pub get
+
+        # Generate bindings
+        cd "$RUST_DIR"
+        flutter_rust_bridge_codegen generate \
+            --rust-input "crate::api" \
+            --rust-root "$SCRIPT_DIR" \
+            --dart-output "lib/src/rust" \
+            --rust-output "src/frb_generated.rs"
+
+        cd "$SCRIPT_DIR"
+    fi
+
     cd "$RUST_DIR"
 
     if [[ "$RELEASE" == "true" ]]; then
@@ -202,7 +227,13 @@ if [[ "$RUN_APP" == "true" ]]; then
     echo -e "${BLUE}🚀 Running Flutter app on $PLATFORM...${NC}"
     cd "$SCRIPT_DIR"
 
-    case $PLATFORM in
+    # For Linux, ensure system libraries are loaded instead of conda libraries
+    if [[ "$PLATFORM" == "linux" ]]; then
+        # Use env to set LD_LIBRARY_PATH cleanly, filtering out conda paths
+        env -u LD_LIBRARY_PATH LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
+            flutter run -d linux
+    else
+        case $PLATFORM in
         macos)
             flutter run -d macos
             ;;
@@ -224,7 +255,8 @@ if [[ "$RUN_APP" == "true" ]]; then
             # Try to use the platform as a device ID
             flutter run -d "$PLATFORM"
             ;;
-    esac
+        esac
+    fi
 fi
 
 echo -e "${GREEN}✅ Done!${NC}"
