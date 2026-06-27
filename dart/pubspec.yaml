@@ -17,7 +17,7 @@ dev_dependencies:
   build_runner: ^2.4.0
   build_web_compilers: ^4.0.0
   crypto: ^3.0.3
-  ffigen: ^8.0.0
+  ffigen: ^20.1.1
   flutter_test:
     sdk: flutter
   integration_test:
@@ -28,7 +28,6 @@ flutter:
   assets:
     - test/fixtures/figma_schema.bin
     - test/fixtures/figma_message.bin
-    - images/
 
   # Note: For pixel-perfect text rendering, SF Pro fonts need to be loaded.
   # On macOS, the system fonts are at /System/Library/Fonts/SFNS.ttf
