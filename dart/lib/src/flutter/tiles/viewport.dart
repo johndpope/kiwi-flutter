@@ -8,40 +8,73 @@ import 'package:flutter/widgets.dart';
 /// Fixed tile size in world coordinates (must match Rust TILE_SIZE)
 const double kTileSize = 1024.0;
 
-/// LOD Configuration - simplified to 2 levels with hysteresis
+/// LOD Configuration - 5 levels for granular detail control
 ///
-/// LOD 0: High detail (scale >= 0.5) - 1024x1024 tiles
-/// LOD 1: Low detail (scale < 0.5) - 4096x4096 tiles (4x larger)
+/// LOD 0: Finest detail (scale >= 2.0) - 256x256 tiles (zoomed in)
+/// LOD 1: High detail (scale >= 1.0) - 512x512 tiles
+/// LOD 2: Base detail (scale >= 0.5) - 1024x1024 tiles (default)
+/// LOD 3: Low detail (scale >= 0.25) - 2048x2048 tiles
+/// LOD 4: Coarse detail (scale < 0.25) - 4096x4096 tiles (overview)
 ///
 /// Hysteresis prevents rapid LOD switching at threshold boundaries
-const double kLodThreshold = 0.5;      // Primary threshold
-const double kLodHysteresis = 0.15;    // 15% buffer zone
-const double kLodUpThreshold = kLodThreshold + kLodHysteresis;   // 0.65 - switch UP to LOD 0
-const double kLodDownThreshold = kLodThreshold - kLodHysteresis; // 0.35 - switch DOWN to LOD 1
+
+/// Scale thresholds for each LOD level (descending order)
+const List<double> kLodScaleThresholds = [
+  2.0,   // LOD 0: scale >= 2.0 (zoomed in, finest detail)
+  1.0,   // LOD 1: scale >= 1.0
+  0.5,   // LOD 2: scale >= 0.5 (base/default)
+  0.25,  // LOD 3: scale >= 0.25
+  0.0,   // LOD 4: scale < 0.25 (overview, coarsest)
+];
+
+/// Tile size multipliers relative to kTileSize (1024)
+const List<double> kLodTileMultipliers = [
+  0.25,  // LOD 0: 256x256 tiles (fine detail when zoomed in)
+  0.5,   // LOD 1: 512x512 tiles
+  1.0,   // LOD 2: 1024x1024 tiles (base)
+  2.0,   // LOD 3: 2048x2048 tiles
+  4.0,   // LOD 4: 4096x4096 tiles (coarse for overview)
+];
+
+/// Hysteresis buffer (10% per level transition)
+const double kLodHysteresis = 0.1;
 
 /// Global LOD state tracker for hysteresis
 class _LodState {
-  static int currentLod = 1;  // Start at low detail (safe default)
+  static int currentLod = 2;  // Start at base LOD (1024x1024)
 
   /// Calculate LOD with hysteresis to prevent thrashing
   static int calculateLod(double scale) {
-    if (currentLod == 0) {
-      // Currently high detail - only drop to low if scale goes well below threshold
-      if (scale < kLodDownThreshold) {
-        currentLod = 1;
-      }
-    } else {
-      // Currently low detail - only jump to high if scale goes well above threshold
-      if (scale >= kLodUpThreshold) {
-        currentLod = 0;
+    // Find target LOD based on scale
+    int targetLod = kLodScaleThresholds.length - 1;
+    for (int i = 0; i < kLodScaleThresholds.length; i++) {
+      if (scale >= kLodScaleThresholds[i]) {
+        targetLod = i;
+        break;
       }
     }
+
+    // Apply hysteresis - only change if crossing threshold by margin
+    if (targetLod < currentLod) {
+      // Zooming in - need scale > threshold * (1 + hysteresis) to switch to finer LOD
+      final threshold = kLodScaleThresholds[targetLod];
+      if (scale >= threshold * (1 + kLodHysteresis)) {
+        currentLod = targetLod;
+      }
+    } else if (targetLod > currentLod) {
+      // Zooming out - need scale < threshold * (1 - hysteresis) to switch to coarser LOD
+      final threshold = kLodScaleThresholds[currentLod];
+      if (scale < threshold * (1 - kLodHysteresis)) {
+        currentLod = targetLod;
+      }
+    }
+
     return currentLod;
   }
 
   /// Reset LOD state (call when switching documents/pages)
   static void reset() {
-    currentLod = 1;
+    currentLod = 2;  // Reset to base LOD
   }
 }
 
@@ -107,15 +140,17 @@ class WorldViewport {
   }
 
   /// Get the level of detail for this zoom level (with hysteresis)
-  /// LOD 0: High detail - 1024x1024 tiles
-  /// LOD 1: Low detail - 4096x4096 tiles
+  /// LOD 0-4: Finer to coarser detail levels
   int get lod => _LodState.calculateLod(scale);
 
   /// Get the effective tile size at current LOD
-  /// LOD 0: 1024 (1x) - for close-up work
-  /// LOD 1: 4096 (4x) - for overview/zoomed out
+  /// LOD 0: 256 (0.25x) - fine detail when zoomed in
+  /// LOD 1: 512 (0.5x)
+  /// LOD 2: 1024 (1x) - base
+  /// LOD 3: 2048 (2x)
+  /// LOD 4: 4096 (4x) - coarse for overview
   double get effectiveTileSize {
-    return lod == 0 ? kTileSize : kTileSize * 4;
+    return kTileSize * kLodTileMultipliers[lod.clamp(0, 4)];
   }
 
   /// Check if a rectangle in world coordinates intersects this viewport
@@ -171,10 +206,10 @@ class TileCoord {
   const TileCoord(this.x, this.y, this.zoomLevel);
 
   /// Get the world-space bounds of this tile
-  /// LOD 0: 1024x1024 tiles
-  /// LOD 1: 4096x4096 tiles
+  /// Uses kLodTileMultipliers for LOD 0-4
   Rect get bounds {
-    final tileSize = zoomLevel == 0 ? kTileSize : kTileSize * 4;
+    final multiplier = kLodTileMultipliers[zoomLevel.clamp(0, 4)];
+    final tileSize = kTileSize * multiplier;
     return Rect.fromLTWH(
       x * tileSize,
       y * tileSize,

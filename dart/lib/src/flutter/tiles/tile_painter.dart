@@ -27,12 +27,6 @@ class TilePainter extends CustomPainter {
   /// Whether to show debug tile boundaries
   final bool showDebugBounds;
 
-  /// Paint for tile borders in debug mode
-  static final _debugBorderPaint = Paint()
-    ..color = Colors.cyan
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 3.0;
-
   /// Paint for placeholder tiles - use a checkerboard pattern
   static final _placeholderPaint = Paint()
     ..color = const Color(0xFF2A2A2A);
@@ -173,13 +167,47 @@ class TilePainter extends CustomPainter {
   }
 
   void _drawDebugInfo(Canvas canvas, Rect bounds, TileCoord coord) {
-    // Draw border
-    canvas.drawRect(bounds, _debugBorderPaint);
+    // Use LOD-specific color for border
+    final lodColor = kLodColors[coord.zoomLevel.clamp(0, 4)];
+    final borderPaint = Paint()
+      ..color = lodColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
 
-    // Draw tile coordinate text
+    // Draw border with LOD color
+    canvas.drawRect(bounds, borderPaint);
+
+    // Draw corner indicators to show tile boundaries more clearly
+    const cornerSize = 12.0;
+    final cornerPaint = Paint()
+      ..color = lodColor
+      ..strokeWidth = 4.0
+      ..style = PaintingStyle.stroke;
+
+    // Top-left corner
+    canvas.drawLine(bounds.topLeft, bounds.topLeft + const Offset(cornerSize, 0), cornerPaint);
+    canvas.drawLine(bounds.topLeft, bounds.topLeft + const Offset(0, cornerSize), cornerPaint);
+
+    // Top-right corner
+    canvas.drawLine(bounds.topRight, bounds.topRight + const Offset(-cornerSize, 0), cornerPaint);
+    canvas.drawLine(bounds.topRight, bounds.topRight + const Offset(0, cornerSize), cornerPaint);
+
+    // Bottom-left corner
+    canvas.drawLine(bounds.bottomLeft, bounds.bottomLeft + const Offset(cornerSize, 0), cornerPaint);
+    canvas.drawLine(bounds.bottomLeft, bounds.bottomLeft + const Offset(0, -cornerSize), cornerPaint);
+
+    // Bottom-right corner
+    canvas.drawLine(bounds.bottomRight, bounds.bottomRight + const Offset(-cornerSize, 0), cornerPaint);
+    canvas.drawLine(bounds.bottomRight, bounds.bottomRight + const Offset(0, -cornerSize), cornerPaint);
+
+    // Draw tile coordinate text with LOD indicator
     final paragraphBuilder = ui.ParagraphBuilder(ui.ParagraphStyle())
-      ..pushStyle(_debugTextStyle)
-      ..addText('(${coord.x}, ${coord.y}) z${coord.zoomLevel}');
+      ..pushStyle(ui.TextStyle(
+        color: Colors.white,
+        fontSize: 11,
+        background: Paint()..color = lodColor.withValues(alpha: 0.8),
+      ))
+      ..addText(' (${coord.x}, ${coord.y}) LOD${coord.zoomLevel} ');
 
     final paragraph = paragraphBuilder.build()
       ..layout(const ui.ParagraphConstraints(width: 200));
@@ -224,6 +252,25 @@ class TileCanvasPainter extends CustomPainter {
   }
 }
 
+/// LOD color coding for debug visualization
+/// LOD 0 (finest) to LOD 4 (coarsest)
+const List<Color> kLodColors = [
+  Colors.red,      // LOD 0: 256px tiles (finest, zoomed in)
+  Colors.orange,   // LOD 1: 512px tiles
+  Colors.yellow,   // LOD 2: 1024px tiles (base)
+  Colors.green,    // LOD 3: 2048px tiles
+  Colors.blue,     // LOD 4: 4096px tiles (coarsest, overview)
+];
+
+/// LOD names for display
+const List<String> kLodNames = [
+  'Finest (256px)',
+  'High (512px)',
+  'Base (1024px)',
+  'Low (2048px)',
+  'Coarse (4096px)',
+];
+
 /// Debug overlay painter showing tile grid and cache stats
 class TileDebugOverlay extends CustomPainter {
   final WorldViewport viewport;
@@ -232,27 +279,76 @@ class TileDebugOverlay extends CustomPainter {
   final int maxTiles;
   final int dirtyTiles;
 
+  /// Number of tiles in the request queue
+  final int queueDepth;
+
+  /// Number of currently active tile renders
+  final int activeRenders;
+
+  /// Maximum concurrent renders allowed
+  final int maxConcurrentRenders;
+
+  /// Number of prefetch rings configured
+  final int prefetchRings;
+
+  /// Number of prefetch tiles currently requested
+  final int prefetchTileCount;
+
   TileDebugOverlay({
     required this.viewport,
     required this.transform,
     required this.cachedTileCount,
     required this.maxTiles,
     required this.dirtyTiles,
+    this.queueDepth = 0,
+    this.activeRenders = 0,
+    this.maxConcurrentRenders = 4,
+    this.prefetchRings = 1,
+    this.prefetchTileCount = 0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final visibleTiles = getVisibleTiles(viewport);
+    final lod = viewport.lod;
+    final lodColor = kLodColors[lod.clamp(0, 4)];
+    final lodName = kLodNames[lod.clamp(0, 4)];
+
+    // Draw LOD indicator bar at top
+    _drawLodIndicator(canvas, size, lod);
 
     // Draw stats in corner
     final statsText = [
       'Viewport: ${viewport.x.toStringAsFixed(0)}, ${viewport.y.toStringAsFixed(0)}',
       'Size: ${viewport.width.toStringAsFixed(0)} x ${viewport.height.toStringAsFixed(0)}',
-      'Scale: ${viewport.scale.toStringAsFixed(2)}x (LOD ${viewport.lod})',
+      'Scale: ${viewport.scale.toStringAsFixed(2)}x',
+      'LOD: $lod - $lodName',
+      'Tile size: ${viewport.effectiveTileSize.toInt()}px',
+      '─────────────────',
       'Visible tiles: ${visibleTiles.length}',
       'Cached: $cachedTileCount / $maxTiles',
       'Dirty: $dirtyTiles',
+      '─────────────────',
+      'Queue: $queueDepth ($activeRenders/$maxConcurrentRenders active)',
+      'Prefetch: $prefetchRings ring${prefetchRings != 1 ? 's' : ''} ($prefetchTileCount tiles)',
     ].join('\n');
+
+    // Background rect for stats
+    final bgPaint = Paint()..color = Colors.black.withValues(alpha: 0.8);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(8, 30, 220, 195),
+        const Radius.circular(6),
+      ),
+      bgPaint,
+    );
+
+    // LOD color indicator stripe on left side of stats panel
+    final lodStripePaint = Paint()..color = lodColor;
+    canvas.drawRect(
+      const Rect.fromLTWH(8, 30, 4, 195),
+      lodStripePaint,
+    );
 
     final paragraphBuilder = ui.ParagraphBuilder(ui.ParagraphStyle(
       textAlign: TextAlign.left,
@@ -260,19 +356,79 @@ class TileDebugOverlay extends CustomPainter {
       ..pushStyle(ui.TextStyle(
         color: Colors.white,
         fontSize: 11,
-        background: Paint()..color = Colors.black.withValues(alpha: 0.7),
+        fontFamily: 'monospace',
       ))
       ..addText(statsText);
 
     final paragraph = paragraphBuilder.build()
-      ..layout(const ui.ParagraphConstraints(width: 300));
+      ..layout(const ui.ParagraphConstraints(width: 210));
 
-    canvas.drawParagraph(paragraph, const Offset(10, 10));
+    canvas.drawParagraph(paragraph, const Offset(18, 38));
+  }
+
+  /// Draw LOD level indicator bar at top of screen
+  void _drawLodIndicator(Canvas canvas, Size size, int currentLod) {
+    const barHeight = 20.0;
+    const barPadding = 8.0;
+    final barWidth = (size.width - barPadding * 2) / 5;
+
+    for (int i = 0; i < 5; i++) {
+      final isActive = i == currentLod;
+      final rect = Rect.fromLTWH(
+        barPadding + i * barWidth,
+        barPadding,
+        barWidth - 2,
+        barHeight,
+      );
+
+      // Background
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+        Paint()
+          ..color = isActive
+              ? kLodColors[i]
+              : kLodColors[i].withValues(alpha: 0.3),
+      );
+
+      // Border for active LOD
+      if (isActive) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+          Paint()
+            ..color = Colors.white
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2,
+        );
+      }
+
+      // Label
+      final label = 'LOD $i';
+      final paragraphBuilder = ui.ParagraphBuilder(ui.ParagraphStyle(
+        textAlign: TextAlign.center,
+      ))
+        ..pushStyle(ui.TextStyle(
+          color: isActive ? Colors.black : Colors.white.withValues(alpha: 0.7),
+          fontSize: 10,
+          fontWeight: isActive ? ui.FontWeight.bold : ui.FontWeight.normal,
+        ))
+        ..addText(label);
+
+      final paragraph = paragraphBuilder.build()
+        ..layout(ui.ParagraphConstraints(width: barWidth - 4));
+
+      canvas.drawParagraph(
+        paragraph,
+        Offset(rect.left + 2, rect.top + 4),
+      );
+    }
   }
 
   @override
   bool shouldRepaint(TileDebugOverlay oldDelegate) {
     return viewport != oldDelegate.viewport ||
-        cachedTileCount != oldDelegate.cachedTileCount;
+        cachedTileCount != oldDelegate.cachedTileCount ||
+        queueDepth != oldDelegate.queueDepth ||
+        activeRenders != oldDelegate.activeRenders ||
+        prefetchTileCount != oldDelegate.prefetchTileCount;
   }
 }
